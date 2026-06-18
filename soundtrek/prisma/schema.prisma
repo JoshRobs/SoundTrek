@@ -1,0 +1,25 @@
+generator client {
+  provider = "prisma-client"
+  output   = "./generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Soundtrack {
+  id                  String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  game_title          String
+  composer            String
+  console             String
+  release_year        Int
+  cover_image_url     String?
+  youtube_playlist_id String?
+  youtube_video_id    String?
+  source_type         String
+  mood_tags           String[]
+  genre_tags          String[]
+  created_at          DateTime @default(now()) @db.Timestamptz(6)
+
+  @@map("soundtracks")
+}
