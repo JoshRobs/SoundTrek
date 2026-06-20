@@ -60,3 +60,15 @@ img {
 #app {
   min-height: 100dvh;
 }
+
+.spinner {
+  --spinner-size: 24px;
+  width: var(--spinner-size);
+  height: var(--spinner-size);
+  border: 2.5px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }

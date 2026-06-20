@@ -1,4 +1,6 @@
-import type { Soundtrack } from '@/types/soundtrack'
+import type { Soundtrack, StreamingLink } from '@/types/soundtrack'
+
+const nullSpotify = { spotify_id: null as null, spotify_type: null as null, streaming_links: [] as StreamingLink[] }
 
 // Starter seed data — replace youtube_video_id / youtube_playlist_id values with real IDs before using
 export const mockSoundtracks: Soundtrack[] = [
@@ -10,10 +12,13 @@ export const mockSoundtracks: Soundtrack[] = [
     release_year: 1995,
     cover_image_url: null,
     youtube_playlist_id: null,
-    youtube_video_id: null, // e.g. 'DVBGe22KYZA'
+    youtube_video_id: null,
     source_type: 'video',
+    ...nullSpotify,
     mood_tags: ['nostalgic', 'epic', 'emotional'],
+    theme_tags: [],
     genre_tags: ['RPG', 'classic'],
+    likes: 0,
     created_at: '2024-01-01T00:00:00Z',
   },
   {
@@ -26,8 +31,11 @@ export const mockSoundtracks: Soundtrack[] = [
     youtube_playlist_id: null,
     youtube_video_id: null,
     source_type: 'video',
+    ...nullSpotify,
     mood_tags: ['epic', 'emotional', 'nostalgic'],
+    theme_tags: [],
     genre_tags: ['RPG', 'classic'],
+    likes: 0,
     created_at: '2024-01-01T00:00:00Z',
   },
   {
@@ -40,8 +48,11 @@ export const mockSoundtracks: Soundtrack[] = [
     youtube_playlist_id: null,
     youtube_video_id: null,
     source_type: 'video',
+    ...nullSpotify,
     mood_tags: ['quirky', 'emotional', 'intense'],
+    theme_tags: [],
     genre_tags: ['RPG', 'indie'],
+    likes: 0,
     created_at: '2024-01-01T00:00:00Z',
   },
   {
@@ -54,8 +65,11 @@ export const mockSoundtracks: Soundtrack[] = [
     youtube_playlist_id: null,
     youtube_video_id: null,
     source_type: 'video',
+    ...nullSpotify,
     mood_tags: ['epic', 'intense', 'ambient'],
+    theme_tags: [],
     genre_tags: ['FPS', 'sci-fi'],
+    likes: 0,
     created_at: '2024-01-01T00:00:00Z',
   },
   {
@@ -68,8 +82,11 @@ export const mockSoundtracks: Soundtrack[] = [
     youtube_playlist_id: null,
     youtube_video_id: null,
     source_type: 'video',
+    ...nullSpotify,
     mood_tags: ['upbeat', 'stylish', 'intense'],
+    theme_tags: [],
     genre_tags: ['RPG', 'JRPG'],
+    likes: 0,
     created_at: '2024-01-01T00:00:00Z',
   },
   {
@@ -82,8 +99,11 @@ export const mockSoundtracks: Soundtrack[] = [
     youtube_playlist_id: null,
     youtube_video_id: null,
     source_type: 'video',
+    ...nullSpotify,
     mood_tags: ['melancholic', 'ambient', 'intense'],
+    theme_tags: [],
     genre_tags: ['metroidvania', 'indie'],
+    likes: 0,
     created_at: '2024-01-01T00:00:00Z',
   },
   {
@@ -96,8 +116,11 @@ export const mockSoundtracks: Soundtrack[] = [
     youtube_playlist_id: null,
     youtube_video_id: null,
     source_type: 'video',
+    ...nullSpotify,
     mood_tags: ['intense', 'aggressive', 'adrenaline'],
+    theme_tags: [],
     genre_tags: ['FPS', 'metal'],
+    likes: 0,
     created_at: '2024-01-01T00:00:00Z',
   },
   {
@@ -110,8 +133,11 @@ export const mockSoundtracks: Soundtrack[] = [
     youtube_playlist_id: null,
     youtube_video_id: null,
     source_type: 'video',
+    ...nullSpotify,
     mood_tags: ['epic', 'nostalgic', 'adventurous'],
+    theme_tags: [],
     genre_tags: ['action-adventure', 'classic'],
+    likes: 0,
     created_at: '2024-01-01T00:00:00Z',
   },
   {
@@ -124,8 +150,11 @@ export const mockSoundtracks: Soundtrack[] = [
     youtube_playlist_id: null,
     youtube_video_id: null,
     source_type: 'video',
+    ...nullSpotify,
     mood_tags: ['emotional', 'ambient', 'melancholic'],
+    theme_tags: [],
     genre_tags: ['action-RPG', 'sci-fi'],
+    likes: 0,
     created_at: '2024-01-01T00:00:00Z',
   },
   {
@@ -138,8 +167,11 @@ export const mockSoundtracks: Soundtrack[] = [
     youtube_playlist_id: null,
     youtube_video_id: null,
     source_type: 'video',
+    ...nullSpotify,
     mood_tags: ['emotional', 'upbeat', 'intense'],
+    theme_tags: [],
     genre_tags: ['platformer', 'indie'],
+    likes: 0,
     created_at: '2024-01-01T00:00:00Z',
   },
   {
@@ -152,8 +184,11 @@ export const mockSoundtracks: Soundtrack[] = [
     youtube_playlist_id: null,
     youtube_video_id: null,
     source_type: 'video',
+    ...nullSpotify,
     mood_tags: ['upbeat', 'energetic', 'nostalgic'],
+    theme_tags: [],
     genre_tags: ['beat-em-up', 'classic'],
+    likes: 0,
     created_at: '2024-01-01T00:00:00Z',
   },
   {
@@ -166,8 +201,11 @@ export const mockSoundtracks: Soundtrack[] = [
     youtube_playlist_id: null,
     youtube_video_id: null,
     source_type: 'video',
+    ...nullSpotify,
     mood_tags: ['epic', 'emotional', 'ambient'],
+    theme_tags: [],
     genre_tags: ['action-adventure', 'classic'],
+    likes: 0,
     created_at: '2024-01-01T00:00:00Z',
   },
   {
@@ -180,8 +218,11 @@ export const mockSoundtracks: Soundtrack[] = [
     youtube_playlist_id: null,
     youtube_video_id: null,
     source_type: 'video',
+    ...nullSpotify,
     mood_tags: ['relaxing', 'nostalgic', 'cozy'],
+    theme_tags: [],
     genre_tags: ['simulation', 'indie'],
+    likes: 0,
     created_at: '2024-01-01T00:00:00Z',
   },
   {
@@ -194,8 +235,11 @@ export const mockSoundtracks: Soundtrack[] = [
     youtube_playlist_id: null,
     youtube_video_id: null,
     source_type: 'video',
+    ...nullSpotify,
     mood_tags: ['upbeat', 'nostalgic', 'energetic'],
+    theme_tags: [],
     genre_tags: ['platformer', 'classic'],
+    likes: 0,
     created_at: '2024-01-01T00:00:00Z',
   },
   {
@@ -208,8 +252,11 @@ export const mockSoundtracks: Soundtrack[] = [
     youtube_playlist_id: null,
     youtube_video_id: null,
     source_type: 'video',
+    ...nullSpotify,
     mood_tags: ['intense', 'stylish', 'electronic'],
+    theme_tags: [],
     genre_tags: ['action', 'indie'],
+    likes: 0,
     created_at: '2024-01-01T00:00:00Z',
   },
 ]

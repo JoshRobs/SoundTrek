@@ -12,6 +12,9 @@ dist
 dist-ssr
 *.local
 
+# Ingestion script progress (local state, not shareable)
+scripts/.progress.json
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

@@ -6,6 +6,7 @@ const props = defineProps<{
   modelValue: FilterState
   availableMoods: string[]
   availableGenres: string[]
+  availableThemes: string[]
   availableConsoles: string[]
 }>()
 
@@ -15,29 +16,17 @@ const emit = defineEmits<{
 }>()
 
 const hasActiveFilters = computed(
-  () => props.modelValue.moods.length > 0 || props.modelValue.genres.length > 0 || props.modelValue.consoles.length > 0
+  () => props.modelValue.moods.length > 0 || props.modelValue.genres.length > 0 || props.modelValue.themes.length > 0 || props.modelValue.consoles.length > 0
 )
 
-function toggleMood(mood: string) {
-  const next = { ...props.modelValue }
-  next.moods = toggle(next.moods, mood)
-  emit('update:modelValue', next)
-}
+type FilterKey = keyof typeof props.modelValue
 
-function toggleGenre(genre: string) {
-  const next = { ...props.modelValue }
-  next.genres = toggle(next.genres, genre)
-  emit('update:modelValue', next)
-}
-
-function toggleConsole(console_: string) {
-  const next = { ...props.modelValue }
-  next.consoles = toggle(next.consoles, console_)
-  emit('update:modelValue', next)
-}
-
-function toggle(arr: string[], val: string): string[] {
-  return arr.includes(val) ? arr.filter(v => v !== val) : [...arr, val]
+function toggle(key: FilterKey, val: string) {
+  const arr = props.modelValue[key]
+  emit('update:modelValue', {
+    ...props.modelValue,
+    [key]: arr.includes(val) ? arr.filter(v => v !== val) : [...arr, val],
+  })
 }
 </script>
 
@@ -51,7 +40,7 @@ function toggle(arr: string[], val: string): string[] {
           :key="mood"
           class="filter-tag"
           :class="{ active: modelValue.moods.includes(mood) }"
-          @click="toggleMood(mood)"
+          @click="toggle('moods', mood)"
         >{{ mood }}</button>
       </div>
     </div>
@@ -64,8 +53,21 @@ function toggle(arr: string[], val: string): string[] {
           :key="genre"
           class="filter-tag genre"
           :class="{ active: modelValue.genres.includes(genre) }"
-          @click="toggleGenre(genre)"
+          @click="toggle('genres', genre)"
         >{{ genre }}</button>
+      </div>
+    </div>
+
+    <div v-if="availableThemes.length" class="filter-group">
+      <p class="filter-label">Theme</p>
+      <div class="tag-row">
+        <button
+          v-for="theme in availableThemes"
+          :key="theme"
+          class="filter-tag theme"
+          :class="{ active: modelValue.themes.includes(theme) }"
+          @click="toggle('themes', theme)"
+        >{{ theme }}</button>
       </div>
     </div>
 
@@ -77,7 +79,7 @@ function toggle(arr: string[], val: string): string[] {
           :key="c"
           class="filter-tag console"
           :class="{ active: modelValue.consoles.includes(c) }"
-          @click="toggleConsole(c)"
+          @click="toggle('consoles', c)"
         >{{ c }}</button>
       </div>
     </div>
@@ -147,9 +149,14 @@ function toggle(arr: string[], val: string): string[] {
   border-color: var(--accent-2);
 }
 
-.filter-tag.console.active {
+.filter-tag.theme.active {
   background: var(--accent-3);
   border-color: var(--accent-3);
+}
+
+.filter-tag.console.active {
+  background: var(--accent-4, #0e7490);
+  border-color: var(--accent-4, #0e7490);
 }
 
 .reset-btn {

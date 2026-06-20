@@ -17,8 +17,13 @@ model Soundtrack {
   youtube_playlist_id String?
   youtube_video_id    String?
   source_type         String
+  spotify_id          String?
+  spotify_type        String?
+  streaming_links     Json     @default("[]")
   mood_tags           String[]
   genre_tags          String[]
+  theme_tags          String[]
+  likes               Int      @default(0)
   created_at          DateTime @default(now()) @db.Timestamptz(6)
 
   @@map("soundtracks")
