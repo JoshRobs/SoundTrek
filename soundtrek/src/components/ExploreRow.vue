@@ -1,26 +1,26 @@
 <script setup lang="ts">
-import { useRouter } from 'vue-router'
-import { toSlug } from '@/utils/slug'
-import ExploreCard from './ExploreCard.vue'
-import type { Soundtrack } from '@/types/soundtrack'
+import { useRouter } from "vue-router";
+import { toSlug } from "@/utils/slug";
+import ExploreCard from "./ExploreCard.vue";
+import type { Soundtrack } from "@/types/soundtrack";
 
 const props = defineProps<{
-  type: string
-  label: string
-  items: Soundtrack[]
-}>()
+  type: string;
+  label: string;
+  items: Soundtrack[];
+}>();
 
-const router = useRouter()
+const router = useRouter();
 
 const typeLabels: Record<string, string> = {
-  genre: 'Genre',
-  mood: 'Mood',
-  theme: 'Theme',
-  console: 'Console',
-}
+  genre: "Genre",
+  mood: "Mood",
+  theme: "Theme",
+  console: "Console",
+};
 
 function seeAll() {
-  router.push(`/category/${props.type}/${toSlug(props.label)}`)
+  router.push(`/category/${props.type}/${toSlug(props.label)}`);
 }
 </script>
 
@@ -33,8 +33,17 @@ function seeAll() {
       </div>
       <button class="see-all" @click="seeAll">
         See All
-        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M5 12h14M12 5l7 7-7 7"/>
+        <svg
+          width="11"
+          height="11"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2.5"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path d="M5 12h14M12 5l7 7-7 7" />
         </svg>
       </button>
     </div>
@@ -65,10 +74,11 @@ function seeAll() {
 }
 
 .row-label {
-  font-size: 1.1rem;
+  font-size: 1.3rem;
   font-weight: 700;
   color: var(--text-primary);
   margin: 0;
+  text-transform: capitalize;
 }
 
 .type-badge {
@@ -86,14 +96,16 @@ function seeAll() {
   background: transparent;
   border: none;
   color: var(--text-muted);
-  font-size: 0.78rem;
+  font-size: 1rem;
   cursor: pointer;
   white-space: nowrap;
   padding: 0;
   transition: color 0.15s;
 }
 
-.see-all:hover { color: var(--accent-light); }
+.see-all:hover {
+  color: var(--accent-light);
+}
 
 .scroll-track {
   display: flex;
@@ -104,6 +116,11 @@ function seeAll() {
   scrollbar-color: var(--border) transparent;
 }
 
-.scroll-track::-webkit-scrollbar { height: 4px; }
-.scroll-track::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+.scroll-track::-webkit-scrollbar {
+  height: 4px;
+}
+.scroll-track::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 2px;
+}
 </style>

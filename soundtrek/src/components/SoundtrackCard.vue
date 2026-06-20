@@ -4,17 +4,26 @@ import { RouterLink } from "vue-router";
 import type { Soundtrack } from "@/types/soundtrack";
 import CardInfoSheet from "./CardInfoSheet.vue";
 import { toSlug } from "@/utils/slug";
+import { useSoundtrackStore } from "@/stores/soundtracks";
 
-defineProps<{ soundtrack: Soundtrack }>();
+const props = defineProps<{ soundtrack: Soundtrack }>();
 defineEmits<{ next: [] }>();
 
+const store = useSoundtrackStore();
 const showSheet = ref(false);
 const fullscreen = defineModel<boolean>("fullscreen", { default: false });
+const liked = ref(false);
+
+function toggleLike() {
+  const delta = liked.value ? -1 : 1;
+  liked.value = !liked.value;
+  store.likeSoundtrack(props.soundtrack.id, delta);
+}
 </script>
 
 <template>
   <div class="card" :class="{ 'card--fs': fullscreen }">
-    <div class="cover-wrap">
+    <div class="cover-wrap" @click="store.setNowPlaying(props.soundtrack)">
       <img
         v-if="soundtrack.cover_image_url"
         :src="soundtrack.cover_image_url"
@@ -23,10 +32,16 @@ const fullscreen = defineModel<boolean>("fullscreen", { default: false });
       />
       <div v-else class="cover-fallback">🎮</div>
 
+      <div class="play-overlay">
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M8 5v14l11-7z"/>
+        </svg>
+      </div>
+
       <button
         class="expand-btn"
         :aria-label="fullscreen ? 'Exit fullscreen' : 'Fullscreen'"
-        @click="fullscreen = !fullscreen"
+        @click.stop="fullscreen = !fullscreen"
       >
         <svg
           v-if="!fullscreen"
@@ -64,15 +79,41 @@ const fullscreen = defineModel<boolean>("fullscreen", { default: false });
     </div>
 
     <div class="bottom-bar">
-      <div class="title-group">
-        <h1 class="game-title">{{ soundtrack.game_title }}</h1>
-        <RouterLink
-          :to="`/composer/${toSlug(soundtrack.composer)}`"
-          class="composer"
-          @click.stop
+      <div class="title-row">
+        <div class="title-group">
+          <h1 class="game-title">{{ soundtrack.game_title }}</h1>
+          <RouterLink
+            :to="`/composer/${toSlug(soundtrack.composer)}`"
+            class="composer"
+            @click.stop
+          >
+            {{ soundtrack.composer }}
+          </RouterLink>
+        </div>
+        <button
+          class="like-btn"
+          :class="{ liked }"
+          :aria-label="liked ? 'Unlike' : 'Like'"
+          @click="toggleLike"
         >
-          {{ soundtrack.composer }}
-        </RouterLink>
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="36"
+            height="36"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            class="icon icon-tabler icons-tabler-outline icon-tabler-heart"
+          >
+            <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+            <path
+              d="M19.5 12.572l-7.5 7.428l-7.5 -7.428a5 5 0 1 1 7.5 -6.566a5 5 0 1 1 7.5 6.572"
+            />
+          </svg>
+        </button>
       </div>
       <div class="btn-row">
         <button class="info-btn" @click="showSheet = true">
@@ -137,8 +178,12 @@ const fullscreen = defineModel<boolean>("fullscreen", { default: false });
 }
 
 @keyframes fs-enter {
-  from { opacity: 0; }
-  to   { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 .card--fs .cover-wrap {
   flex: 1;
@@ -160,6 +205,23 @@ const fullscreen = defineModel<boolean>("fullscreen", { default: false });
   aspect-ratio: 1/1;
   overflow: hidden;
   background: var(--surface-2);
+  cursor: pointer;
+}
+
+.cover-wrap:hover .play-overlay {
+  opacity: 1;
+}
+
+.play-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.45);
+  color: #fff;
+  opacity: 0;
+  transition: opacity 0.18s;
 }
 
 .cover-img {
@@ -211,10 +273,46 @@ const fullscreen = defineModel<boolean>("fullscreen", { default: false });
   gap: 0.75rem;
 }
 
+.title-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
 .title-group {
+  flex: 1;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   gap: 0.1rem;
+}
+
+.like-btn {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.45rem 0.7rem;
+  border-radius: 8px;
+  border: none;
+  background: transparent;
+  color: #f5686c;
+  cursor: pointer;
+  transition:
+    background 0.15s,
+    transform 0.1s;
+}
+
+.like-btn:hover {
+  background: rgba(224, 53, 59, 0.1);
+}
+
+.like-btn.liked svg {
+  fill: #f5686c;
+}
+
+.like-btn:active {
+  transform: scale(0.88);
 }
 
 .game-title {
@@ -302,4 +400,3 @@ const fullscreen = defineModel<boolean>("fullscreen", { default: false });
   transform: scale(0.97);
 }
 </style>
-

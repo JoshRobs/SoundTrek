@@ -1,17 +1,23 @@
 <script setup lang="ts">
-import { RouterLink, useRouter } from "vue-router";
+import { RouterLink, useRouter, useRoute } from "vue-router";
 import { storeToRefs } from "pinia";
 import { useSoundtrackStore } from "@/stores/soundtracks";
 import ExploreMenu from "./ExploreMenu.vue";
 import GameSearchBox from "./GameSearchBox.vue";
 
 const router = useRouter();
+const route = useRoute();
 const store = useSoundtrackStore();
 const { allSoundtracks } = storeToRefs(store);
 
 function onSearchSelect(id: string) {
   const track = allSoundtracks.value.find((s) => s.id === id);
   if (track) store.setNowPlaying(track);
+}
+
+function randomPick() {
+  store.nextSoundtrack();
+  if (route.path !== "/discover") router.push("/discover");
 }
 </script>
 
@@ -22,7 +28,7 @@ function onSearchSelect(id: string) {
     </div>
     <div class="header-center">
       <ExploreMenu />
-      <button class="random-btn" @click="router.push('/discover')">
+      <button class="random-btn" @click="randomPick">
         <svg
           width="13"
           height="13"

@@ -157,6 +157,21 @@ function parseReleaseYear(game: IGDBGame): number {
 
 // ── YouTube ───────────────────────────────────────────────────────────────────
 
+async function fetchFirstPlaylistVideo(playlistId: string): Promise<string | null> {
+  const params = new URLSearchParams({
+    part: 'contentDetails',
+    playlistId,
+    maxResults: '1',
+    key: YOUTUBE_API_KEY,
+  })
+  const res = await fetch(`https://www.googleapis.com/youtube/v3/playlistItems?${params}`)
+  const data = await res.json() as {
+    items?: { contentDetails: { videoId: string } }[]
+    error?: { message: string; code: number }
+  }
+  return data.items?.[0]?.contentDetails?.videoId ?? null
+}
+
 async function searchYouTube(gameTitle: string): Promise<{
   youtube_video_id: string | null
   youtube_playlist_id: string | null
@@ -164,7 +179,7 @@ async function searchYouTube(gameTitle: string): Promise<{
 } | null> {
   const params = new URLSearchParams({
     part: 'snippet',
-    q: `${gameTitle} full soundtrack`,
+    q: `${gameTitle} full OST complete soundtrack`,
     maxResults: '5',
     relevanceLanguage: 'en',
     key: YOUTUBE_API_KEY,
@@ -177,8 +192,8 @@ async function searchYouTube(gameTitle: string): Promise<{
   }
 
   if (data.error) {
-    // Quota exceeded — stop early and save progress
-    if (data.error.code === 403) {
+    const isQuota = data.error.code === 403 || data.error.message?.toLowerCase().includes('quota')
+    if (isQuota) {
       console.error('\n⚠ YouTube quota exceeded. Progress saved — run again tomorrow.')
       process.exit(0)
     }
@@ -188,15 +203,21 @@ async function searchYouTube(gameTitle: string): Promise<{
 
   if (!data.items?.length) return null
 
-  // Prefer playlists (full OST collections)
-  const playlist = data.items.find(i => i.id.kind === 'youtube#playlist')
-  if (playlist?.id.playlistId) {
-    return { youtube_playlist_id: playlist.id.playlistId, youtube_video_id: null, source_type: 'playlist' }
-  }
-
+  // Prefer a single video (full OST upload) over a playlist
   const video = data.items.find(i => i.id.kind === 'youtube#video')
   if (video?.id.videoId) {
     return { youtube_video_id: video.id.videoId, youtube_playlist_id: null, source_type: 'video' }
+  }
+
+  // Fall back to playlist — also fetch first video so the embed works reliably
+  const playlist = data.items.find(i => i.id.kind === 'youtube#playlist')
+  if (playlist?.id.playlistId) {
+    const firstVideoId = await fetchFirstPlaylistVideo(playlist.id.playlistId)
+    return {
+      youtube_playlist_id: playlist.id.playlistId,
+      youtube_video_id: firstVideoId,
+      source_type: 'playlist',
+    }
   }
 
   return null

@@ -25,7 +25,7 @@ const results = computed(() => {
   if (!q) return [];
   return allSoundtracks.value
     .filter((s) => s.game_title.toLowerCase().includes(q))
-    .slice(0, 8);
+    .slice(0, 5);
 });
 
 const showDropdown = computed(() => focused.value && results.value.length > 0);
@@ -226,7 +226,7 @@ onMounted(() => {
   right: 0;
   background: var(--card);
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: 8px;
   overflow: hidden;
   list-style: none;
   margin: 0;
@@ -240,7 +240,7 @@ onMounted(() => {
   align-items: center;
   gap: 0.75rem;
   padding: 0.55rem 0.75rem;
-  border-radius: 8px;
+  border-radius: 4px;
   cursor: pointer;
   transition: background 0.12s;
 }
@@ -251,9 +251,9 @@ onMounted(() => {
 }
 
 .item-thumb {
-  width: 38px;
-  height: 38px;
-  border-radius: 6px;
+  width: 56px;
+  height: 56px;
+  border-radius: 3px;
   overflow: hidden;
   flex-shrink: 0;
   background: var(--surface-2);
@@ -279,7 +279,7 @@ onMounted(() => {
 }
 
 .item-title {
-  font-size: 0.88rem;
+  font-size: 1.1rem;
   font-weight: 600;
   color: var(--text-primary);
   white-space: nowrap;
@@ -288,7 +288,7 @@ onMounted(() => {
 }
 
 .item-meta {
-  font-size: 0.72rem;
+  font-size: 0.92rem;
   color: var(--text-muted);
   white-space: nowrap;
   overflow: hidden;

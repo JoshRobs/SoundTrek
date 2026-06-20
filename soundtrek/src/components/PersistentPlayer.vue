@@ -36,6 +36,9 @@ function applySourceDefaults(source: "youtube" | "spotify") {
   if (source === "spotify") {
     width.value = MAX_WIDTH;
     height.value = 352;
+  } else if (nowPlaying.value?.source_type === "playlist") {
+    width.value = 480;
+    height.value = 270;
   } else {
     width.value = 320;
     height.value = 180;
@@ -137,17 +140,23 @@ function dismissSpotifyHint() {
 // ── Playback controls ──────────────────────────────────────────────────────
 const iframeRef = ref<HTMLIFrameElement | null>(null);
 const spotifyEmbedRef = ref<InstanceType<typeof SpotifyEmbed> | null>(null);
-const { isPlaying, volume, togglePlay, setSpotifyPlaying } = usePlayerControls(
-  nowPlaying,
-  activeSource,
-  iframeRef,
-  spotifyEmbedRef,
-);
+const {
+  isPlaying,
+  volume,
+  muted,
+  toggleMute,
+  togglePlay,
+  nextTrack,
+  prevTrack,
+  setSpotifyPlaying,
+} = usePlayerControls(nowPlaying, activeSource, iframeRef, spotifyEmbedRef);
 
 // ── Embed URL (YouTube only — Spotify is managed by the controller) ────────
 const youtubeEmbedUrl = computed(() => {
   const s = nowPlaying.value;
   if (!s || activeSource.value !== "youtube") return null;
+  if (s.youtube_video_id && s.youtube_playlist_id)
+    return `https://www.youtube.com/embed/${s.youtube_video_id}?list=${s.youtube_playlist_id}&autoplay=1&rel=0&enablejsapi=1`;
   if (s.youtube_video_id)
     return `https://www.youtube.com/embed/${s.youtube_video_id}?autoplay=1&rel=0&enablejsapi=1`;
   if (s.youtube_playlist_id)
@@ -206,6 +215,16 @@ onUnmounted(() => {
       </div>
       <div v-if="minimized && hasSource" class="center-controls">
         <button
+          v-if="nowPlaying.source_type === 'playlist'"
+          class="track-nav-btn"
+          aria-label="Previous track"
+          @click="prevTrack"
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M6 6h2v12H6zm3.5 6 8.5 6V6z" />
+          </svg>
+        </button>
+        <button
           class="play-btn-large"
           :aria-label="isPlaying ? 'Pause' : 'Play'"
           @click="togglePlay"
@@ -230,13 +249,27 @@ onUnmounted(() => {
             <path d="M8 5v14l11-7z" />
           </svg>
         </button>
+        <button
+          v-if="nowPlaying.source_type === 'playlist'"
+          class="track-nav-btn"
+          aria-label="Next track"
+          @click="nextTrack"
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M6 18l8.5-6L6 6v12zM16 6h2v12h-2z" />
+          </svg>
+        </button>
       </div>
       <div class="player-actions">
         <div v-if="activeSource === 'youtube'" class="volume-control">
-          <button class="action-btn" aria-label="Volume">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+          <button
+            class="action-btn"
+            :aria-label="muted ? 'Unmute' : 'Mute'"
+            @click="toggleMute"
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
               <path
-                v-if="volume === 0"
+                v-if="muted"
                 d="M16.5 12A4.5 4.5 0 0 0 14 7.97v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51A8.796 8.796 0 0 0 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3 3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25A6.97 6.97 0 0 1 14 18.98v2.06A8.99 8.99 0 0 0 17.73 19L19.73 21 21 19.73l-9-9L4.27 3zM12 4 9.91 6.09 12 8.18V4z"
               />
               <path
@@ -380,6 +413,32 @@ onUnmounted(() => {
         <StreamingLinks :links="nowPlaying.streaming_links ?? []" />
       </div>
 
+      <div
+        v-if="nowPlaying.source_type === 'playlist' && hasSource"
+        class="playlist-nav"
+      >
+        <button
+          class="playlist-nav-btn"
+          aria-label="Previous track"
+          @click="prevTrack"
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M6 6h2v12H6zm3.5 6 8.5 6V6z" />
+          </svg>
+          Prev
+        </button>
+        <button
+          class="playlist-nav-btn"
+          aria-label="Next track"
+          @click="nextTrack"
+        >
+          Next
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M6 18l8.5-6L6 6v12zM16 6h2v12h-2z" />
+          </svg>
+        </button>
+      </div>
+
       <!-- Spotify login hint — only shown when Spotify embed is active -->
       <div
         v-if="activeSource === 'spotify' && hasSpotify && !spotifyHintDismissed"
@@ -434,6 +493,29 @@ onUnmounted(() => {
         <span class="meta-console">{{ nowPlaying.console }}</span>
         <span class="meta-dot">·</span>
         <span class="meta-year">{{ nowPlaying.release_year }}</span>
+        <template v-if="nowPlaying.source_type === 'playlist'">
+          <span class="meta-dot">·</span>
+          <span class="meta-playlist">
+            <svg
+              width="12"
+              height="12"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2.5"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <line x1="8" y1="6" x2="21" y2="6" />
+              <line x1="8" y1="12" x2="21" y2="12" />
+              <line x1="8" y1="18" x2="21" y2="18" />
+              <line x1="3" y1="6" x2="3.01" y2="6" />
+              <line x1="3" y1="12" x2="3.01" y2="12" />
+              <line x1="3" y1="18" x2="3.01" y2="18" />
+            </svg>
+            Playlist
+          </span>
+        </template>
       </div>
     </div>
   </div>
@@ -442,7 +524,7 @@ onUnmounted(() => {
 <style scoped>
 .player-widget {
   position: fixed;
-  bottom: 1.5rem;
+  bottom: 0.5rem;
   right: 1.5rem;
   background: var(--card);
   border: 1px solid var(--border);
@@ -688,6 +770,12 @@ onUnmounted(() => {
   color: var(--border);
 }
 
+.meta-playlist {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
 .volume-control {
   position: relative;
 }
@@ -751,6 +839,55 @@ onUnmounted(() => {
   border: none;
   background: var(--text-primary);
   cursor: pointer;
+}
+
+.track-nav-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.15s;
+  flex-shrink: 0;
+}
+
+.track-nav-btn:hover {
+  background: rgba(255, 255, 255, 0.18);
+}
+
+.playlist-nav {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.4rem 0.75rem;
+  border-top: 1px solid var(--border);
+  background: var(--surface-2);
+}
+
+.playlist-nav-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.3rem 0.6rem;
+  border-radius: 5px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition:
+    background 0.12s,
+    color 0.12s;
+}
+
+.playlist-nav-btn:hover {
+  background: var(--border);
+  color: var(--text-primary);
 }
 
 .minimized .player-header {

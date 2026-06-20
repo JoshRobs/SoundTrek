@@ -97,7 +97,7 @@ onMounted(async () => {
       <section class="landing-section section--reverse">
         <div class="section-title">
           <p class="section-label">Featured</p>
-          <h2 class="section-heading">Featured Tracks</h2>
+          <h2 class="section-heading">Game Soundtracks</h2>
         </div>
         <div class="section-content">
           <div class="cover-grid">
@@ -189,7 +189,7 @@ onMounted(async () => {
   width: 100%;
   max-width: 560px;
   min-height: 100vh;
-  padding: 4rem 1rem;
+  padding: 4rem 1rem 12rem;
   margin: 0 auto;
   background-image: radial-gradient(
     ellipse at 50% 55%,
@@ -271,7 +271,7 @@ onMounted(async () => {
 
 .section-label {
   margin: 0 0 0.5rem;
-  font-size: 0.7rem;
+  font-size: 1.2rem;
   font-weight: 700;
   letter-spacing: 0.15em;
   text-transform: uppercase;
@@ -281,7 +281,7 @@ onMounted(async () => {
 .section-heading {
   margin: 0;
   font-family: "Bebas Neue", sans-serif;
-  font-size: clamp(1.8rem, 3vw, 2.5rem);
+  font-size: clamp(2.2rem, 4vw, 4rem);
   font-weight: 400;
   letter-spacing: 0.04em;
   line-height: 1.1;
@@ -345,7 +345,7 @@ onMounted(async () => {
 }
 
 .cover-title {
-  font-size: 0.8rem;
+  font-size: 1.1rem;
   font-weight: 600;
   color: #fff;
   line-height: 1.2;

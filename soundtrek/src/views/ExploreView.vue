@@ -1,11 +1,11 @@
 <script setup lang="ts">
-import { storeToRefs } from 'pinia'
-import { useSoundtrackStore } from '@/stores/soundtracks'
-import ExploreRow from '@/components/ExploreRow.vue'
+import { storeToRefs } from "pinia";
+import { useSoundtrackStore } from "@/stores/soundtracks";
+import ExploreRow from "@/components/ExploreRow.vue";
 
-const store = useSoundtrackStore()
-const { exploreRows, loading } = storeToRefs(store)
-store.loadAll()
+const store = useSoundtrackStore();
+const { exploreRows, loading } = storeToRefs(store);
+store.loadAll();
 </script>
 
 <template>
@@ -13,7 +13,9 @@ store.loadAll()
     <div class="page-inner">
       <header class="hero">
         <h1 class="hero-title">Explore</h1>
-        <p class="hero-sub">Browse soundtracks by genre, mood, theme, and platform</p>
+        <p class="hero-sub">
+          Browse soundtracks by genre, mood, theme, and platform
+        </p>
       </header>
 
       <div v-if="loading" class="state">
@@ -44,7 +46,7 @@ store.loadAll()
 }
 
 .page-inner {
-  max-width: 1200px;
+  max-width: 1260px;
   width: 100%;
   margin: 0 auto;
   padding: 0 2rem 4rem;
@@ -55,7 +57,7 @@ store.loadAll()
 }
 
 .hero-title {
-  font-family: 'Bebas Neue', sans-serif;
+  font-family: "Bebas Neue", sans-serif;
   font-size: clamp(2.5rem, 6vw, 3.5rem);
   letter-spacing: 0.04em;
   color: var(--text-primary);

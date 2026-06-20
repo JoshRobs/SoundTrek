@@ -1,40 +1,63 @@
 <script setup lang="ts">
-import { ref } from 'vue'
-import { useRouter } from 'vue-router'
-import MegaFeatured from './MegaFeatured.vue'
-import MegaCategories from './MegaCategories.vue'
-import MegaComposers from './MegaComposers.vue'
+import { ref } from "vue";
+import { useRouter } from "vue-router";
+import MegaFeatured from "./MegaFeatured.vue";
+import MegaCategories from "./MegaCategories.vue";
+import MegaComposers from "./MegaComposers.vue";
 
-const router = useRouter()
-const open = ref(false)
-let closeTimer: ReturnType<typeof setTimeout> | null = null
+const router = useRouter();
+const open = ref(false);
+let closeTimer: ReturnType<typeof setTimeout> | null = null;
 
 function onEnter() {
-  if (closeTimer) clearTimeout(closeTimer)
-  open.value = true
+  if (closeTimer) clearTimeout(closeTimer);
+  open.value = true;
 }
 
 function onLeave() {
-  closeTimer = setTimeout(() => { open.value = false }, 200)
+  closeTimer = setTimeout(() => {
+    open.value = false;
+  }, 200);
 }
 
 function navigate(path: string) {
-  open.value = false
-  router.push(path)
+  open.value = false;
+  router.push(path);
 }
 </script>
 
 <template>
   <div class="explore-wrap" @mouseenter="onEnter" @mouseleave="onLeave">
-    <button class="explore-btn" :class="{ active: open }" @click="navigate('/explore')">
+    <button
+      class="explore-btn"
+      :class="{ active: open }"
+      @click="navigate('/explore')"
+    >
       Explore
-      <svg class="chevron" :class="{ open }" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M6 9l6 6 6-6"/>
+      <svg
+        class="chevron"
+        :class="{ open }"
+        width="12"
+        height="12"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2.5"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <path d="M6 9l6 6 6-6" />
       </svg>
     </button>
 
     <Transition name="mega">
-      <div v-if="open" class="mega" role="navigation" @mouseenter="onEnter" @mouseleave="onLeave">
+      <div
+        v-if="open"
+        class="mega"
+        role="navigation"
+        @mouseenter="onEnter"
+        @mouseleave="onLeave"
+      >
         <div class="mega-inner">
           <MegaFeatured @navigate="navigate" />
           <div class="col-divider" />
@@ -42,14 +65,15 @@ function navigate(path: string) {
           <div class="col-divider" />
           <MegaComposers @navigate="navigate" />
         </div>
-
       </div>
     </Transition>
   </div>
 </template>
 
 <style scoped>
-.explore-wrap { /* hover target */ }
+.explore-wrap {
+  /* hover target */
+}
 
 .explore-btn {
   display: flex;
@@ -63,7 +87,10 @@ function navigate(path: string) {
   font-size: 0.85rem;
   font-weight: 500;
   cursor: pointer;
-  transition: color 0.15s, border-color 0.15s, background 0.15s;
+  transition:
+    color 0.15s,
+    border-color 0.15s,
+    background 0.15s;
 }
 
 .explore-btn:hover,
@@ -73,8 +100,12 @@ function navigate(path: string) {
   border-color: var(--border);
 }
 
-.chevron { transition: transform 0.2s ease; }
-.chevron.open { transform: rotate(180deg); }
+.chevron {
+  transition: transform 0.2s ease;
+}
+.chevron.open {
+  transform: rotate(180deg);
+}
 
 .mega {
   position: absolute;
@@ -102,9 +133,15 @@ function navigate(path: string) {
   margin: 0 0.5rem;
 }
 
-
 .mega-enter-active,
-.mega-leave-active { transition: opacity 0.18s ease, transform 0.18s ease; }
+.mega-leave-active {
+  transition:
+    opacity 0.18s ease,
+    transform 0.18s ease;
+}
 .mega-enter-from,
-.mega-leave-to { opacity: 0; transform: translateY(-6px); }
+.mega-leave-to {
+  opacity: 0;
+  transform: translateY(-6px);
+}
 </style>

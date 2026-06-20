@@ -222,6 +222,18 @@ export const useSoundtrackStore = defineStore("soundtracks", () => {
     filters.value = { moods: [], genres: [], themes: [], consoles: [] };
   }
 
+  async function likeSoundtrack(id: string, delta: 1 | -1) {
+    const track = allSoundtracks.value.find((s) => s.id === id);
+    if (!track) return;
+    track.likes += delta;
+    if (!USE_MOCK) {
+      await supabase
+        .from("soundtracks")
+        .update({ likes: track.likes })
+        .eq("id", id);
+    }
+  }
+
   return {
     // Catalog
     allSoundtracks,
@@ -250,5 +262,6 @@ export const useSoundtrackStore = defineStore("soundtracks", () => {
     fetchSoundtracks,
     nextSoundtrack: pickNext,
     resetFilters,
+    likeSoundtrack,
   };
 });

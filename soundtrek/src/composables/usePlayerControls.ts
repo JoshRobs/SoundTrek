@@ -15,6 +15,8 @@ export function usePlayerControls(
 ) {
   const isPlaying = ref(false);
   const volume = ref(Number(localStorage.getItem("player-volume") || "100"));
+  const muted = ref(false);
+  let premuteVolume = volume.value;
 
   function sendYouTubeCommand(cmd: string, args: unknown[] = []) {
     iframeRef.value?.contentWindow?.postMessage(
@@ -24,7 +26,18 @@ export function usePlayerControls(
   }
 
   function applyVolume() {
-    sendYouTubeCommand("setVolume", [volume.value]);
+    sendYouTubeCommand("setVolume", [muted.value ? 0 : volume.value]);
+  }
+
+  function toggleMute() {
+    if (muted.value) {
+      muted.value = false;
+      volume.value = premuteVolume || 100;
+    } else {
+      premuteVolume = volume.value;
+      muted.value = true;
+    }
+    applyVolume();
   }
 
   function onWindowMessage(e: MessageEvent) {
@@ -37,6 +50,14 @@ export function usePlayerControls(
       // YouTube state: 1=playing, 2=paused, 0=ended
       if (d.event === "onStateChange") isPlaying.value = d.info === 1;
     } catch {}
+  }
+
+  function nextTrack() {
+    sendYouTubeCommand("nextVideo");
+  }
+
+  function prevTrack() {
+    sendYouTubeCommand("previousVideo");
   }
 
   function togglePlay() {
@@ -60,6 +81,7 @@ export function usePlayerControls(
 
   watch(volume, (v) => {
     localStorage.setItem("player-volume", String(v));
+    if (muted.value && v > 0) muted.value = false;
     applyVolume();
   });
 
@@ -68,5 +90,5 @@ export function usePlayerControls(
   onMounted(() => window.addEventListener("message", onWindowMessage));
   onUnmounted(() => window.removeEventListener("message", onWindowMessage));
 
-  return { isPlaying, volume, togglePlay, setSpotifyPlaying };
+  return { isPlaying, volume, muted, toggleMute, togglePlay, nextTrack, prevTrack, setSpotifyPlaying };
 }
