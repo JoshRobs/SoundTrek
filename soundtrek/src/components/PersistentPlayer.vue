@@ -30,7 +30,18 @@ const hasSpotify = computed(
   () => !!(nowPlaying.value?.spotify_id && nowPlaying.value?.spotify_type),
 );
 const hasBoth = computed(() => hasYoutube.value && hasSpotify.value);
-const displayWidth = computed(() => (minimized.value ? 400 : width.value));
+
+// ── Playlist side panel ─────────────────────────────────────────────────────
+interface PlaylistItem { videoId: string; title: string }
+const playlistItems = ref<PlaylistItem[]>([]);
+const showPanel = computed(
+  () => playlistItems.value.length > 0 && activeSource.value === "youtube",
+);
+const PANEL_WIDTH = 220;
+const displayWidth = computed(() => {
+  if (minimized.value) return 400;
+  return width.value + (showPanel.value ? PANEL_WIDTH : 0);
+});
 
 function applySourceDefaults(source: "youtube" | "spotify") {
   if (source === "spotify") {
@@ -138,35 +149,46 @@ function dismissSpotifyHint() {
 }
 
 // ── Playback controls ──────────────────────────────────────────────────────
-const iframeRef = ref<HTMLIFrameElement | null>(null);
+const ytContainerRef = ref<HTMLElement | null>(null);
 const spotifyEmbedRef = ref<InstanceType<typeof SpotifyEmbed> | null>(null);
 const {
   isPlaying,
   volume,
   muted,
+  currentTrackIndex,
   toggleMute,
   togglePlay,
   nextTrack,
   prevTrack,
+  playTrackAt,
   setSpotifyPlaying,
-} = usePlayerControls(nowPlaying, activeSource, iframeRef, spotifyEmbedRef);
+} = usePlayerControls(nowPlaying, activeSource, ytContainerRef, spotifyEmbedRef);
 
-// ── Embed URL (YouTube only — Spotify is managed by the controller) ────────
-const youtubeEmbedUrl = computed(() => {
-  const s = nowPlaying.value;
-  if (!s || activeSource.value !== "youtube") return null;
-  if (s.youtube_video_id && s.youtube_playlist_id)
-    return `https://www.youtube.com/embed/${s.youtube_video_id}?list=${s.youtube_playlist_id}&autoplay=1&rel=0&enablejsapi=1`;
-  if (s.youtube_video_id)
-    return `https://www.youtube.com/embed/${s.youtube_video_id}?autoplay=1&rel=0&enablejsapi=1`;
-  if (s.youtube_playlist_id)
-    return `https://www.youtube.com/embed/videoseries?list=${s.youtube_playlist_id}&autoplay=1&enablejsapi=1`;
-  return null;
-});
+// ── Playlist items fetch ────────────────────────────────────────────────────
+watch(
+  nowPlaying,
+  async (track) => {
+    playlistItems.value = [];
+    if (!track?.youtube_playlist_id) return;
+    const key = (import.meta.env.VITE_YOUTUBE_API_KEY ?? "") as string;
+    if (!key) return;
+    try {
+      const res = await fetch(
+        `https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&playlistId=${track.youtube_playlist_id}&maxResults=50&key=${key}`,
+      );
+      const data = await res.json();
+      playlistItems.value = (data.items ?? []).map((item: any) => ({
+        videoId: item.snippet.resourceId.videoId,
+        title: item.snippet.title,
+      }));
+    } catch {}
+  },
+  { immediate: true },
+);
 
 const hasSource = computed(
   () =>
-    (activeSource.value === "youtube" && !!youtubeEmbedUrl.value) ||
+    (activeSource.value === "youtube" && hasYoutube.value) ||
     (activeSource.value === "spotify" && hasSpotify.value),
 );
 
@@ -374,39 +396,46 @@ onUnmounted(() => {
       </button>
     </div>
 
-    <!-- Player body — v-show keeps the iframe alive when minimized -->
+    <!-- Player body — v-show keeps the player alive when minimized -->
     <div v-show="!minimized" class="player-body">
-      <div
-        v-if="hasSource"
-        class="embed-wrap"
-        :style="{ width: width + 'px', height: height + 'px' }"
-      >
-        <!-- YouTube iframe -->
-        <iframe
-          v-if="activeSource === 'youtube' && youtubeEmbedUrl"
-          ref="iframeRef"
-          :key="`${nowPlaying.id}-youtube`"
-          :src="youtubeEmbedUrl"
-          :width="width"
-          :height="height"
-          frameborder="0"
-          allow="
-            autoplay;
-            clipboard-write;
-            encrypted-media;
-            fullscreen;
-            picture-in-picture;
-          "
-          allowfullscreen
-        />
-        <!-- Spotify — isolated component owns its own DOM -->
-        <SpotifyEmbed
-          v-if="activeSource === 'spotify' && hasSpotify"
-          ref="spotifyEmbedRef"
-          :spotify-type="nowPlaying.spotify_type!"
-          :spotify-id="nowPlaying.spotify_id!"
-          @playback-update="setSpotifyPlaying"
-        />
+      <!-- Side-by-side: playlist panel (left) + embed (right) -->
+      <div v-if="hasSource" class="player-content">
+        <!-- Scrollable track list — left of embed -->
+        <div
+          v-if="showPanel"
+          class="playlist-panel"
+          :style="{ height: height + 'px' }"
+        >
+          <button
+            v-for="(item, i) in playlistItems"
+            :key="item.videoId"
+            class="playlist-track"
+            :class="{ active: i === currentTrackIndex }"
+            @click="playTrackAt(i)"
+          >
+            <span class="track-num">{{ i + 1 }}</span>
+            <span class="track-title">{{ item.title }}</span>
+          </button>
+        </div>
+        <div
+          class="embed-wrap"
+          :style="{ width: width + 'px', height: height + 'px' }"
+        >
+          <!-- YouTube container (managed by YT.Player API) -->
+          <div
+            v-if="activeSource === 'youtube' && hasYoutube"
+            ref="ytContainerRef"
+            class="yt-container"
+          />
+          <!-- Spotify — isolated component owns its own DOM -->
+          <SpotifyEmbed
+            v-if="activeSource === 'spotify' && hasSpotify"
+            ref="spotifyEmbedRef"
+            :spotify-type="nowPlaying.spotify_type!"
+            :spotify-id="nowPlaying.spotify_id!"
+            @playback-update="setSpotifyPlaying"
+          />
+        </div>
       </div>
       <div v-else class="no-source">
         <p class="no-source-text">No embeddable source available.</p>
@@ -414,7 +443,7 @@ onUnmounted(() => {
       </div>
 
       <div
-        v-if="nowPlaying.source_type === 'playlist' && hasSource"
+        v-if="nowPlaying.source_type === 'playlist' && hasSource && !showPanel"
         class="playlist-nav"
       >
         <button
@@ -526,10 +555,10 @@ onUnmounted(() => {
   position: fixed;
   bottom: 0.5rem;
   right: 1.5rem;
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
+  background: #111;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 8px;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.8);
   z-index: 200;
 }
 
@@ -543,7 +572,7 @@ onUnmounted(() => {
   align-items: center;
   justify-content: center;
   cursor: nwse-resize;
-  color: var(--text-muted);
+  color: rgba(255, 255, 255, 0.2);
   opacity: 0;
   transition: opacity 0.15s;
   z-index: 1;
@@ -552,8 +581,9 @@ onUnmounted(() => {
 .player-widget:hover .resize-handle {
   opacity: 1;
 }
+
 .resize-handle:hover {
-  color: var(--text-secondary);
+  color: rgba(255, 255, 255, 0.5);
 }
 
 .player-header {
@@ -562,9 +592,9 @@ onUnmounted(() => {
   justify-content: space-between;
   gap: 0.5rem;
   padding: 0.65rem 0.75rem;
-  background: var(--surface-2);
-  border-bottom: 1px solid var(--border);
-  border-radius: 6px 6px 0 0;
+  background: #0d0d0d;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 8px 8px 0 0;
 }
 
 .player-title-group {
@@ -578,7 +608,7 @@ onUnmounted(() => {
 .player-game {
   font-size: 1rem;
   font-weight: 600;
-  color: var(--text-primary);
+  color: rgba(255, 255, 255, 0.88);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -586,7 +616,7 @@ onUnmounted(() => {
 
 .player-composer {
   font-size: 0.8rem;
-  color: var(--text-muted);
+  color: rgba(255, 255, 255, 0.35);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -607,7 +637,7 @@ onUnmounted(() => {
   border-radius: 5px;
   border: none;
   background: transparent;
-  color: var(--text-muted);
+  color: rgba(255, 255, 255, 0.35);
   cursor: pointer;
   transition:
     background 0.12s,
@@ -615,14 +645,14 @@ onUnmounted(() => {
 }
 
 .action-btn:hover {
-  background: var(--border);
-  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.07);
+  color: rgba(255, 255, 255, 0.85);
 }
 
 .source-bar {
   display: flex;
-  border-bottom: 1px solid var(--border);
-  background: var(--surface-2);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  background: #0d0d0d;
 }
 
 .source-btn {
@@ -634,7 +664,7 @@ onUnmounted(() => {
   padding: 0.45rem 0;
   border: none;
   background: transparent;
-  color: var(--text-muted);
+  color: rgba(255, 255, 255, 0.3);
   font-size: 0.75rem;
   font-weight: 500;
   cursor: pointer;
@@ -646,19 +676,13 @@ onUnmounted(() => {
 }
 
 .source-btn:hover {
-  color: var(--text-secondary);
-  background: color-mix(in srgb, var(--border) 40%, transparent);
+  color: rgba(255, 255, 255, 0.6);
+  background: rgba(255, 255, 255, 0.04);
 }
 
-.source-btn.active {
-  color: var(--text-primary);
-  border-bottom-color: var(--accent);
-}
-
-/* Per-platform accent on active tab */
 .source-btn:first-child.active {
-  border-bottom-color: #ff0000;
-  color: #ff4444;
+  border-bottom-color: #ff3333;
+  color: #ff3333;
 }
 
 .source-btn:last-child.active {
@@ -671,15 +695,84 @@ onUnmounted(() => {
   flex-direction: column;
 }
 
+.player-content {
+  display: flex;
+  flex-direction: row;
+}
+
 .embed-wrap {
   overflow: hidden;
   background: #000;
   flex-shrink: 0;
 }
 
-.embed-wrap iframe {
+.yt-container {
+  width: 100%;
+  height: 100%;
+}
+
+.yt-container iframe {
   display: block;
   border: none;
+}
+
+.playlist-panel {
+  width: 220px;
+  flex-shrink: 0;
+  border-right: 1px solid rgba(255, 255, 255, 0.06);
+  background: #111;
+  overflow-y: auto;
+  scrollbar-width: none;
+}
+
+.playlist-panel::-webkit-scrollbar {
+  display: none;
+}
+
+.playlist-track {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.42rem 0.75rem;
+  width: 100%;
+  border: none;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.1s;
+}
+
+.playlist-track:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.playlist-track.active {
+  background: rgba(255, 255, 255, 0.07);
+}
+
+.track-num {
+  flex-shrink: 0;
+  width: 1.4rem;
+  text-align: right;
+  font-size: 0.6rem;
+  color: rgba(255, 255, 255, 0.2);
+  font-variant-numeric: tabular-nums;
+}
+
+.playlist-track.active .track-num {
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.track-title {
+  font-size: 0.7rem;
+  color: rgba(255, 255, 255, 0.38);
+  line-height: 1.3;
+  word-break: break-word;
+}
+
+.playlist-track.active .track-title {
+  color: rgba(255, 255, 255, 0.88);
+  font-weight: 500;
 }
 
 .no-source {
@@ -692,7 +785,7 @@ onUnmounted(() => {
 .no-source-text {
   margin: 0;
   font-size: 0.78rem;
-  color: var(--text-muted);
+  color: rgba(255, 255, 255, 0.35);
 }
 
 .spotify-hint {
@@ -700,10 +793,10 @@ onUnmounted(() => {
   align-items: center;
   gap: 0.4rem;
   padding: 0.45rem 0.75rem;
-  background: color-mix(in srgb, #1db954 8%, transparent);
-  border-top: 1px solid color-mix(in srgb, #1db954 20%, transparent);
+  background: rgba(29, 185, 84, 0.06);
+  border-top: 1px solid rgba(29, 185, 84, 0.15);
   font-size: 0.7rem;
-  color: var(--text-muted);
+  color: rgba(255, 255, 255, 0.35);
   flex-wrap: wrap;
 }
 
@@ -719,7 +812,7 @@ onUnmounted(() => {
 }
 
 .hint-sep {
-  color: var(--border);
+  color: rgba(255, 255, 255, 0.15);
 }
 
 .hint-reload {
@@ -728,7 +821,7 @@ onUnmounted(() => {
   gap: 0.25rem;
   background: transparent;
   border: none;
-  color: var(--text-muted);
+  color: rgba(255, 255, 255, 0.35);
   font-size: 0.7rem;
   cursor: pointer;
   padding: 0;
@@ -736,7 +829,7 @@ onUnmounted(() => {
 }
 
 .hint-reload:hover {
-  color: var(--text-primary);
+  color: rgba(255, 255, 255, 0.75);
 }
 
 .hint-dismiss {
@@ -745,7 +838,7 @@ onUnmounted(() => {
   justify-content: center;
   background: transparent;
   border: none;
-  color: var(--text-muted);
+  color: rgba(255, 255, 255, 0.25);
   cursor: pointer;
   padding: 0;
   margin-left: auto;
@@ -753,7 +846,7 @@ onUnmounted(() => {
 }
 
 .hint-dismiss:hover {
-  color: var(--text-primary);
+  color: rgba(255, 255, 255, 0.7);
 }
 
 .player-meta {
@@ -762,12 +855,12 @@ onUnmounted(() => {
   gap: 0.35rem;
   padding: 0.5rem 0.75rem;
   font-size: 0.72rem;
-  color: var(--text-muted);
-  border-top: 1px solid var(--border);
+  color: rgba(255, 255, 255, 0.3);
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
 }
 
 .meta-dot {
-  color: var(--border);
+  color: rgba(255, 255, 255, 0.12);
 }
 
 .meta-playlist {
@@ -789,10 +882,10 @@ onUnmounted(() => {
   align-items: center;
   justify-content: center;
   padding: 0.6rem 0.5rem;
-  background: var(--card);
-  border: 1px solid var(--border);
+  background: #0d0d0d;
+  border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 6px;
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.7);
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.12s;
@@ -811,11 +904,11 @@ onUnmounted(() => {
   appearance: slider-vertical;
   width: 4px;
   height: 80px;
-  background: var(--border);
+  background: rgba(255, 255, 255, 0.12);
   border-radius: 99px;
   outline: none;
   cursor: pointer;
-  accent-color: var(--text-primary);
+  accent-color: #fff;
 }
 
 .volume-slider::-webkit-slider-thumb {
@@ -823,7 +916,7 @@ onUnmounted(() => {
   width: 10px;
   height: 10px;
   border-radius: 50%;
-  background: var(--text-primary);
+  background: #fff;
   cursor: pointer;
   transition: transform 0.1s;
 }
@@ -837,7 +930,7 @@ onUnmounted(() => {
   height: 10px;
   border-radius: 50%;
   border: none;
-  background: var(--text-primary);
+  background: #fff;
   cursor: pointer;
 }
 
@@ -846,8 +939,8 @@ onUnmounted(() => {
   height: 28px;
   border-radius: 50%;
   border: none;
-  background: rgba(255, 255, 255, 0.1);
-  color: #fff;
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.7);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -857,7 +950,7 @@ onUnmounted(() => {
 }
 
 .track-nav-btn:hover {
-  background: rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.15);
 }
 
 .playlist-nav {
@@ -865,8 +958,8 @@ onUnmounted(() => {
   justify-content: space-between;
   align-items: center;
   padding: 0.4rem 0.75rem;
-  border-top: 1px solid var(--border);
-  background: var(--surface-2);
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  background: #0d0d0d;
 }
 
 .playlist-nav-btn {
@@ -877,7 +970,7 @@ onUnmounted(() => {
   border-radius: 5px;
   border: none;
   background: transparent;
-  color: var(--text-secondary);
+  color: rgba(255, 255, 255, 0.35);
   font-size: 0.75rem;
   cursor: pointer;
   transition:
@@ -886,14 +979,14 @@ onUnmounted(() => {
 }
 
 .playlist-nav-btn:hover {
-  background: var(--border);
-  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.07);
+  color: rgba(255, 255, 255, 0.8);
 }
 
 .minimized .player-header {
   display: grid;
   grid-template-columns: 1fr auto 1fr;
-  border-radius: 6px;
+  border-radius: 8px;
 }
 
 .minimized .player-actions {
@@ -912,7 +1005,7 @@ onUnmounted(() => {
   border-radius: 50%;
   border: none;
   background: rgba(255, 255, 255, 0.1);
-  color: #fff;
+  color: rgba(255, 255, 255, 0.85);
   display: flex;
   align-items: center;
   justify-content: center;

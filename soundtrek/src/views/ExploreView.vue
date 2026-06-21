@@ -46,7 +46,7 @@ store.loadAll();
 }
 
 .page-inner {
-  max-width: 1260px;
+  max-width: 1360px;
   width: 100%;
   margin: 0 auto;
   padding: 0 2rem 4rem;

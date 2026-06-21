@@ -184,7 +184,7 @@ watch(() => route.query, (query) => {
   border-top: none;
 }
 
-.card-slot { display: block; }
+.card-slot { display: flex; flex-direction: column; }
 
 .main {
   flex: 1;

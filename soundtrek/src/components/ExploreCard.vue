@@ -45,14 +45,14 @@ const store = useSoundtrackStore();
   padding: 0;
   cursor: pointer;
   text-align: left;
-  width: 220px;
+  width: 280px;
   flex-shrink: 0;
 }
 
 .cover {
   position: relative;
-  width: 220px;
-  height: 220px;
+  width: 280px;
+  height: 280px;
   border-radius: 10px;
   overflow: hidden;
   background: var(--surface-2);
@@ -102,14 +102,14 @@ const store = useSoundtrackStore();
 }
 
 .title {
-  font-size: 1rem;
+  font-size: 1.2rem;
   font-weight: 600;
   color: var(--text-primary);
   margin: 0;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 220px;
+  max-width: 280px;
 }
 
 .meta {

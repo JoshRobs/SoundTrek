@@ -125,7 +125,7 @@ export const useSoundtrackStore = defineStore("soundtracks", () => {
           rows.push({
             type,
             label,
-            items: [...items].sort((a, b) => b.likes - a.likes),
+            items: [...items].sort((a, b) => b.likes - a.likes).slice(0, 15),
           }),
         );
     }

@@ -203,13 +203,7 @@ async function searchYouTube(gameTitle: string): Promise<{
 
   if (!data.items?.length) return null
 
-  // Prefer a single video (full OST upload) over a playlist
-  const video = data.items.find(i => i.id.kind === 'youtube#video')
-  if (video?.id.videoId) {
-    return { youtube_video_id: video.id.videoId, youtube_playlist_id: null, source_type: 'video' }
-  }
-
-  // Fall back to playlist — also fetch first video so the embed works reliably
+  // Prefer a playlist — also fetch first video so the embed has a starting point
   const playlist = data.items.find(i => i.id.kind === 'youtube#playlist')
   if (playlist?.id.playlistId) {
     const firstVideoId = await fetchFirstPlaylistVideo(playlist.id.playlistId)
@@ -218,6 +212,12 @@ async function searchYouTube(gameTitle: string): Promise<{
       youtube_video_id: firstVideoId,
       source_type: 'playlist',
     }
+  }
+
+  // Fall back to a single video
+  const video = data.items.find(i => i.id.kind === 'youtube#video')
+  if (video?.id.videoId) {
+    return { youtube_video_id: video.id.videoId, youtube_playlist_id: null, source_type: 'video' }
   }
 
   return null

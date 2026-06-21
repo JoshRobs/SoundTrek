@@ -23,59 +23,61 @@ function toggleLike() {
 
 <template>
   <div class="card" :class="{ 'card--fs': fullscreen }">
-    <div class="cover-wrap" @click="store.setNowPlaying(props.soundtrack)">
-      <img
-        v-if="soundtrack.cover_image_url"
-        :src="soundtrack.cover_image_url"
-        :alt="soundtrack.game_title"
-        class="cover-img"
-      />
-      <div v-else class="cover-fallback">🎮</div>
+    <div class="cover-frame">
+      <div class="cover-wrap" @click="store.setNowPlaying(props.soundtrack)">
+        <img
+          v-if="soundtrack.cover_image_url"
+          :src="soundtrack.cover_image_url"
+          :alt="soundtrack.game_title"
+          class="cover-img"
+        />
+        <div v-else class="cover-fallback">🎮</div>
 
-      <div class="play-overlay">
-        <svg width="48" height="48" viewBox="0 0 24 24" fill="currentColor">
-          <path d="M8 5v14l11-7z"/>
-        </svg>
+        <div class="play-overlay">
+          <svg width="48" height="48" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M8 5v14l11-7z" />
+          </svg>
+        </div>
+
+        <button
+          class="expand-btn"
+          :aria-label="fullscreen ? 'Exit fullscreen' : 'Fullscreen'"
+          @click.stop="fullscreen = !fullscreen"
+        >
+          <svg
+            v-if="!fullscreen"
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2.5"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <polyline points="15 3 21 3 21 9" />
+            <polyline points="9 21 3 21 3 15" />
+            <line x1="21" y1="3" x2="14" y2="10" />
+            <line x1="3" y1="21" x2="10" y2="14" />
+          </svg>
+          <svg
+            v-else
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2.5"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <polyline points="4 14 10 14 10 20" />
+            <polyline points="20 10 14 10 14 4" />
+            <line x1="10" y1="14" x2="3" y2="21" />
+            <line x1="21" y1="3" x2="14" y2="10" />
+          </svg>
+        </button>
       </div>
-
-      <button
-        class="expand-btn"
-        :aria-label="fullscreen ? 'Exit fullscreen' : 'Fullscreen'"
-        @click.stop="fullscreen = !fullscreen"
-      >
-        <svg
-          v-if="!fullscreen"
-          width="14"
-          height="14"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2.5"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-        >
-          <polyline points="15 3 21 3 21 9" />
-          <polyline points="9 21 3 21 3 15" />
-          <line x1="21" y1="3" x2="14" y2="10" />
-          <line x1="3" y1="21" x2="10" y2="14" />
-        </svg>
-        <svg
-          v-else
-          width="14"
-          height="14"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2.5"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-        >
-          <polyline points="4 14 10 14 10 20" />
-          <polyline points="20 10 14 10 14 4" />
-          <line x1="10" y1="14" x2="3" y2="21" />
-          <line x1="21" y1="3" x2="14" y2="10" />
-        </svg>
-      </button>
     </div>
 
     <div class="bottom-bar">
@@ -163,17 +165,14 @@ function toggleLike() {
   display: flex;
   flex-direction: column;
   width: 450px;
-  border-radius: 12px;
-  overflow: hidden;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45);
-  background: var(--card);
+  background: transparent;
+  gap: 1rem;
 }
 
 .card--fs {
   width: 100%;
   height: 100%;
-  border-radius: 0;
-  box-shadow: none;
+  gap: 0;
   animation: fs-enter 0.2s ease;
 }
 
@@ -188,7 +187,8 @@ function toggleLike() {
 .card--fs .cover-wrap {
   flex: 1;
   min-height: 0;
-  aspect-ratio: unset;
+  border-radius: 0;
+  box-shadow: none;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -200,12 +200,55 @@ function toggleLike() {
   object-fit: unset;
 }
 
+.cover-frame {
+  position: relative;
+  border-radius: 8px;
+  border: 2px solid rgba(255, 255, 255, 0.39);
+  transform: translate(6px, 6px);
+  transition: transform 0.35s ease;
+}
+
+.cover-frame:hover {
+  transform: translate(0, 0);
+}
+
+.cover-frame::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  border-radius: 6px;
+  transform: translate(12px, 9px);
+  pointer-events: none;
+  z-index: -1;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.cover-frame::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border: 2px solid rgba(255, 255, 255, 0.4);
+  border-radius: 6px;
+  transform: translate(7px, 5px);
+  pointer-events: none;
+  z-index: -1;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.cover-frame:hover::before,
+.cover-frame:hover::after {
+  opacity: 1;
+}
+
 .cover-wrap {
   position: relative;
-  aspect-ratio: 1/1;
   overflow: hidden;
   background: var(--surface-2);
   cursor: pointer;
+  border-radius: 6px;
 }
 
 .cover-wrap:hover .play-overlay {
@@ -226,8 +269,7 @@ function toggleLike() {
 
 .cover-img {
   width: 100%;
-  height: 100%;
-  object-fit: contain;
+  height: auto;
   display: block;
 }
 
@@ -267,7 +309,9 @@ function toggleLike() {
 .bottom-bar {
   flex-shrink: 0;
   padding: 0.9rem 1rem 1rem;
-  background: var(--card);
+  background: transparent;
+  border-radius: 12px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
