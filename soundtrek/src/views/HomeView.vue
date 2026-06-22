@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted } from 'vue'
+import { useHead } from '@unhead/vue'
 import { useRoute, type LocationQuery } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import FilterPanel from '@/components/FilterPanel.vue'
@@ -21,8 +22,17 @@ const {
 } = storeToRefs(store)
 const { fetchSoundtracks, nextSoundtrack, resetFilters } = store
 
+useHead({
+  title: 'Discover | SoundTrek',
+  meta: [
+    { name: 'description', content: 'Browse and discover video game soundtracks. Filter by mood, genre, theme, and console.' },
+    { property: 'og:title', content: 'Discover | SoundTrek' },
+    { property: 'og:description', content: 'Browse and discover video game soundtracks. Filter by mood, genre, theme, and console.' },
+    { property: 'og:url', content: 'https://soundtrek.app/discover' },
+  ],
+})
+
 const showFilters = ref(false)
-const cardFullscreen = ref(false)
 const filterCount = computed(() =>
   filters.value.moods.length + filters.value.genres.length + filters.value.themes.length + filters.value.consoles.length
 )
@@ -66,7 +76,7 @@ watch(() => route.query, (query) => {
     </button>
   </Teleport>
 
-  <div class="layout" :class="{ 'layout--fs': cardFullscreen }">
+  <div class="layout">
 
     <Transition name="slide">
       <FilterPanel
@@ -102,7 +112,6 @@ watch(() => route.query, (query) => {
           v-if="currentSoundtrack"
           :key="currentSoundtrack.id"
           :soundtrack="currentSoundtrack"
-          v-model:fullscreen="cardFullscreen"
           class="card-slot"
           @next="nextSoundtrack"
         />
@@ -159,22 +168,6 @@ watch(() => route.query, (query) => {
   flex-direction: column;
 }
 
-.layout--fs {
-  overflow: hidden;
-}
-
-.layout--fs .main {
-  flex: 1;
-  min-height: 0;
-  padding: 0;
-  align-items: stretch;
-  justify-content: flex-start;
-}
-
-.layout--fs .card-slot {
-  width: 100%;
-  height: 100%;
-}
 
 .filter-panel-bar {
   flex-shrink: 0;

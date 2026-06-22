@@ -40,6 +40,7 @@ export function usePlayerControls(
   const volume = ref(Number(localStorage.getItem("player-volume") || "100"));
   const muted = ref(false);
   const currentTrackIndex = ref(0);
+  const playerVideoIds = ref<string[]>([]);
   let premuteVolume = volume.value;
   let player: YT.Player | null = null;
   let initId = 0;
@@ -73,6 +74,7 @@ export function usePlayerControls(
       events: {
         onReady: () => {
           player?.setVolume(muted.value ? 0 : volume.value);
+          playerVideoIds.value = (player as any)?.getPlaylist() ?? [];
         },
         onStateChange: (e) => {
           isPlaying.value = e.data === 1;
@@ -154,6 +156,7 @@ export function usePlayerControls(
   watch([nowPlaying, activeSource], () => {
     isPlaying.value = false;
     currentTrackIndex.value = 0;
+    playerVideoIds.value = [];
     initPlayer();
   });
 
@@ -165,6 +168,7 @@ export function usePlayerControls(
     volume,
     muted,
     currentTrackIndex,
+    playerVideoIds,
     toggleMute,
     togglePlay,
     nextTrack,

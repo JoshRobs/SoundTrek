@@ -28,6 +28,7 @@ function randomPick() {
     </div>
     <div class="header-center">
       <ExploreMenu />
+      <RouterLink to="/catalog" class="nav-link">Catalog</RouterLink>
       <button class="random-btn" @click="randomPick">
         <svg
           width="13"
@@ -95,8 +96,35 @@ function randomPick() {
   font-family: "Bebas Neue", sans-serif;
   font-size: 1.5rem;
   letter-spacing: 0.06em;
-  color: var(--text-primary);
   text-decoration: none;
+  background: linear-gradient(to right, var(--accent) 50%, var(--text-primary) 50%);
+  background-size: 200% 100%;
+  background-position: right;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+  transition: background-position 0.4s ease;
+}
+
+.logo:hover {
+  background-position: left;
+}
+
+.nav-link {
+  padding: 0.4rem 0.75rem;
+  border-radius: 6px;
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  font-weight: 500;
+  text-decoration: none;
+  transition: color 0.15s, background 0.15s;
+}
+
+.nav-link:hover,
+.nav-link.router-link-active {
+  color: var(--text-primary);
+  background: var(--surface-2);
 }
 
 .random-btn {

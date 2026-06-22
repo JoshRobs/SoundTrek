@@ -1,30 +1,42 @@
 <script setup lang="ts">
-import { computed, onMounted } from 'vue'
-import { useRoute } from 'vue-router'
-import { storeToRefs } from 'pinia'
-import { useSoundtrackStore } from '@/stores/soundtracks'
-import { toSlug } from '@/utils/slug'
-import PageHero from '@/components/PageHero.vue'
+import { computed, onMounted } from "vue";
+import { useHead } from "@unhead/vue";
+import { useRoute } from "vue-router";
+import { storeToRefs } from "pinia";
+import { useSoundtrackStore } from "@/stores/soundtracks";
+import { toSlug } from "@/utils/slug";
+import PageHero from "@/components/PageHero.vue";
 
-const route = useRoute()
-const store = useSoundtrackStore()
-const { allSoundtracks, loading, error } = storeToRefs(store)
+const route = useRoute();
+const store = useSoundtrackStore();
+const { allSoundtracks, loading, error } = storeToRefs(store);
 
-const slug = computed(() => route.params.slug as string)
+const slug = computed(() => route.params.slug as string);
 
 const composerSoundtracks = computed(() =>
-  allSoundtracks.value.filter(s => toSlug(s.composer) === slug.value)
-)
+  allSoundtracks.value.filter((s) => toSlug(s.composer) === slug.value),
+);
 
-const composerName = computed(() =>
-  composerSoundtracks.value[0]?.composer ?? slug.value.replace(/-/g, ' ')
-)
+const composerName = computed(
+  () => composerSoundtracks.value[0]?.composer ?? slug.value.replace(/-/g, " "),
+);
 
-const subtitle = computed(() =>
-  `${composerSoundtracks.value.length} ${composerSoundtracks.value.length === 1 ? 'soundtrack' : 'soundtracks'} in SoundTrek`
-)
+const subtitle = computed(
+  () =>
+    `${composerSoundtracks.value.length} ${composerSoundtracks.value.length === 1 ? "soundtrack" : "soundtracks"} in SoundTrek`,
+);
 
-onMounted(() => store.loadAll())
+onMounted(() => store.loadAll());
+
+useHead(computed(() => ({
+  title: `${composerName.value} | SoundTrek`,
+  meta: [
+    { name: 'description', content: `Listen to ${composerName.value}'s video game soundtracks on SoundTrek.` },
+    { property: 'og:title', content: `${composerName.value} | SoundTrek` },
+    { property: 'og:description', content: `Listen to ${composerName.value}'s video game soundtracks on SoundTrek.` },
+    { property: 'og:url', content: `https://soundtrek.app/composer/${slug.value}` },
+  ],
+})))
 </script>
 
 <template>
@@ -48,16 +60,26 @@ onMounted(() => store.loadAll())
         </div>
 
         <section v-else class="grid">
-          <div v-for="s in composerSoundtracks" :key="s.id" class="grid-card">
+          <RouterLink
+            v-for="s in composerSoundtracks"
+            :key="s.id"
+            :to="`/soundtrack/${s.id}`"
+            class="grid-card"
+          >
             <div class="grid-cover">
-              <img v-if="s.cover_image_url" :src="s.cover_image_url" :alt="s.game_title" class="grid-img" />
+              <img
+                v-if="s.cover_image_url"
+                :src="s.cover_image_url"
+                :alt="s.game_title"
+                class="grid-img"
+              />
               <div v-else class="grid-fallback">🎮</div>
             </div>
             <div class="grid-info">
               <p class="grid-title">{{ s.game_title }}</p>
               <p class="grid-year">{{ s.release_year }}</p>
             </div>
-          </div>
+          </RouterLink>
         </section>
       </div>
     </template>
@@ -65,10 +87,14 @@ onMounted(() => store.loadAll())
 </template>
 
 <style scoped>
-.page { flex: 1; display: flex; flex-direction: column; overflow-y: auto; }
+.page {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
 
 .page-inner {
-  max-width: 900px;
+  max-width: 1000px;
   width: 100%;
   margin: 0 auto;
   padding: 0 1.5rem 3rem;
@@ -76,14 +102,19 @@ onMounted(() => store.loadAll())
 
 .grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
   gap: 1.25rem;
 }
 
-.grid-card { display: flex; flex-direction: column; gap: 0.5rem; cursor: default; }
+.grid-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  cursor: pointer;
+  text-decoration: none;
+}
 
 .grid-cover {
-  aspect-ratio: 3 / 4;
   border-radius: 8px;
   overflow: hidden;
   background: var(--surface-2);
@@ -97,7 +128,9 @@ onMounted(() => store.loadAll())
   transition: transform 0.2s ease;
 }
 
-.grid-card:hover .grid-img { transform: scale(1.03); }
+.grid-card:hover .grid-img {
+  transform: scale(1.03);
+}
 
 .grid-fallback {
   width: 100%;
@@ -109,11 +142,15 @@ onMounted(() => store.loadAll())
   color: var(--text-muted);
 }
 
-.grid-info { display: flex; flex-direction: column; gap: 0.1rem; }
+.grid-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
 
 .grid-title {
   margin: 0;
-  font-size: 0.8rem;
+  font-size: 1.1rem;
   font-weight: 600;
   color: var(--text-primary);
   line-height: 1.3;
@@ -123,7 +160,11 @@ onMounted(() => store.loadAll())
   overflow: hidden;
 }
 
-.grid-year { margin: 0; font-size: 0.72rem; color: var(--text-muted); }
+.grid-year {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--text-muted);
+}
 
 .state {
   flex: 1;
@@ -137,11 +178,25 @@ onMounted(() => store.loadAll())
   padding: 3rem;
 }
 
-.state.error { color: #f87171; }
-.state p { margin: 0; }
+.state.error {
+  color: #f87171;
+}
+.state p {
+  margin: 0;
+}
 
-.home-link { color: var(--accent); text-decoration: none; font-size: 0.875rem; }
-.home-link:hover { text-decoration: underline; }
+.home-link {
+  color: var(--accent);
+  text-decoration: none;
+  font-size: 0.875rem;
+}
+.home-link:hover {
+  text-decoration: underline;
+}
 
-.spinner { --spinner-size: 28px; width: var(--spinner-size); height: var(--spinner-size); }
+.spinner {
+  --spinner-size: 28px;
+  width: var(--spinner-size);
+  height: var(--spinner-size);
+}
 </style>

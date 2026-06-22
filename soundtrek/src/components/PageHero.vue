@@ -1,9 +1,9 @@
 <script setup lang="ts">
 defineProps<{
-  label?: string
-  title: string
-  subtitle?: string
-}>()
+  label?: string;
+  title: string;
+  subtitle?: string;
+}>();
 </script>
 
 <template>
@@ -21,7 +21,7 @@ defineProps<{
 
 .hero-label {
   margin: 0 0 0.25rem;
-  font-size: 0.72rem;
+  font-size: 0.9rem;
   font-weight: 600;
   letter-spacing: 0.1em;
   text-transform: uppercase;
@@ -30,7 +30,7 @@ defineProps<{
 
 .hero-title {
   margin: 0 0 0.4rem;
-  font-family: 'Bebas Neue', sans-serif;
+  font-family: "Bebas Neue", sans-serif;
   font-size: clamp(2.5rem, 6vw, 3.5rem);
   font-weight: 400;
   letter-spacing: 0.04em;

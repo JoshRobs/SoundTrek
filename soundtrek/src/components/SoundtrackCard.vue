@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from "vue";
+import { ref, computed } from "vue";
 import { RouterLink } from "vue-router";
 import type { Soundtrack } from "@/types/soundtrack";
 import CardInfoSheet from "./CardInfoSheet.vue";
@@ -11,7 +11,6 @@ defineEmits<{ next: [] }>();
 
 const store = useSoundtrackStore();
 const showSheet = ref(false);
-const fullscreen = defineModel<boolean>("fullscreen", { default: false });
 const liked = ref(false);
 
 function toggleLike() {
@@ -19,71 +18,111 @@ function toggleLike() {
   liked.value = !liked.value;
   store.likeSoundtrack(props.soundtrack.id, delta);
 }
+
+function getConsoleSticker(console: string): string | null {
+  const c = console.toLowerCase();
+  if (c.includes("xbox")) return "/stickers/xbox.png";
+  if (c.includes("playstation") || /ps\s?[1-5]/.test(c))
+    return "/stickers/playstation.png";
+  if (c.includes("gamecube")) return "/stickers/gamecube.png";
+  if (c.includes("nintendo 64") || c.includes("n64"))
+    return "/stickers/n64.png";
+  if (c.includes("super nintendo") || c.includes("snes"))
+    return "/stickers/snes.png";
+  if (c.includes("nes") || c.includes("famicom")) return "/stickers/nes.png";
+  if (c.includes("switch")) return "/stickers/switch.png";
+  if (c.includes("wii u")) return "/stickers/wiiu.png";
+  if (c.includes("wii")) return "/stickers/wii.png";
+  if (c.includes("game boy") || c.includes("gameboy"))
+    return "/stickers/gameboy.png";
+  if (c.includes("3ds")) return "/stickers/3ds.png";
+  if (c.includes("dreamcast")) return "/stickers/dreamcast.png";
+  if (c.includes("saturn")) return "/stickers/saturn.png";
+  if (c.includes("genesis") || c.includes("mega drive"))
+    return "/stickers/genesis.png";
+  if (c.includes("psp")) return "/stickers/psp.png";
+  if (c.includes("vita")) return "/stickers/vita.png";
+  if (c.includes("pc") || c.includes("windows")) return "/stickers/pc.png";
+  if (c.includes("atari")) return "/stickers/atari.png";
+  if (c.includes("arcade")) return "/stickers/arcade.png";
+  return null;
+}
+
+function getConsoleColor(console: string): string {
+  const c = console.toLowerCase();
+  if (c.includes("xbox")) return "#107C10";
+  if (c.includes("playstation") || /ps\s?[1-5]/.test(c)) return "#003087";
+  if (c.includes("gamecube")) return "#4A4A4A";
+  if (c.includes("nintendo 64") || c.includes("n64")) return "#CE181E";
+  if (c.includes("super nintendo") || c.includes("snes")) return "#171717";
+  if (c.includes("nes") || c.includes("famicom")) return "#CE181E";
+  if (c.includes("switch")) return "#E4000F";
+  if (c.includes("wii u")) return "#ffffff";
+  if (c.includes("wii")) return "#C0C0C0";
+  if (c.includes("game boy") || c.includes("gameboy")) return "#4A7A3A";
+  if (c.includes("3ds")) return "#CC0000";
+  if (c.includes("dreamcast")) return "#FF6600";
+  if (c.includes("saturn")) return "#3D3D3D";
+  if (c.includes("genesis") || c.includes("mega drive")) return "#1A1A8C";
+  if (c.includes("psp") || c.includes("vita")) return "#1C1C6E";
+  if (
+    c.includes("pc") ||
+    c.includes("windows") ||
+    c.includes("mac") ||
+    c.includes("linux")
+  )
+    return "#B0B0B0";
+  if (c.includes("atari")) return "#D4621A";
+  if (c.includes("arcade")) return "#FF0080";
+  return "#ffffff";
+}
+
+const consoleColor = computed(() =>
+  getConsoleColor(props.soundtrack.console ?? ""),
+);
+
+const consoleSticker = computed(() =>
+  getConsoleSticker(props.soundtrack.console ?? ""),
+);
 </script>
 
 <template>
-  <div class="card" :class="{ 'card--fs': fullscreen }">
-    <div class="cover-frame">
-      <div class="cover-wrap" @click="store.setNowPlaying(props.soundtrack)">
-        <img
-          v-if="soundtrack.cover_image_url"
-          :src="soundtrack.cover_image_url"
-          :alt="soundtrack.game_title"
-          class="cover-img"
-        />
-        <div v-else class="cover-fallback">🎮</div>
+  <div class="card">
+    <div class="cover-3d" :style="{ '--console-color': consoleColor }">
+      <div class="cover-frame">
+        <div class="cover-wrap" @click="store.setNowPlaying(props.soundtrack)">
+          <img
+            v-if="soundtrack.cover_image_url"
+            :src="soundtrack.cover_image_url"
+            :alt="soundtrack.game_title"
+            class="cover-img"
+          />
+          <div v-else class="cover-fallback">🎮</div>
 
-        <div class="play-overlay">
-          <svg width="48" height="48" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M8 5v14l11-7z" />
-          </svg>
+          <div class="play-overlay">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M8 5v14l11-7z" />
+            </svg>
+          </div>
+
+
         </div>
 
-        <button
-          class="expand-btn"
-          :aria-label="fullscreen ? 'Exit fullscreen' : 'Fullscreen'"
-          @click.stop="fullscreen = !fullscreen"
-        >
-          <svg
-            v-if="!fullscreen"
-            width="14"
-            height="14"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2.5"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          >
-            <polyline points="15 3 21 3 21 9" />
-            <polyline points="9 21 3 21 3 15" />
-            <line x1="21" y1="3" x2="14" y2="10" />
-            <line x1="3" y1="21" x2="10" y2="14" />
-          </svg>
-          <svg
-            v-else
-            width="14"
-            height="14"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2.5"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          >
-            <polyline points="4 14 10 14 10 20" />
-            <polyline points="20 10 14 10 14 4" />
-            <line x1="10" y1="14" x2="3" y2="21" />
-            <line x1="21" y1="3" x2="14" y2="10" />
-          </svg>
-        </button>
+        <img
+          v-if="consoleSticker"
+          :src="consoleSticker"
+          :alt="soundtrack.console"
+          class="console-sticker"
+        />
       </div>
     </div>
 
     <div class="bottom-bar">
       <div class="title-row">
         <div class="title-group">
-          <h1 class="game-title">{{ soundtrack.game_title }}</h1>
+          <RouterLink :to="`/soundtrack/${soundtrack.id}`" class="game-title-link">
+            <h1 class="game-title">{{ soundtrack.game_title }}</h1>
+          </RouterLink>
           <RouterLink
             :to="`/composer/${toSlug(soundtrack.composer)}`"
             class="composer"
@@ -115,6 +154,9 @@ function toggleLike() {
               d="M19.5 12.572l-7.5 7.428l-7.5 -7.428a5 5 0 1 1 7.5 -6.566a5 5 0 1 1 7.5 6.572"
             />
           </svg>
+          <span class="like-tooltip"
+            >{{ soundtrack.likes }} others liked this OST</span
+          >
         </button>
       </div>
       <div class="btn-row">
@@ -165,45 +207,33 @@ function toggleLike() {
   display: flex;
   flex-direction: column;
   width: 450px;
+  max-width: 450px;
   background: transparent;
   gap: 1rem;
 }
 
-.card--fs {
-  width: 100%;
-  height: 100%;
-  gap: 0;
-  animation: fs-enter 0.2s ease;
-}
-
-@keyframes fs-enter {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
-}
-.card--fs .cover-wrap {
-  flex: 1;
-  min-height: 0;
-  border-radius: 0;
-  box-shadow: none;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.card--fs .cover-img {
-  width: auto;
-  height: 100%;
-  object-fit: unset;
-}
 
 .cover-frame {
   position: relative;
+  z-index: 1;
   border-radius: 8px;
-  border: 2px solid rgba(255, 255, 255, 0.39);
+  border-top: 15px solid transparent;
+  border-right: 8px solid transparent;
+  border-bottom: 15px solid transparent;
+  background:
+    linear-gradient(var(--bg, #0b0b12), var(--bg, #0b0b12)) padding-box,
+    linear-gradient(
+        145deg,
+        color-mix(in srgb, var(--console-color, #fff) 95%, white) 0%,
+        color-mix(in srgb, var(--console-color, #fff) 60%, var(--bg, #0b0b12))
+          30%,
+        color-mix(in srgb, var(--console-color, #fff) 60%, var(--bg, #0b0b12))
+          50%,
+        color-mix(in srgb, var(--console-color, #fff) 60%, var(--bg, #0b0b12))
+          70%,
+        color-mix(in srgb, var(--console-color, #fff) 90%, white) 100%
+      )
+      border-box;
   transform: translate(6px, 6px);
   transition: transform 0.35s ease;
 }
@@ -212,34 +242,38 @@ function toggleLike() {
   transform: translate(0, 0);
 }
 
-.cover-frame::before {
+.cover-3d {
+  position: relative;
+}
+
+.cover-3d::before {
   content: "";
   position: absolute;
   inset: 0;
-  border: 2px solid rgba(255, 255, 255, 0.2);
-  border-radius: 6px;
+  border: 2px solid
+    color-mix(in srgb, var(--console-color, #fff) 20%, var(--bg, #0b0b12));
+  border-radius: 8px;
   transform: translate(12px, 9px);
   pointer-events: none;
-  z-index: -1;
   opacity: 0;
   transition: opacity 0.2s ease;
 }
 
-.cover-frame::after {
+.cover-3d::after {
   content: "";
   position: absolute;
   inset: 0;
-  border: 2px solid rgba(255, 255, 255, 0.4);
-  border-radius: 6px;
+  border: 2px solid
+    color-mix(in srgb, var(--console-color, #fff) 40%, var(--bg, #0b0b12));
+  border-radius: 8px;
   transform: translate(7px, 5px);
   pointer-events: none;
-  z-index: -1;
   opacity: 0;
   transition: opacity 0.2s ease;
 }
 
-.cover-frame:hover::before,
-.cover-frame:hover::after {
+.cover-3d:hover::before,
+.cover-3d:hover::after {
   opacity: 1;
 }
 
@@ -248,11 +282,24 @@ function toggleLike() {
   overflow: hidden;
   background: var(--surface-2);
   cursor: pointer;
-  border-radius: 6px;
+  border-radius: 0px;
 }
 
 .cover-wrap:hover .play-overlay {
   opacity: 1;
+}
+
+.console-sticker {
+  position: absolute;
+  top: 0px;
+  left: 0;
+  width: auto;
+  height: auto;
+  max-width: 140px;
+  max-height: 80px;
+  z-index: 2;
+  pointer-events: none;
+  opacity: 0.9;
 }
 
 .play-overlay {
@@ -270,6 +317,9 @@ function toggleLike() {
 .cover-img {
   width: 100%;
   height: auto;
+  max-height: 600px;
+  object-fit: cover;
+  object-position: center top;
   display: block;
 }
 
@@ -283,28 +333,6 @@ function toggleLike() {
   color: var(--text-muted);
 }
 
-.expand-btn {
-  position: absolute;
-  top: 0.6rem;
-  right: 0.6rem;
-  width: 30px;
-  height: 30px;
-  border-radius: 6px;
-  border: none;
-  background: rgba(0, 0, 0, 0.55);
-  backdrop-filter: blur(4px);
-  color: #fff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  opacity: 0.7;
-  transition: opacity 0.15s;
-}
-
-.expand-btn:hover {
-  opacity: 1;
-}
 
 .bottom-bar {
   flex-shrink: 0;
@@ -333,6 +361,7 @@ function toggleLike() {
 
 .like-btn {
   flex-shrink: 0;
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -345,6 +374,7 @@ function toggleLike() {
   transition:
     background 0.15s,
     transform 0.1s;
+  z-index: 10;
 }
 
 .like-btn:hover {
@@ -357,6 +387,38 @@ function toggleLike() {
 
 .like-btn:active {
   transform: scale(0.88);
+}
+
+.like-tooltip {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(20, 20, 20, 0.92);
+  backdrop-filter: blur(6px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 0.72rem;
+  font-weight: 500;
+  white-space: nowrap;
+  padding: 0.3rem 0.6rem;
+  border-radius: 6px;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.like-btn:hover .like-tooltip {
+  opacity: 1;
+}
+
+.game-title-link {
+  text-decoration: none;
+  color: inherit;
+}
+
+.game-title-link:hover .game-title {
+  color: var(--accent-light);
 }
 
 .game-title {
@@ -372,9 +434,6 @@ function toggleLike() {
   text-overflow: ellipsis;
 }
 
-.card--fs .game-title {
-  font-size: 2.4rem;
-}
 
 .composer {
   margin: 0;

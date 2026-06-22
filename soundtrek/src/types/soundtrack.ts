@@ -33,6 +33,13 @@ export interface Soundtrack {
   created_at: string
 }
 
+export interface Composer {
+  slug: string
+  name: string
+  support_url: string | null
+  created_at: string
+}
+
 export interface FilterState {
   moods: string[]
   genres: string[]

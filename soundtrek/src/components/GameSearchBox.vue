@@ -23,9 +23,13 @@ const inputEl = ref<HTMLInputElement>();
 const results = computed(() => {
   const q = query.value.trim().toLowerCase();
   if (!q) return [];
-  return allSoundtracks.value
-    .filter((s) => s.game_title.toLowerCase().includes(q))
-    .slice(0, 5);
+  const titleMatches: { s: typeof allSoundtracks.value[0]; by: 'title' | 'composer' }[] = [];
+  const composerMatches: { s: typeof allSoundtracks.value[0]; by: 'title' | 'composer' }[] = [];
+  for (const s of allSoundtracks.value) {
+    if (s.game_title.toLowerCase().includes(q)) titleMatches.push({ s, by: 'title' });
+    else if (s.composer.toLowerCase().includes(q)) composerMatches.push({ s, by: 'composer' });
+  }
+  return [...titleMatches, ...composerMatches].slice(0, 8);
 });
 
 const showDropdown = computed(() => focused.value && results.value.length > 0);
@@ -50,7 +54,7 @@ function onKeydown(e: KeyboardEvent) {
     activeIdx.value = Math.max(activeIdx.value - 1, -1);
   } else if (e.key === "Enter" && activeIdx.value >= 0) {
     e.preventDefault();
-    select(results.value[activeIdx.value].id);
+    select(results.value[activeIdx.value].s.id);
   } else if (e.key === "Escape") {
     focused.value = false;
     activeIdx.value = -1;
@@ -92,7 +96,7 @@ onMounted(() => {
         v-model="query"
         class="search-input"
         type="text"
-        placeholder="Search for a game soundtrack…"
+        placeholder="Search games or composers…"
         autocomplete="off"
         spellcheck="false"
         @focus="focused = true"
@@ -126,27 +130,25 @@ onMounted(() => {
     <Transition name="dropdown">
       <ul v-if="showDropdown" class="dropdown" role="listbox">
         <li
-          v-for="(s, i) in results"
-          :key="s.id"
+          v-for="(r, i) in results"
+          :key="r.s.id"
           class="dropdown-item"
           :class="{ active: i === activeIdx }"
           role="option"
           @mousedown.prevent
-          @click="select(s.id)"
+          @click="select(r.s.id)"
         >
           <div class="item-thumb">
             <img
-              v-if="s.cover_image_url"
-              :src="s.cover_image_url"
-              :alt="s.game_title"
+              v-if="r.s.cover_image_url"
+              :src="r.s.cover_image_url"
+              :alt="r.s.game_title"
             />
             <span v-else class="thumb-fallback">🎮</span>
           </div>
           <div class="item-info">
-            <span class="item-title">{{ s.game_title }}</span>
-            <span class="item-meta"
-              >{{ s.composer }} · {{ s.release_year }}</span
-            >
+            <span class="item-title">{{ r.s.game_title }}</span>
+            <span class="item-meta">{{ r.s.composer }} · {{ r.s.release_year }}</span>
           </div>
         </li>
       </ul>

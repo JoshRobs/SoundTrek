@@ -7,6 +7,35 @@ datasource db {
   provider = "postgresql"
 }
 
+model Composer {
+  slug        String   @id
+  name        String
+  support_url String?
+  created_at  DateTime @default(now()) @db.Timestamptz(6)
+
+  @@map("composers")
+}
+
+model ContactMessage {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name       String?
+  email      String
+  message    String
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+
+  @@map("contact_messages")
+}
+
+model Submission {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  game_title   String
+  notes        String?
+  status       String   @default("pending")
+  submitted_at DateTime @default(now()) @db.Timestamptz(6)
+
+  @@map("submissions")
+}
+
 model Soundtrack {
   id                  String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   game_title          String

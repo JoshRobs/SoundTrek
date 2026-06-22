@@ -16,7 +16,6 @@ const platformMeta: Record<StreamingPlatform, { label: string; color: string }> 
 
 <template>
   <div v-if="links.length" class="streaming-links">
-    <p class="links-label">Listen on</p>
     <div class="links-row">
       <a
         v-for="link in links"
@@ -43,14 +42,6 @@ const platformMeta: Record<StreamingPlatform, { label: string; color: string }> 
   gap: 0.5rem;
 }
 
-.links-label {
-  margin: 0;
-  font-size: 0.68rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--text-muted);
-}
 
 .links-row {
   display: flex;

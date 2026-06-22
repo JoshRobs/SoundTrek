@@ -1,21 +1,26 @@
 <script setup lang="ts">
 import { ref, onMounted } from "vue";
 import { useRouter } from "vue-router";
+import { useHead } from "@unhead/vue";
 import { storeToRefs } from "pinia";
 import GameSearchBox from "@/components/GameSearchBox.vue";
 import RandomizeButton from "@/components/RandomizeButton.vue";
 import { useSoundtrackStore } from "@/stores/soundtracks";
 import type { Soundtrack } from "@/types/soundtrack";
 import { animate, stagger } from "animejs";
+import { useNotePlayer } from "@/composables/useNotePlayer";
+
 const text = "SOUNDTREK".split("");
+const { playNote } = useNotePlayer();
 
 // Animate up on hover
-const hoverIn = (el: EventTarget | null) => {
+const hoverIn = (el: EventTarget | null, index: number) => {
   if (!el) return;
+  //playNote(index);
   animate(el, {
     y: "-20",
-    duration: 200, // seconds, not ms
-    easing: "ease-out-bounce", // valid easing string
+    duration: 200,
+    easing: "ease-out-bounce",
   });
 };
 
@@ -29,11 +34,39 @@ const hoverOut = (el: EventTarget | null) => {
   });
 };
 
+useHead({
+  title: "SoundTrek | Discover Video Game Soundtracks",
+  meta: [
+    {
+      name: "description",
+      content:
+        "Discover and explore video game soundtracks. Find music by genre, mood, console, and more.",
+    },
+    {
+      property: "og:title",
+      content: "SoundTrek | Discover Video Game Soundtracks",
+    },
+    {
+      property: "og:description",
+      content:
+        "Discover and explore video game soundtracks. Find music by genre, mood, console, and more.",
+    },
+    { property: "og:url", content: "https://soundtrek.app/" },
+  ],
+});
+
+const buildDate = __BUILD_DATE__;
+
 const router = useRouter();
 const store = useSoundtrackStore();
+
+function scrollToTop() {
+  document.getElementById('app-main')?.scrollTo({ top: 0, behavior: 'smooth' });
+}
 const { allSoundtracks } = storeToRefs(store);
 
-function surpriseMe() {
+function randomSoundtrack() {
+  store.currentSoundtrack = null;
   router.push("/discover");
 }
 
@@ -56,7 +89,7 @@ onMounted(async () => {
       (a, b) =>
         new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
     )
-    .slice(0, 5);
+    .slice(0, 4);
 
   animate(".letter", {
     y: [{ to: ["-40", "0"] }, { to: "0%", delay: 1000, ease: "in(3)" }],
@@ -76,14 +109,14 @@ onMounted(async () => {
           v-for="(char, i) in text"
           :key="i"
           class="letter"
-          @mouseenter="hoverIn($event.target)"
+          @mouseenter="hoverIn($event.target, i)"
           @mouseleave="hoverOut($event.target)"
           >{{ char }}</span
         >
       </p>
       <p class="tagline">Discover video game soundtracks</p>
       <GameSearchBox @select="(id) => router.push(`/discover?id=${id}`)" />
-      <RandomizeButton @click="surpriseMe" />
+      <RandomizeButton @click="randomSoundtrack" />
     </div>
 
     <div class="sections">
@@ -109,6 +142,19 @@ onMounted(async () => {
               />
               <div v-else class="cover-fallback">🎮</div>
               <div class="cover-overlay">
+                <button
+                  class="overlay-play"
+                  @click.stop="store.setNowPlaying(s)"
+                >
+                  <svg
+                    width="22"
+                    height="22"
+                    viewBox="0 0 24 24"
+                    fill="currentColor"
+                  >
+                    <path d="M8 5v14l11-7z" />
+                  </svg>
+                </button>
                 <span class="cover-title">{{ s.game_title }}</span>
               </div>
             </button>
@@ -120,7 +166,7 @@ onMounted(async () => {
       <section class="landing-section section--reverse">
         <div class="section-title">
           <p class="section-label">Featured</p>
-          <h2 class="section-heading">Game Soundtracks</h2>
+          <h2 class="section-heading">Our favourite Soundtracks</h2>
         </div>
         <div class="section-content">
           <div class="cover-grid">
@@ -138,6 +184,19 @@ onMounted(async () => {
               />
               <div v-else class="cover-fallback">🎮</div>
               <div class="cover-overlay">
+                <button
+                  class="overlay-play"
+                  @click.stop="store.setNowPlaying(s)"
+                >
+                  <svg
+                    width="22"
+                    height="22"
+                    viewBox="0 0 24 24"
+                    fill="currentColor"
+                  >
+                    <path d="M8 5v14l11-7z" />
+                  </svg>
+                </button>
                 <span class="cover-title">{{ s.game_title }}</span>
               </div>
             </button>
@@ -152,46 +211,99 @@ onMounted(async () => {
           <h2 class="section-heading">Recently Added</h2>
         </div>
         <div class="section-content">
-          <div class="recent-list">
+          <div class="cover-row">
             <button
-              v-for="(s, i) in recentItems"
+              v-for="s in recentItems"
               :key="s.id"
-              class="recent-item"
+              class="cover-card"
               @click="play(s)"
             >
-              <span class="recent-rank">{{ i + 1 }}</span>
-              <div class="recent-thumb">
-                <img
-                  v-if="s.cover_image_url"
-                  :src="s.cover_image_url"
-                  :alt="s.game_title"
-                />
-                <span v-else class="thumb-fallback">🎮</span>
-              </div>
-              <div class="recent-info">
-                <span class="recent-game">{{ s.game_title }}</span>
-                <span class="recent-meta"
-                  >{{ s.composer }} · {{ s.release_year }}</span
+              <img
+                v-if="s.cover_image_url"
+                :src="s.cover_image_url"
+                :alt="s.game_title"
+                class="cover-img"
+              />
+              <div v-else class="cover-fallback">🎮</div>
+              <div class="cover-overlay">
+                <button
+                  class="overlay-play"
+                  @click.stop="store.setNowPlaying(s)"
                 >
+                  <svg
+                    width="22"
+                    height="22"
+                    viewBox="0 0 24 24"
+                    fill="currentColor"
+                  >
+                    <path d="M8 5v14l11-7z" />
+                  </svg>
+                </button>
+                <span class="cover-title">{{ s.game_title }}</span>
               </div>
-              <svg
-                class="recent-arrow"
-                width="16"
-                height="16"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-              >
-                <path d="M5 12h14M12 5l7 7-7 7" />
-              </svg>
             </button>
           </div>
         </div>
       </section>
     </div>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        <div class="footer-brand">
+          <span class="footer-logo">SoundTrek</span>
+          <p class="footer-tagline">
+            Discover video game soundtracks, one at a time.
+          </p>
+        </div>
+
+        <nav class="footer-nav">
+          <div class="footer-col">
+            <p class="footer-col-heading">Discover</p>
+            <RouterLink to="/discover" class="footer-link">Discover</RouterLink>
+            <RouterLink to="/explore" class="footer-link">Explore</RouterLink>
+            <RouterLink to="/catalog" class="footer-link">Catalog</RouterLink>
+          </div>
+          <div class="footer-col">
+            <p class="footer-col-heading">Charts</p>
+            <RouterLink to="/top" class="footer-link">Top Soundtracks</RouterLink>
+            <RouterLink to="/top-composers" class="footer-link">Top Composers</RouterLink>
+          </div>
+          <div class="footer-col">
+            <p class="footer-col-heading">Contribute</p>
+            <RouterLink to="/submit" class="footer-link">Submit a Soundtrack</RouterLink>
+            <RouterLink to="/contact" class="footer-link">Contact Us</RouterLink>
+          </div>
+        </nav>
+      </div>
+
+      <div class="footer-bottom">
+        <div class="footer-bottom-left">
+          <p class="footer-copy">
+            © {{ new Date().getFullYear() }} SoundTrek. All rights reserved.
+          </p>
+          <p class="footer-disclaimer">
+            SoundTrek is a fan project. All game titles and soundtracks are
+            property of their respective owners.
+          </p>
+          <p class="footer-meta">
+            Made with ♥ by Joshua Roberts &nbsp;·&nbsp; Updated {{ buildDate }}
+            &nbsp;·&nbsp;
+            <a href="/rss.xml" class="footer-rss" target="_blank" rel="noopener">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                <path d="M6.18 15.64a2.18 2.18 0 1 1 0 4.36 2.18 2.18 0 0 1 0-4.36M4 4.44A15.56 15.56 0 0 1 19.56 20h-2.83A12.73 12.73 0 0 0 4 7.27V4.44m0 5.66a9.9 9.9 0 0 1 9.9 9.9h-2.83A7.07 7.07 0 0 0 4 12.93V10.1z"/>
+              </svg>
+              RSS
+            </a>
+          </p>
+        </div>
+        <button class="back-to-top" @click="scrollToTop" aria-label="Back to top">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="18 15 12 9 6 15" />
+          </svg>
+          Back to top
+        </button>
+      </div>
+    </footer>
   </div>
 </template>
 
@@ -200,6 +312,7 @@ onMounted(async () => {
   display: inline-block;
   user-select: none;
   transform: translateY(0);
+  cursor: pointer;
 }
 .landing {
   display: flex;
@@ -243,7 +356,6 @@ onMounted(async () => {
   text-align: center;
   letter-spacing: 0.03em;
 }
-
 
 /* ── Sections ─────────────────────────────────────────────────────────── */
 .sections {
@@ -335,10 +447,13 @@ onMounted(async () => {
 .cover-overlay {
   position: absolute;
   inset: 0;
-  background: linear-gradient(to top, rgba(0, 0, 0, 0.8) 0%, transparent 55%);
+  background: rgba(0, 0, 0, 0.55);
   display: flex;
-  align-items: flex-end;
-  padding: 0.75rem;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  padding: 1rem;
   opacity: 0;
   transition: opacity 0.18s;
 }
@@ -348,7 +463,29 @@ onMounted(async () => {
   font-weight: 600;
   color: #fff;
   line-height: 1.2;
-  text-align: left;
+  text-align: center;
+}
+
+.overlay-play {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.9);
+  background: rgba(0, 0, 0, 0.4);
+  color: #fff;
+  cursor: pointer;
+  padding-left: 3px;
+  transition:
+    background 0.15s,
+    transform 0.15s;
+}
+
+.overlay-play:hover {
+  background: rgba(255, 255, 255, 0.2);
+  transform: scale(1.1);
 }
 
 /* ── Section 1: Now Listening row ─────────────────────────────────────── */
@@ -359,7 +496,7 @@ onMounted(async () => {
 
 .cover-row .cover-card {
   flex: 1;
-  aspect-ratio: 1;
+  aspect-ratio: 3/4;
 }
 
 /* ── Section 2: Featured grid ─────────────────────────────────────────── */
@@ -367,105 +504,160 @@ onMounted(async () => {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 0.75rem;
-  max-width: 700px;
+  max-width: 600px;
 }
 
 .cover-grid .cover-card {
-  aspect-ratio: 1;
+  aspect-ratio: 3 / 4;
 }
 
-/* ── Section 3: Recently Added ────────────────────────────────────────── */
-.recent-list {
+/* ── Footer ───────────────────────────────────────────────────────────── */
+.footer {
+  border-top: 1px solid var(--border);
+  padding: 3.5rem 2.5rem 2rem;
+  background: var(--bg);
+}
+
+.footer-inner {
+  margin: 0 auto;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 3rem;
+  padding-bottom: 2.5rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.footer-brand {
   display: flex;
   flex-direction: column;
-  gap: 0.35rem;
+  gap: 0.5rem;
 }
 
-.recent-item {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  padding: 0.6rem 0.75rem;
-  border-radius: 9px;
-  border: none;
-  background: transparent;
-  cursor: pointer;
-  width: 100%;
-  text-align: left;
-  transition: background 0.12s;
-}
-
-.recent-item:hover {
-  background: var(--surface-2);
-}
-
-.recent-item:hover .recent-arrow {
-  opacity: 1;
-  transform: translateX(2px);
-}
-
-.recent-rank {
-  flex-shrink: 0;
-  width: 1.5rem;
-  font-size: 0.78rem;
-  font-weight: 600;
-  color: var(--text-muted);
-  text-align: center;
-}
-
-.recent-thumb {
-  flex-shrink: 0;
-  width: 46px;
-  height: 46px;
-  border-radius: 7px;
-  overflow: hidden;
-  background: var(--surface-2);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.recent-thumb img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.thumb-fallback {
-  font-size: 1.3rem;
-}
-
-.recent-info {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 0.15rem;
-}
-
-.recent-game {
-  font-size: 0.88rem;
-  font-weight: 600;
+.footer-logo {
+  font-family: "Bebas Neue", sans-serif;
+  font-size: 1.8rem;
+  letter-spacing: 0.06em;
   color: var(--text-primary);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  line-height: 1;
 }
 
-.recent-meta {
+.footer-tagline {
+  margin: 0;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  max-width: 220px;
+  line-height: 1.5;
+}
+
+.footer-nav {
+  display: flex;
+  gap: 4rem;
+}
+
+.footer-col {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.footer-col-heading {
+  margin: 0 0 0.25rem;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.footer-link {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  text-decoration: none;
+  transition: color 0.15s;
+  width: fit-content;
+}
+
+.footer-link:hover {
+  color: var(--text-primary);
+}
+
+.footer-bottom {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding-top: 1.5rem;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 2rem;
+  flex-wrap: wrap;
+}
+
+.footer-bottom-left {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.footer-copy {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+.footer-disclaimer {
+  margin: 0;
   font-size: 0.72rem;
   color: var(--text-muted);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  opacity: 0.6;
+  max-width: 480px;
 }
 
-.recent-arrow {
-  flex-shrink: 0;
+.footer-meta {
+  margin: 0;
+  font-size: 0.72rem;
   color: var(--text-muted);
-  opacity: 0;
+  opacity: 0.55;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.footer-rss {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  color: inherit;
+  text-decoration: none;
+  transition: opacity 0.15s;
+}
+
+.footer-rss:hover {
+  opacity: 1;
+  color: var(--accent);
+}
+
+.back-to-top {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  font-family: inherit;
+  cursor: pointer;
+  white-space: nowrap;
   transition:
-    opacity 0.12s,
-    transform 0.12s;
+    color 0.15s,
+    border-color 0.15s;
+  flex-shrink: 0;
+}
+
+.back-to-top:hover {
+  color: var(--text-primary);
+  border-color: var(--text-muted);
 }
 </style>

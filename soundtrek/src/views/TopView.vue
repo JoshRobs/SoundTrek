@@ -1,40 +1,58 @@
 <script setup lang="ts">
-import { ref, useTemplateRef } from 'vue'
-import { supabase } from '@/lib/supabase'
-import { useSoundtrackStore } from '@/stores/soundtracks'
-import { useInfiniteScroll } from '@/composables/useInfiniteScroll'
-import PageHero from '@/components/PageHero.vue'
-import TopTrackRow from '@/components/TopTrackRow.vue'
-import type { Soundtrack } from '@/types/soundtrack'
+import { ref, useTemplateRef } from "vue";
+import { useHead } from "@unhead/vue";
+import { supabase } from "@/lib/supabase";
+import { useSoundtrackStore } from "@/stores/soundtracks";
+import { useInfiniteScroll } from "@/composables/useInfiniteScroll";
+import PageHero from "@/components/PageHero.vue";
+import TopTrackRow from "@/components/TopTrackRow.vue";
+import type { Soundtrack } from "@/types/soundtrack";
 
-const PAGE_SIZE = 20
-const items = ref<Soundtrack[]>([])
-const error = ref<string | null>(null)
-const sentinelEl = useTemplateRef<HTMLElement>('sentinel')
+const PAGE_SIZE = 20;
+const items = ref<Soundtrack[]>([]);
+const error = ref<string | null>(null);
+const sentinelEl = useTemplateRef<HTMLElement>("sentinel");
 
 const { loadAll } = useSoundtrackStore()
 
+useHead({
+  title: 'Top Soundtracks | SoundTrek',
+  meta: [
+    { name: 'description', content: 'The most popular video game soundtracks on SoundTrek, ranked by listener likes.' },
+    { property: 'og:title', content: 'Top Soundtracks | SoundTrek' },
+    { property: 'og:description', content: 'The most popular video game soundtracks on SoundTrek, ranked by listener likes.' },
+    { property: 'og:url', content: 'https://soundtrek.app/top' },
+  ],
+});
+
 const { loading, exhausted } = useInfiniteScroll(sentinelEl, async () => {
-  const from = items.value.length
+  const from = items.value.length;
   const { data, error: err } = await supabase
-    .from('soundtracks')
-    .select('*')
-    .order('likes', { ascending: false })
-    .order('created_at', { ascending: true })
-    .range(from, from + PAGE_SIZE - 1)
+    .from("soundtracks")
+    .select("*")
+    .order("likes", { ascending: false })
+    .order("created_at", { ascending: true })
+    .range(from, from + PAGE_SIZE - 1);
 
-  if (err) { error.value = err.message; return false }
-  items.value.push(...(data ?? []))
-  return (data?.length ?? 0) >= PAGE_SIZE
-})
+  if (err) {
+    error.value = err.message;
+    return false;
+  }
+  items.value.push(...(data ?? []));
+  return (data?.length ?? 0) >= PAGE_SIZE;
+});
 
-loadAll()
+loadAll();
 </script>
 
 <template>
   <div class="page">
     <div class="page-inner">
-      <PageHero label="Charts" title="Top Soundtracks" subtitle="Ranked by community likes" />
+      <PageHero
+        label="Charts"
+        title="Top Soundtracks"
+        subtitle="Ranked by community likes"
+      />
 
       <div v-if="error" class="error">{{ error }}</div>
 
@@ -63,11 +81,10 @@ loadAll()
 <style scoped>
 .page {
   flex: 1;
-  overflow-y: auto;
 }
 
 .page-inner {
-  max-width: 760px;
+  max-width: 860px;
   width: 100%;
   margin: 0 auto;
   padding: 0 1.5rem 4rem;
@@ -104,8 +121,16 @@ loadAll()
   font-size: 0.85rem;
 }
 
-.end-note { margin: 0; font-size: 0.8rem; color: var(--text-muted); }
-.error { padding: 2rem; color: #f87171; font-size: 0.9rem; }
+.end-note {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+.error {
+  padding: 2rem;
+  color: #f87171;
+  font-size: 0.9rem;
+}
 
 .spinner {
   --spinner-size: 20px;

@@ -1,11 +1,22 @@
 <script setup lang="ts">
 import { storeToRefs } from "pinia";
+import { useHead } from "@unhead/vue";
 import { useSoundtrackStore } from "@/stores/soundtracks";
 import ExploreRow from "@/components/ExploreRow.vue";
 
 const store = useSoundtrackStore();
 const { exploreRows, loading } = storeToRefs(store);
-store.loadAll();
+store.loadAll()
+
+useHead({
+  title: 'Explore | SoundTrek',
+  meta: [
+    { name: 'description', content: 'Explore video game soundtracks by genre, mood, theme, and console on SoundTrek.' },
+    { property: 'og:title', content: 'Explore | SoundTrek' },
+    { property: 'og:description', content: 'Explore video game soundtracks by genre, mood, theme, and console on SoundTrek.' },
+    { property: 'og:url', content: 'https://soundtrek.app/explore' },
+  ],
+});
 </script>
 
 <template>
@@ -42,7 +53,6 @@ store.loadAll();
 <style scoped>
 .page {
   flex: 1;
-  overflow-y: auto;
 }
 
 .page-inner {

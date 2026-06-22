@@ -1,15 +1,13 @@
 <script setup lang="ts">
 import { useRouter } from "vue-router";
-import { useSoundtrackStore } from "@/stores/soundtracks";
 import type { Soundtrack } from "@/types/soundtrack";
 
 const props = defineProps<{ soundtrack: Soundtrack }>();
 const router = useRouter();
-const store = useSoundtrackStore();
 </script>
 
 <template>
-  <div class="card" @click="router.push(`/discover?id=${props.soundtrack.id}`)">
+  <div class="card" @click="router.push(`/soundtrack/${props.soundtrack.id}`)">
     <div class="cover">
       <img
         v-if="soundtrack.cover_image_url"
@@ -18,15 +16,22 @@ const store = useSoundtrackStore();
       />
       <span v-else class="fallback">🎮</span>
 
-      <button
-        class="play-btn"
-        aria-label="Play"
-        @click.stop="store.setNowPlaying(props.soundtrack)"
-      >
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-          <path d="M8 5v14l11-7z" />
+      <div class="hover-overlay">
+        <svg
+          class="arrow"
+          width="24"
+          height="24"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+          <circle cx="12" cy="12" r="3" />
         </svg>
-      </button>
+      </div>
     </div>
     <p class="title">{{ soundtrack.game_title }}</p>
     <span class="meta"
@@ -45,14 +50,13 @@ const store = useSoundtrackStore();
   padding: 0;
   cursor: pointer;
   text-align: left;
-  width: 280px;
+  max-width: 280px;
+  height: 400px;
   flex-shrink: 0;
 }
 
 .cover {
   position: relative;
-  width: 280px;
-  height: 280px;
   border-radius: 10px;
   overflow: hidden;
   background: var(--surface-2);
@@ -79,26 +83,26 @@ const store = useSoundtrackStore();
   font-size: 2.5rem;
 }
 
-.play-btn {
+.hover-overlay {
   position: absolute;
   inset: 0;
+  background: rgba(0, 0, 0, 0.35);
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(0, 0, 0, 0.45);
-  border: none;
-  color: #fff;
-  cursor: pointer;
+  padding: 10px;
   opacity: 0;
   transition: opacity 0.15s;
+  color: #fff;
 }
 
-.card:hover .play-btn {
+.card:hover .hover-overlay {
   opacity: 1;
 }
 
-.play-btn svg {
-  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.5));
+.arrow {
+  opacity: 0.7;
+  filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.6));
 }
 
 .title {

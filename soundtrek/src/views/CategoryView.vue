@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
+import { useHead } from '@unhead/vue'
 import { useRoute } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import { useSoundtrackStore } from '@/stores/soundtracks'
@@ -36,6 +37,16 @@ const categoryName = computed(() => {
   }
   return slug.value
 })
+
+useHead(computed(() => ({
+  title: `${categoryName.value} Soundtracks | SoundTrek`,
+  meta: [
+    { name: 'description', content: `Browse video game soundtracks tagged with ${categoryName.value} on SoundTrek.` },
+    { property: 'og:title', content: `${categoryName.value} Soundtracks | SoundTrek` },
+    { property: 'og:description', content: `Browse video game soundtracks tagged with ${categoryName.value} on SoundTrek.` },
+    { property: 'og:url', content: `https://soundtrek.app/category/${type.value}/${slug.value}` },
+  ],
+})))
 
 const typeLabel = computed(() => {
   const map: Record<string, string> = { genre: 'Genre', mood: 'Mood', theme: 'Theme', console: 'Console' }
@@ -94,7 +105,6 @@ const sortedItems = computed(() => {
 <style scoped>
 .page {
   flex: 1;
-  overflow-y: auto;
 }
 
 .page-inner {

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted } from 'vue'
+import { useHead } from '@unhead/vue'
 import { storeToRefs } from 'pinia'
 import { useSoundtrackStore } from '@/stores/soundtracks'
 import PageHero from '@/components/PageHero.vue'
@@ -7,6 +8,16 @@ import TopComposerRow from '@/components/TopComposerRow.vue'
 
 const store = useSoundtrackStore()
 const { allSoundtracks, loading, error } = storeToRefs(store)
+
+useHead({
+  title: 'Top Composers | SoundTrek',
+  meta: [
+    { name: 'description', content: 'The most celebrated video game composers on SoundTrek, ranked by popularity.' },
+    { property: 'og:title', content: 'Top Composers | SoundTrek' },
+    { property: 'og:description', content: 'The most celebrated video game composers on SoundTrek, ranked by popularity.' },
+    { property: 'og:url', content: 'https://soundtrek.app/top-composers' },
+  ],
+})
 
 const composers = computed(() => {
   const map = new Map<string, { trackCount: number; totalLikes: number }>()
@@ -53,7 +64,6 @@ onMounted(() => store.loadAll())
 <style scoped>
 .page {
   flex: 1;
-  overflow-y: auto;
 }
 
 .page-inner {

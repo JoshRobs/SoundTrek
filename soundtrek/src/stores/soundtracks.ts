@@ -215,7 +215,7 @@ export const useSoundtrackStore = defineStore("soundtracks", () => {
 
   async function fetchSoundtracks() {
     await loadAll();
-    if (!error.value) pickNext();
+    if (!error.value && !currentSoundtrack.value) pickNext();
   }
 
   function resetFilters() {

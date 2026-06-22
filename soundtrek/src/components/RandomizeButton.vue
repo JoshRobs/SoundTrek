@@ -56,12 +56,12 @@
   position: relative;
   border-radius: 8px;
   background: hsl(248, 53%, 58%);
-  padding: 16px 32px;
+  padding: 20px 36px;
   color: white;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 1.5px;
-  font-size: 1rem;
+  font-size: 1.3rem;
   transform: translateY(-4px);
   transition: transform 600ms cubic-bezier(0.3, 0.7, 0.4, 1);
 }
