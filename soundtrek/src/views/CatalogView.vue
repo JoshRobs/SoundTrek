@@ -85,7 +85,7 @@ function scrollTo(letter: string) {
           <li v-for="s in tracks" :key="s.id" class="track-item">
             <RouterLink :to="`/soundtrack/${s.id}`" class="track-link">
               {{ s.game_title }}
-              <span class="track-meta">{{ s.composer }} · {{ s.release_year }}</span>
+              <span class="track-meta">{{ s.composers.join(', ') || s.studio }} · {{ s.release_year }}</span>
             </RouterLink>
           </li>
         </ul>

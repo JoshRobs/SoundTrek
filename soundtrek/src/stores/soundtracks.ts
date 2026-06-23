@@ -90,14 +90,40 @@ export const useSoundtrackStore = defineStore("soundtracks", () => {
       .map(([t]) => t);
   });
 
+  const topMoods = computed(() => {
+    const counts = new Map<string, number>();
+    allSoundtracks.value.forEach((s) =>
+      (s.mood_tags ?? []).forEach((m) =>
+        counts.set(m, (counts.get(m) ?? 0) + 1),
+      ),
+    );
+    return [...counts.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 9)
+      .map(([m]) => m);
+  });
+
   const topComposers = computed(() => {
     const counts = new Map<string, number>();
     allSoundtracks.value.forEach((s) =>
-      counts.set(s.composer, (counts.get(s.composer) ?? 0) + 1),
+      (s.composers ?? []).forEach((c) =>
+        counts.set(c, (counts.get(c) ?? 0) + 1),
+      ),
     );
     return [...counts.entries()]
       .sort((a, b) => b[1] - a[1])
       .slice(0, 5)
+      .map(([name, count]) => ({ name, count }));
+  });
+
+  const topStudios = computed(() => {
+    const counts = new Map<string, number>();
+    allSoundtracks.value.forEach((s) =>
+      counts.set(s.studio, (counts.get(s.studio) ?? 0) + 1),
+    );
+    return [...counts.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 6)
       .map(([name, count]) => ({ name, count }));
   });
 
@@ -125,7 +151,7 @@ export const useSoundtrackStore = defineStore("soundtracks", () => {
           rows.push({
             type,
             label,
-            items: [...items].sort((a, b) => b.likes - a.likes).slice(0, 15),
+            items: [...items].sort(() => Math.random() - 0.5).slice(0, 15),
           }),
         );
     }
@@ -248,7 +274,9 @@ export const useSoundtrackStore = defineStore("soundtracks", () => {
     featuredSoundtracks,
     topGenres,
     topThemes,
+    topMoods,
     topComposers,
+    topStudios,
     // Filter options
     availableMoods,
     availableGenres,

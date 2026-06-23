@@ -16,7 +16,8 @@ export interface StreamingLink {
 export interface Soundtrack {
   id: string
   game_title: string
-  composer: string
+  studio: string
+  composers: string[]
   console: string
   release_year: number
   cover_image_url: string | null
@@ -36,6 +37,7 @@ export interface Soundtrack {
 export interface Composer {
   slug: string
   name: string
+  bio: string | null
   support_url: string | null
   created_at: string
 }

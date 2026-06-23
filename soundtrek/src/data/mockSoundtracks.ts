@@ -7,7 +7,8 @@ export const mockSoundtracks: Soundtrack[] = [
   {
     id: '1',
     game_title: 'Chrono Trigger',
-    composer: 'Yasunori Mitsuda, Nobuo Uematsu',
+    studio: 'Square',
+    composers: ['Yasunori Mitsuda', 'Nobuo Uematsu'],
     console: 'SNES',
     release_year: 1995,
     cover_image_url: null,
@@ -24,7 +25,8 @@ export const mockSoundtracks: Soundtrack[] = [
   {
     id: '2',
     game_title: 'Final Fantasy VII',
-    composer: 'Nobuo Uematsu',
+    studio: 'Square',
+    composers: ['Nobuo Uematsu'],
     console: 'PlayStation',
     release_year: 1997,
     cover_image_url: null,
@@ -41,7 +43,8 @@ export const mockSoundtracks: Soundtrack[] = [
   {
     id: '3',
     game_title: 'Undertale',
-    composer: 'Toby Fox',
+    studio: 'tobyfox',
+    composers: ['Toby Fox'],
     console: 'PC',
     release_year: 2015,
     cover_image_url: null,
@@ -58,7 +61,8 @@ export const mockSoundtracks: Soundtrack[] = [
   {
     id: '4',
     game_title: 'Halo: Combat Evolved',
-    composer: "Martin O'Donnell & Michael Salvatori",
+    studio: 'Bungie',
+    composers: ["Martin O'Donnell", 'Michael Salvatori'],
     console: 'Xbox',
     release_year: 2001,
     cover_image_url: null,
@@ -75,7 +79,8 @@ export const mockSoundtracks: Soundtrack[] = [
   {
     id: '5',
     game_title: 'Persona 5',
-    composer: 'Shoji Meguro',
+    studio: 'Atlus',
+    composers: ['Shoji Meguro'],
     console: 'PlayStation 4',
     release_year: 2016,
     cover_image_url: null,
@@ -92,7 +97,8 @@ export const mockSoundtracks: Soundtrack[] = [
   {
     id: '6',
     game_title: 'Hollow Knight',
-    composer: 'Christopher Larkin',
+    studio: 'Team Cherry',
+    composers: ['Christopher Larkin'],
     console: 'PC',
     release_year: 2017,
     cover_image_url: null,
@@ -109,7 +115,8 @@ export const mockSoundtracks: Soundtrack[] = [
   {
     id: '7',
     game_title: 'DOOM (2016)',
-    composer: 'Mick Gordon',
+    studio: 'id Software',
+    composers: ['Mick Gordon'],
     console: 'PlayStation 4',
     release_year: 2016,
     cover_image_url: null,
@@ -126,7 +133,8 @@ export const mockSoundtracks: Soundtrack[] = [
   {
     id: '8',
     game_title: 'The Legend of Zelda: Ocarina of Time',
-    composer: 'Koji Kondo',
+    studio: 'Nintendo',
+    composers: ['Koji Kondo'],
     console: 'Nintendo 64',
     release_year: 1998,
     cover_image_url: null,
@@ -143,7 +151,8 @@ export const mockSoundtracks: Soundtrack[] = [
   {
     id: '9',
     game_title: 'NieR: Automata',
-    composer: 'Keiichi Okabe',
+    studio: 'PlatinumGames',
+    composers: ['Keiichi Okabe'],
     console: 'PlayStation 4',
     release_year: 2017,
     cover_image_url: null,
@@ -160,7 +169,8 @@ export const mockSoundtracks: Soundtrack[] = [
   {
     id: '10',
     game_title: 'Celeste',
-    composer: 'Lena Raine',
+    studio: 'Maddy Makes Games',
+    composers: ['Lena Raine'],
     console: 'PC',
     release_year: 2018,
     cover_image_url: null,
@@ -177,7 +187,8 @@ export const mockSoundtracks: Soundtrack[] = [
   {
     id: '11',
     game_title: 'Streets of Rage 2',
-    composer: 'Yuzo Koshiro',
+    studio: 'Sega',
+    composers: ['Yuzo Koshiro'],
     console: 'Sega Genesis',
     release_year: 1992,
     cover_image_url: null,
@@ -194,7 +205,8 @@ export const mockSoundtracks: Soundtrack[] = [
   {
     id: '12',
     game_title: 'Shadow of the Colossus',
-    composer: 'Kow Otani',
+    studio: 'Team Ico',
+    composers: ['Kow Otani'],
     console: 'PlayStation 2',
     release_year: 2005,
     cover_image_url: null,
@@ -211,7 +223,8 @@ export const mockSoundtracks: Soundtrack[] = [
   {
     id: '13',
     game_title: 'Stardew Valley',
-    composer: 'ConcernedApe',
+    studio: 'ConcernedApe',
+    composers: ['Eric Barone'],
     console: 'PC',
     release_year: 2016,
     cover_image_url: null,
@@ -228,7 +241,8 @@ export const mockSoundtracks: Soundtrack[] = [
   {
     id: '14',
     game_title: 'Mega Man 2',
-    composer: 'Takashi Tateishi',
+    studio: 'Capcom',
+    composers: ['Takashi Tateishi'],
     console: 'NES',
     release_year: 1988,
     cover_image_url: null,
@@ -245,7 +259,8 @@ export const mockSoundtracks: Soundtrack[] = [
   {
     id: '15',
     game_title: 'Katana ZERO',
-    composer: 'Bill Kiley & Ludowic',
+    studio: 'Askiisoft',
+    composers: ['Bill Kiley', 'Ludowic'],
     console: 'PC',
     release_year: 2019,
     cover_image_url: null,

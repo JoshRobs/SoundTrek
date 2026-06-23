@@ -13,15 +13,23 @@ const items = ref<Soundtrack[]>([]);
 const error = ref<string | null>(null);
 const sentinelEl = useTemplateRef<HTMLElement>("sentinel");
 
-const { loadAll } = useSoundtrackStore()
+const { loadAll } = useSoundtrackStore();
 
 useHead({
-  title: 'Top Soundtracks | SoundTrek',
+  title: "Top Soundtracks | SoundTrek",
   meta: [
-    { name: 'description', content: 'The most popular video game soundtracks on SoundTrek, ranked by listener likes.' },
-    { property: 'og:title', content: 'Top Soundtracks | SoundTrek' },
-    { property: 'og:description', content: 'The most popular video game soundtracks on SoundTrek, ranked by listener likes.' },
-    { property: 'og:url', content: 'https://soundtrek.app/top' },
+    {
+      name: "description",
+      content:
+        "The most popular video game soundtracks on SoundTrek, ranked by listener likes.",
+    },
+    { property: "og:title", content: "Top Soundtracks | SoundTrek" },
+    {
+      property: "og:description",
+      content:
+        "The most popular video game soundtracks on SoundTrek, ranked by listener likes.",
+    },
+    { property: "og:url", content: "https://soundtrek.app/top" },
   ],
 });
 
@@ -84,7 +92,7 @@ loadAll();
 }
 
 .page-inner {
-  max-width: 860px;
+  max-width: 1200px;
   width: 100%;
   margin: 0 auto;
   padding: 0 1.5rem 4rem;

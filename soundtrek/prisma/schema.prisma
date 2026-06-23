@@ -10,6 +10,7 @@ datasource db {
 model Composer {
   slug        String   @id
   name        String
+  bio         String?
   support_url String?
   created_at  DateTime @default(now()) @db.Timestamptz(6)
 
@@ -39,7 +40,8 @@ model Submission {
 model Soundtrack {
   id                  String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   game_title          String
-  composer            String
+  studio              String
+  composers           String[]
   console             String
   release_year        Int
   cover_image_url     String?

@@ -8,7 +8,7 @@ const { featuredSoundtracks } = storeToRefs(useSoundtrackStore());
 
 <template>
   <div class="col">
-    <p class="col-heading">Featured Soundtracks</p>
+    <p class="col-heading">Popular Soundtracks</p>
     <div v-if="featuredSoundtracks.length === 0" class="empty-note">
       Loading…
     </div>
@@ -16,7 +16,7 @@ const { featuredSoundtracks } = storeToRefs(useSoundtrackStore());
       v-for="s in featuredSoundtracks"
       :key="s.id"
       class="feat-item"
-      @click="emit('navigate', `/discover?id=${s.id}`)"
+      @click="emit('navigate', `/soundtrack/${s.id}`)"
     >
       <div class="feat-thumb">
         <img
@@ -28,7 +28,7 @@ const { featuredSoundtracks } = storeToRefs(useSoundtrackStore());
       </div>
       <div class="feat-info">
         <span class="feat-title">{{ s.game_title }}</span>
-        <span class="feat-sub">{{ s.composer }} · {{ s.release_year }}</span>
+        <span class="feat-sub">{{ s.composers.join(', ') || s.studio }} · {{ s.release_year }}</span>
       </div>
     </button>
     <button class="see-more-btn" @click="emit('navigate', '/top')">

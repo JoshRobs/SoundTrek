@@ -77,7 +77,7 @@ watch([width, height], ([w, h]) => {
   localStorage.setItem("player-height", String(h));
 });
 
-watch(nowPlaying, (s) => {
+watch(nowPlaying, (s, prev) => {
   if (!s) return;
   if (skipNextReset) {
     skipNextReset = false;
@@ -86,7 +86,7 @@ watch(nowPlaying, (s) => {
   minimized.value = false;
   const preferSpotify = !!(s.spotify_id && s.spotify_type);
   activeSource.value = preferSpotify ? "spotify" : "youtube";
-  applySourceDefaults(activeSource.value);
+  if (!prev) applySourceDefaults(activeSource.value);
 });
 
 onMounted(() => {
@@ -275,6 +275,20 @@ const hasSource = computed(
     (activeSource.value === "spotify" && hasSpotify.value),
 );
 
+function onGlobalKeydown(e: KeyboardEvent) {
+  if (e.key !== " " || e.ctrlKey || e.metaKey || e.altKey) return;
+  const tag = (e.target as HTMLElement).tagName;
+  if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+  if ((e.target as HTMLElement).isContentEditable) return;
+  if (!nowPlaying.value) return;
+  e.preventDefault();
+  togglePlay();
+}
+
+onMounted(() => {
+  window.addEventListener("keydown", onGlobalKeydown);
+});
+
 onUnmounted(() => {
   window.removeEventListener("mousemove", onResizeMove);
   window.removeEventListener("mouseup", onResizeEnd);
@@ -282,6 +296,7 @@ onUnmounted(() => {
   window.removeEventListener("mouseup", onMoveEnd);
   document.removeEventListener("click", hideContextMenu);
   document.removeEventListener("keydown", onContextMenuKey);
+  window.removeEventListener("keydown", onGlobalKeydown);
 });
 
 // ── Context menu ───────────────────────────────────────────────────────────
@@ -382,7 +397,7 @@ function ctxSwitchSource(src: "youtube" | "spotify") {
     <div class="player-header" @mousedown="onMoveStart">
       <div class="player-title-group">
         <span class="player-game">{{ nowPlaying.game_title }}</span>
-        <span class="player-composer">{{ nowPlaying.composer }}</span>
+        <span class="player-composer">{{ nowPlaying.composers?.join(', ') || nowPlaying.studio }}</span>
       </div>
       <div v-if="minimized && hasSource" class="center-controls">
         <button

@@ -6,6 +6,7 @@ import { useHead } from "@unhead/vue";
 import { useSoundtrackStore } from "@/stores/soundtracks";
 import StreamingLinks from "@/components/StreamingLinks.vue";
 import { toSlug } from "@/utils/slug";
+import { useLikes } from "@/composables/useLikes";
 
 const route = useRoute();
 const router = useRouter();
@@ -14,52 +15,68 @@ const { allSoundtracks } = storeToRefs(store);
 
 const id = route.params.id as string;
 const notFound = ref(false);
-const liked = ref(false);
 const coverColor = ref("");
+const copied = ref(false);
+const { isLiked, toggleLike: rawToggle } = useLikes();
 
 const track = computed(
   () => allSoundtracks.value.find((s) => s.id === id) ?? null,
 );
 
-useHead(computed(() => {
-  const t = track.value
-  const title = t ? `${t.game_title} OST | SoundTrek` : 'SoundTrek'
-  const description = t
-    ? `Listen to the ${t.game_title} soundtrack by ${t.composer} (${t.release_year}) on SoundTrek.`
-    : ''
-  const pageUrl = `https://soundtrek.app/soundtrack/${id}`
-  return {
-    title,
-    meta: [
-      { name: 'description', content: description },
-      { property: 'og:type', content: 'music.album' },
-      { property: 'og:title', content: title },
-      { property: 'og:description', content: description },
-      { property: 'og:url', content: pageUrl },
-      { property: 'og:image', content: t?.cover_image_url ?? '' },
-      { name: 'twitter:title', content: title },
-      { name: 'twitter:description', content: description },
-      { name: 'twitter:image', content: t?.cover_image_url ?? '' },
-    ],
-    script: t ? [{
-      type: 'application/ld+json',
-      innerHTML: JSON.stringify({
-        '@context': 'https://schema.org',
-        '@type': 'MusicAlbum',
-        name: `${t.game_title} OST`,
-        byArtist: { '@type': 'Person', name: t.composer },
-        datePublished: String(t.release_year),
-        image: t.cover_image_url,
-        url: pageUrl,
-      }),
-    }] : [],
-  }
-}))
+useHead(
+  computed(() => {
+    const t = track.value;
+    const title = t ? `${t.game_title} OST | SoundTrek` : "SoundTrek";
+    const description = t
+      ? `Listen to the ${t.game_title} soundtrack by ${(t.composers ?? []).join(", ") || t.studio} (${t.release_year}) on SoundTrek.`
+      : "";
+    const pageUrl = `https://soundtrek.app/soundtrack/${id}`;
+    return {
+      title,
+      meta: [
+        { name: "description", content: description },
+        { property: "og:type", content: "music.album" },
+        { property: "og:title", content: title },
+        { property: "og:description", content: description },
+        { property: "og:url", content: pageUrl },
+        { property: "og:image", content: t?.cover_image_url ?? "" },
+        { name: "twitter:title", content: title },
+        { name: "twitter:description", content: description },
+        { name: "twitter:image", content: t?.cover_image_url ?? "" },
+      ],
+      script: t
+        ? [
+            {
+              type: "application/ld+json",
+              innerHTML: JSON.stringify({
+                "@context": "https://schema.org",
+                "@type": "MusicAlbum",
+                name: `${t.game_title} OST`,
+                byArtist:
+                  (t.composers ?? []).length > 1
+                    ? (t.composers ?? []).map((c) => ({
+                        "@type": "Person",
+                        name: c,
+                      }))
+                    : {
+                        "@type": "Person",
+                        name: (t.composers ?? [])[0] ?? t.studio,
+                      },
+                datePublished: String(t.release_year),
+                image: t.cover_image_url,
+                url: pageUrl,
+              }),
+            },
+          ]
+        : [],
+    };
+  }),
+);
 
-const moreFromComposer = computed(() => {
+const moreFromStudio = computed(() => {
   if (!track.value) return [];
   return allSoundtracks.value
-    .filter((s) => s.composer === track.value!.composer && s.id !== id)
+    .filter((s) => s.studio === track.value!.studio && s.id !== id)
     .slice(0, 12);
 });
 
@@ -68,7 +85,7 @@ const similarSoundtracks = computed(() => {
   const genres = new Set(track.value.genre_tags ?? []);
   const moods = new Set(track.value.mood_tags ?? []);
   return allSoundtracks.value
-    .filter((s) => s.id !== id && s.composer !== track.value!.composer)
+    .filter((s) => s.id !== id && s.studio !== track.value!.studio)
     .map((s) => ({
       s,
       score:
@@ -160,9 +177,27 @@ function play() {
 
 function toggleLike() {
   if (!track.value) return;
-  const delta = liked.value ? -1 : 1;
-  liked.value = !liked.value;
+  const delta = rawToggle(id);
   store.likeSoundtrack(id, delta);
+}
+
+async function share() {
+  const url = `https://soundtrek.app/soundtrack/${id}`;
+  const isTouchOnly = window.matchMedia("(hover: none) and (pointer: coarse)").matches;
+  if (isTouchOnly && navigator.share) {
+    try {
+      await navigator.share({
+        title: track.value ? `${track.value.game_title} OST` : "SoundTrek",
+        url,
+      });
+    } catch {
+      // user cancelled
+    }
+    return;
+  }
+  await navigator.clipboard.writeText(url);
+  copied.value = true;
+  setTimeout(() => (copied.value = false), 2000);
 }
 
 onMounted(async () => {
@@ -246,11 +281,21 @@ onUnmounted(() => {
           </div>
 
           <h1 class="game-title">{{ track.game_title }}</h1>
-          <RouterLink
-            :to="`/composer/${toSlug(track.composer)}`"
-            class="composer"
-            >{{ track.composer }}</RouterLink
-          >
+          <div class="composers">
+            <RouterLink
+              v-for="c in track.composers"
+              :key="c"
+              :to="`/composer/${toSlug(c)}`"
+              class="composer-link"
+              >{{ c }}</RouterLink
+            >
+            <RouterLink
+              :to="`/studio/${toSlug(track.studio)}`"
+              class="studio-link"
+            >
+              {{ track.studio }}
+            </RouterLink>
+          </div>
 
           <div class="actions">
             <button class="play-btn" @click="play">
@@ -266,7 +311,11 @@ onUnmounted(() => {
               Play
             </button>
 
-            <button class="like-btn" :class="{ liked }" @click="toggleLike">
+            <button
+              class="like-btn"
+              :class="{ liked: isLiked(id) }"
+              @click="toggleLike"
+            >
               <svg
                 width="18"
                 height="18"
@@ -282,6 +331,40 @@ onUnmounted(() => {
                 />
               </svg>
               {{ track.likes }}
+            </button>
+
+            <button class="share-btn" @click="share">
+              <svg
+                v-if="!copied"
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <circle cx="18" cy="5" r="3" />
+                <circle cx="6" cy="12" r="3" />
+                <circle cx="18" cy="19" r="3" />
+                <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" />
+                <line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
+              </svg>
+              <svg
+                v-else
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2.5"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <polyline points="20 6 9 17 4 12" />
+              </svg>
+              {{ copied ? "Copied!" : "Share" }}
             </button>
           </div>
 
@@ -309,9 +392,9 @@ onUnmounted(() => {
       <StreamingLinks :links="track.streaming_links" />
     </div>
 
-    <!-- More from composer -->
-    <div v-if="moreFromComposer.length" class="related-section">
-      <h2 class="related-heading">More from {{ track.composer }}</h2>
+    <!-- More from studio -->
+    <div v-if="moreFromStudio.length" class="related-section">
+      <h2 class="related-heading">More from {{ track.studio }}</h2>
       <div class="row-wrap">
         <div
           :ref="
@@ -322,7 +405,7 @@ onUnmounted(() => {
           class="scroll-row"
         >
           <RouterLink
-            v-for="s in moreFromComposer"
+            v-for="s in moreFromStudio"
             :key="s.id"
             :to="`/soundtrack/${s.id}`"
             class="related-card"
@@ -409,7 +492,7 @@ onUnmounted(() => {
               <span v-else class="related-fallback">🎮</span>
             </div>
             <p class="related-title">{{ s.game_title }}</p>
-            <p class="related-meta">{{ s.composer }} · {{ s.release_year }}</p>
+            <p class="related-meta">{{ s.studio }} · {{ s.release_year }}</p>
           </RouterLink>
         </div>
         <Transition name="fade">
@@ -538,7 +621,7 @@ onUnmounted(() => {
   flex-shrink: 0;
   border-radius: 12px;
   overflow: hidden;
-  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.6);
+  box-shadow: 0 0px 60px rgba(0, 0, 0, 0.6);
   background: var(--surface-2);
   cursor: pointer;
   transition: box-shadow 0.5s ease;
@@ -548,7 +631,7 @@ onUnmounted(() => {
   box-shadow:
     0 0 0 2px
       color-mix(in srgb, var(--cover-color, var(--accent)) 75%, transparent),
-    0 32px 80px
+    0 0px 60px
       color-mix(in srgb, var(--cover-color, #000) 25%, rgba(0, 0, 0, 0.75));
 }
 
@@ -634,17 +717,42 @@ onUnmounted(() => {
   margin: 0 0 0.5rem;
 }
 
-.composer {
-  font-size: 1.05rem;
-  color: var(--text-secondary);
+.composers {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem 0.5rem;
   margin: 0 0 1.75rem;
+  font-size: 1.05rem;
+}
+
+.composer-link {
+  color: var(--text-secondary);
   text-decoration: none;
-  display: block;
   transition: color 0.15s;
 }
 
-.composer:hover {
+.composer-link:hover {
   color: var(--text-primary);
+}
+
+.composer-link + .composer-link::before,
+.studio-link::before {
+  content: "·";
+  margin-right: 0.5rem;
+  color: var(--text-muted);
+  opacity: 0.4;
+}
+
+.studio-link {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  text-decoration: none;
+  transition: color 0.15s;
+}
+
+.studio-link:hover {
+  color: var(--text-secondary);
 }
 
 /* ── Actions ──────────────────────────────────────────────────────────────── */
@@ -711,6 +819,29 @@ onUnmounted(() => {
 .like-btn.liked svg {
   fill: #f5686c;
   stroke: #f5686c;
+}
+
+.share-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.65rem 1rem;
+  border-radius: 99px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0.88rem;
+  cursor: pointer;
+  transition:
+    border-color 0.15s,
+    color 0.15s,
+    background 0.15s;
+}
+
+.share-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent-light, var(--accent));
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
 }
 
 /* ── Tags ─────────────────────────────────────────────────────────────────── */

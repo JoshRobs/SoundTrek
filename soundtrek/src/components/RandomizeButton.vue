@@ -52,16 +52,20 @@
 }
 
 .front {
+  font-family: "Press Start 2P";
   display: block;
   position: relative;
   border-radius: 8px;
   background: hsl(248, 53%, 58%);
-  padding: 20px 36px;
-  color: white;
+  padding: 20px 26px;
+  color: rgb(255, 255, 255);
   font-weight: 600;
+  text-shadow:
+    -1px -1px black,
+    2px 2px rgb(0, 0, 0);
   text-transform: uppercase;
   letter-spacing: 1.5px;
-  font-size: 1.3rem;
+  font-size: 1rem;
   transform: translateY(-4px);
   transition: transform 600ms cubic-bezier(0.3, 0.7, 0.4, 1);
 }

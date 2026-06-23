@@ -7,7 +7,11 @@ import PersistentPlayer from '@/components/PersistentPlayer.vue'
   <div class="app-shell">
     <AppHeader />
     <div id="app-main" class="app-main">
-      <RouterView :key="$route.fullPath" />
+      <RouterView v-slot="{ Component }">
+        <KeepAlive include="TopView">
+          <component :is="Component" :key="$route.fullPath" />
+        </KeepAlive>
+      </RouterView>
     </div>
     <PersistentPlayer />
   </div>

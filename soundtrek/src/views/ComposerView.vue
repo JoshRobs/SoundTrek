@@ -4,21 +4,31 @@ import { useHead } from "@unhead/vue";
 import { useRoute } from "vue-router";
 import { storeToRefs } from "pinia";
 import { useSoundtrackStore } from "@/stores/soundtracks";
+import { useComposerStore } from "@/stores/composers";
 import { toSlug } from "@/utils/slug";
 import PageHero from "@/components/PageHero.vue";
+import SupportButton from "@/components/SupportButton.vue";
 
 const route = useRoute();
 const store = useSoundtrackStore();
+const composerStore = useComposerStore();
 const { allSoundtracks, loading, error } = storeToRefs(store);
 
 const slug = computed(() => route.params.slug as string);
 
+const profile = computed(() => composerStore.cache.get(slug.value) ?? null);
+
 const composerSoundtracks = computed(() =>
-  allSoundtracks.value.filter((s) => toSlug(s.composer) === slug.value),
+  allSoundtracks.value.filter((s) =>
+    (s.composers ?? []).some((c) => toSlug(c) === slug.value),
+  ),
 );
 
 const composerName = computed(
-  () => composerSoundtracks.value[0]?.composer ?? slug.value.replace(/-/g, " "),
+  () =>
+    profile.value?.name ??
+    composerSoundtracks.value[0]?.composers?.find((c) => toSlug(c) === slug.value) ??
+    slug.value.replace(/-/g, " "),
 );
 
 const subtitle = computed(
@@ -26,17 +36,19 @@ const subtitle = computed(
     `${composerSoundtracks.value.length} ${composerSoundtracks.value.length === 1 ? "soundtrack" : "soundtracks"} in SoundTrek`,
 );
 
-onMounted(() => store.loadAll());
+onMounted(async () => {
+  await Promise.all([store.loadAll(), composerStore.fetchComposer(slug.value)]);
+});
 
 useHead(computed(() => ({
   title: `${composerName.value} | SoundTrek`,
   meta: [
-    { name: 'description', content: `Listen to ${composerName.value}'s video game soundtracks on SoundTrek.` },
-    { property: 'og:title', content: `${composerName.value} | SoundTrek` },
-    { property: 'og:description', content: `Listen to ${composerName.value}'s video game soundtracks on SoundTrek.` },
-    { property: 'og:url', content: `https://soundtrek.app/composer/${slug.value}` },
+    { name: "description", content: `Listen to ${composerName.value}'s video game soundtracks on SoundTrek.` },
+    { property: "og:title", content: `${composerName.value} | SoundTrek` },
+    { property: "og:description", content: `Listen to ${composerName.value}'s video game soundtracks on SoundTrek.` },
+    { property: "og:url", content: `https://soundtrek.app/composer/${slug.value}` },
   ],
-})))
+})));
 </script>
 
 <template>
@@ -53,6 +65,10 @@ useHead(computed(() => ({
     <template v-else>
       <div class="page-inner">
         <PageHero label="Composer" :title="composerName" :subtitle="subtitle" />
+
+        <div v-if="profile?.bio" class="bio">{{ profile.bio }}</div>
+
+        <SupportButton :composer-name="composerName" />
 
         <div v-if="composerSoundtracks.length === 0" class="state">
           <p>No soundtracks found for this composer.</p>
@@ -100,10 +116,19 @@ useHead(computed(() => ({
   padding: 0 1.5rem 3rem;
 }
 
+.bio {
+  font-size: 0.95rem;
+  color: var(--text-secondary);
+  line-height: 1.6;
+  margin-bottom: 1.5rem;
+  max-width: 680px;
+}
+
 .grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
   gap: 1.25rem;
+  margin-top: 1.5rem;
 }
 
 .grid-card {

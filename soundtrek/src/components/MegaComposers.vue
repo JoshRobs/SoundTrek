@@ -23,11 +23,11 @@ const { topComposers } = storeToRefs(useSoundtrackStore());
       >
     </button>
 
-    <button class="rankings-btn" @click="emit('navigate', '/top-composers')">
-      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M18 20V10M12 20V4M6 20v-6"/>
+    <button class="see-more-btn" @click="emit('navigate', '/top-composers')">
+      See more
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M5 12h14M12 5l7 7-7 7" />
       </svg>
-      See full rankings
     </button>
   </div>
 </template>
@@ -89,25 +89,23 @@ const { topComposers } = storeToRefs(useSoundtrackStore());
   padding: 0.25rem 0.5rem;
 }
 
-.rankings-btn {
+.see-more-btn {
   display: flex;
   align-items: center;
-  gap: 0.4rem;
-  margin-top: 0.6rem;
-  padding: 0.45rem 0.9rem;
-  border-radius: 7px;
-  border: 1px solid var(--border);
+  gap: 0.35rem;
+  margin-top: 0.5rem;
+  padding: 0.3rem 0.5rem;
+  border: none;
   background: transparent;
-  color: var(--text-secondary);
-  font-size: 0.78rem;
+  color: var(--accent-light);
+  font-size: 1rem;
+  font-weight: 500;
   cursor: pointer;
-  align-self: flex-start;
-  transition: color 0.15s, border-color 0.15s, background 0.15s;
+  border-radius: 5px;
+  transition: background 0.12s;
 }
 
-.rankings-btn:hover {
-  color: var(--text-primary);
-  border-color: var(--accent);
-  background: color-mix(in srgb, var(--accent) 8%, transparent);
+.see-more-btn:hover {
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
 }
 </style>

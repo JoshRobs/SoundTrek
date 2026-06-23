@@ -115,7 +115,7 @@ onMounted(async () => {
         >
       </p>
       <p class="tagline">Discover video game soundtracks</p>
-      <GameSearchBox @select="(id) => router.push(`/discover?id=${id}`)" />
+      <GameSearchBox @select="(id) => router.push(`/soundtrack/${id}`)" />
       <RandomizeButton @click="randomSoundtrack" />
     </div>
 

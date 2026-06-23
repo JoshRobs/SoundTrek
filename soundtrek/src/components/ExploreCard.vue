@@ -35,7 +35,7 @@ const router = useRouter();
     </div>
     <p class="title">{{ soundtrack.game_title }}</p>
     <span class="meta"
-      >{{ soundtrack.composer }} · {{ soundtrack.console }} ·
+      >{{ soundtrack.composers.join(', ') || soundtrack.studio }} · {{ soundtrack.console }} ·
       {{ soundtrack.release_year }}</span
     >
   </div>
@@ -50,13 +50,14 @@ const router = useRouter();
   padding: 0;
   cursor: pointer;
   text-align: left;
-  max-width: 280px;
-  height: 400px;
+  width: 220px;
+  aspect-ratio: 3 / 4;
   flex-shrink: 0;
 }
 
 .cover {
   position: relative;
+  aspect-ratio: 3 / 4;
   border-radius: 10px;
   overflow: hidden;
   background: var(--surface-2);
@@ -117,7 +118,7 @@ const router = useRouter();
 }
 
 .meta {
-  font-size: 0.82rem;
+  font-size: 0.85rem;
   color: var(--text-muted);
   margin: 0;
 }

@@ -27,7 +27,7 @@ const results = computed(() => {
   const composerMatches: { s: typeof allSoundtracks.value[0]; by: 'title' | 'composer' }[] = [];
   for (const s of allSoundtracks.value) {
     if (s.game_title.toLowerCase().includes(q)) titleMatches.push({ s, by: 'title' });
-    else if (s.composer.toLowerCase().includes(q)) composerMatches.push({ s, by: 'composer' });
+    else if ((s.composers ?? []).some((c) => c.toLowerCase().includes(q)) || s.studio.toLowerCase().includes(q)) composerMatches.push({ s, by: 'composer' });
   }
   return [...titleMatches, ...composerMatches].slice(0, 8);
 });
@@ -148,7 +148,7 @@ onMounted(() => {
           </div>
           <div class="item-info">
             <span class="item-title">{{ r.s.game_title }}</span>
-            <span class="item-meta">{{ r.s.composer }} · {{ r.s.release_year }}</span>
+            <span class="item-meta">{{ r.s.composers.join(', ') || r.s.studio }} · {{ r.s.release_year }}</span>
           </div>
         </li>
       </ul>

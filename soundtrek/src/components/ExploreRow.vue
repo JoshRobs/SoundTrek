@@ -143,7 +143,7 @@ function seeAll() {
 }
 
 .row-label {
-  font-size: 1.5rem;
+  font-size: 2rem;
   font-weight: 700;
   color: var(--text-primary);
   margin: 0;

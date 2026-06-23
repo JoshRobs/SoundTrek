@@ -1,18 +1,16 @@
 <script setup lang="ts">
 import { RouterLink, useRouter, useRoute } from "vue-router";
-import { storeToRefs } from "pinia";
 import { useSoundtrackStore } from "@/stores/soundtracks";
+import RandomizeHeaderButton from "./RandomizeHeaderButton.vue";
 import ExploreMenu from "./ExploreMenu.vue";
 import GameSearchBox from "./GameSearchBox.vue";
 
 const router = useRouter();
 const route = useRoute();
 const store = useSoundtrackStore();
-const { allSoundtracks } = storeToRefs(store);
 
 function onSearchSelect(id: string) {
-  const track = allSoundtracks.value.find((s) => s.id === id);
-  if (track) store.setNowPlaying(track);
+  router.push(`/soundtrack/${id}`);
 }
 
 function randomPick() {
@@ -25,27 +23,11 @@ function randomPick() {
   <header class="header">
     <div class="header-left">
       <RouterLink to="/" class="logo">SoundTrek</RouterLink>
+      <RandomizeHeaderButton @click="randomPick" />
     </div>
     <div class="header-center">
       <ExploreMenu />
       <RouterLink to="/catalog" class="nav-link">Catalog</RouterLink>
-      <button class="random-btn" @click="randomPick">
-        <svg
-          width="13"
-          height="13"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-        >
-          <path
-            d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"
-          />
-        </svg>
-        Random Pick
-      </button>
     </div>
     <div id="header-right" class="header-right">
       <div class="header-search">
@@ -76,6 +58,7 @@ function randomPick() {
 .header-left {
   display: flex;
   align-items: center;
+  gap: 40px;
 }
 
 .header-center {
@@ -97,7 +80,11 @@ function randomPick() {
   font-size: 1.5rem;
   letter-spacing: 0.06em;
   text-decoration: none;
-  background: linear-gradient(to right, var(--accent) 50%, var(--text-primary) 50%);
+  background: linear-gradient(
+    to right,
+    var(--accent) 50%,
+    var(--text-primary) 50%
+  );
   background-size: 200% 100%;
   background-position: right;
   -webkit-background-clip: text;
@@ -118,7 +105,9 @@ function randomPick() {
   font-size: 0.85rem;
   font-weight: 500;
   text-decoration: none;
-  transition: color 0.15s, background 0.15s;
+  transition:
+    color 0.15s,
+    background 0.15s;
 }
 
 .nav-link:hover,

@@ -5,17 +5,17 @@ import type { Soundtrack } from "@/types/soundtrack";
 import CardInfoSheet from "./CardInfoSheet.vue";
 import { toSlug } from "@/utils/slug";
 import { useSoundtrackStore } from "@/stores/soundtracks";
+import { useLikes } from "@/composables/useLikes";
 
 const props = defineProps<{ soundtrack: Soundtrack }>();
 defineEmits<{ next: [] }>();
 
 const store = useSoundtrackStore();
 const showSheet = ref(false);
-const liked = ref(false);
+const { isLiked, toggleLike: rawToggle } = useLikes();
 
 function toggleLike() {
-  const delta = liked.value ? -1 : 1;
-  liked.value = !liked.value;
+  const delta = rawToggle(props.soundtrack.id);
   store.likeSoundtrack(props.soundtrack.id, delta);
 }
 
@@ -123,18 +123,20 @@ const consoleSticker = computed(() =>
           <RouterLink :to="`/soundtrack/${soundtrack.id}`" class="game-title-link">
             <h1 class="game-title">{{ soundtrack.game_title }}</h1>
           </RouterLink>
-          <RouterLink
-            :to="`/composer/${toSlug(soundtrack.composer)}`"
-            class="composer"
-            @click.stop
-          >
-            {{ soundtrack.composer }}
-          </RouterLink>
+          <span class="composers">
+            <RouterLink
+              v-for="c in soundtrack.composers"
+              :key="c"
+              :to="`/composer/${toSlug(c)}`"
+              class="composer-link"
+              @click.stop
+            >{{ c }}</RouterLink>
+          </span>
         </div>
         <button
           class="like-btn"
-          :class="{ liked }"
-          :aria-label="liked ? 'Unlike' : 'Like'"
+          :class="{ liked: isLiked(props.soundtrack.id) }"
+          :aria-label="isLiked(props.soundtrack.id) ? 'Unlike' : 'Like'"
           @click="toggleLike"
         >
           <svg
@@ -435,18 +437,28 @@ const consoleSticker = computed(() =>
 }
 
 
-.composer {
+.composers {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 0.3rem;
   margin: 0;
   font-size: 0.78rem;
+  overflow: hidden;
+}
+
+.composer-link {
   color: var(--text-secondary);
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
   text-decoration: none;
   transition: color 0.15s;
 }
 
-.composer:hover {
+.composer-link + .composer-link::before {
+  content: ", ";
+  color: var(--text-muted);
+}
+
+.composer-link:hover {
   color: var(--accent);
 }
 

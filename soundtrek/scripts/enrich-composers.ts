@@ -11,7 +11,7 @@
  * Usage:
  *   npx tsx scripts/enrich-composers.ts
  *   npx tsx scripts/enrich-composers.ts --dry-run
- *   npx tsx scripts/enrich-composers.ts --limit 50
+ *   npx tsx scripts/enrich-composers.ts --limit=50
  */
 
 import { createClient } from '@supabase/supabase-js'
@@ -48,7 +48,7 @@ interface VGMdbAlbum {
 async function searchVGMdb(gameTitle: string): Promise<string | null> {
   await sleep(800) // VGMdb rate limit — be respectful
 
-  const url = `https://vgmdb.net/db/search?q=${encodeURIComponent(gameTitle)}&media=album&format=json`
+  const url = `https://vgmdb.info/search?q=${encodeURIComponent(gameTitle)}&format=json`
 
   let res: Response
   try {
@@ -66,7 +66,6 @@ async function searchVGMdb(gameTitle: string): Promise<string | null> {
 
   if (!albums.length) return null
 
-  // Find the best matching album (prefer exact title match)
   const titleLower = gameTitle.toLowerCase()
   const match = albums.find(a =>
     a.titles?.en?.toLowerCase().includes(titleLower) ||
@@ -76,9 +75,8 @@ async function searchVGMdb(gameTitle: string): Promise<string | null> {
 
   if (!match?.link) return null
 
-  // Fetch the album detail to get composers
   await sleep(500)
-  const albumUrl = `https://vgmdb.net/db/${match.link}?format=json`
+  const albumUrl = `https://vgmdb.info/${match.link}?format=json`
   let albumRes: Response
   try {
     albumRes = await fetch(albumUrl, {
@@ -120,11 +118,9 @@ async function main() {
 
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY)
 
-  // Fetch rows where composer is still a studio name (heuristic: no comma = likely not a real composer name)
-  // You can also target specific rows by adding .eq('composer', 'Unknown') etc.
   const { data: rows, error } = await supabase
     .from('soundtracks')
-    .select('id, game_title, composer')
+    .select('id, game_title, studio, composers')
     .limit(LIMIT)
 
   if (error) throw error
@@ -132,31 +128,35 @@ async function main() {
 
   console.log(`Processing ${rows.length} soundtracks\n`)
 
-  let updated = 0
+  let updated  = 0
   let notFound = 0
 
   for (const row of rows) {
-    process.stdout.write(`→ ${row.game_title} (currently: ${row.composer}) `)
+    const currentComposers: string[] = row.composers ?? []
+    process.stdout.write(`→ ${row.game_title} (studio: ${row.studio}) `)
 
-    const composer = await searchVGMdb(row.game_title)
+    const composerResult = await searchVGMdb(row.game_title)
 
-    if (!composer) {
+    if (!composerResult) {
       console.log('[not found]')
       notFound++
       continue
     }
 
-    if (composer === row.composer) {
+    // VGMdb returns a comma-separated string; split into array
+    const composers = composerResult.split(',').map((c: string) => c.trim()).filter(Boolean)
+
+    if (JSON.stringify(composers) === JSON.stringify(currentComposers)) {
       console.log('[unchanged]')
       continue
     }
 
-    console.log(`→ ${composer}`)
+    console.log(`→ ${composers.join(', ')}`)
 
     if (!DRY_RUN) {
       const { error: updateError } = await supabase
         .from('soundtracks')
-        .update({ composer })
+        .update({ composers })
         .eq('id', row.id)
 
       if (updateError) {

@@ -4,6 +4,7 @@ import { useRouter } from "vue-router";
 import MegaFeatured from "./MegaFeatured.vue";
 import MegaCategories from "./MegaCategories.vue";
 import MegaComposers from "./MegaComposers.vue";
+import MegaStudios from "./MegaStudios.vue";
 
 const router = useRouter();
 const open = ref(false);
@@ -64,6 +65,8 @@ function navigate(path: string) {
           <MegaCategories @navigate="navigate" />
           <div class="col-divider" />
           <MegaComposers @navigate="navigate" />
+          <div class="col-divider" />
+          <MegaStudios @navigate="navigate" />
         </div>
       </div>
     </Transition>
@@ -120,10 +123,10 @@ function navigate(path: string) {
 
 .mega-inner {
   display: grid;
-  grid-template-columns: 1fr auto 1fr auto 1fr;
+  grid-template-columns: 1fr auto 1fr auto 1fr auto 1fr;
   gap: 0;
   padding: 1.75rem 2rem;
-  max-width: 1000px;
+  max-width: 1200px;
   margin: 0 auto;
 }
 

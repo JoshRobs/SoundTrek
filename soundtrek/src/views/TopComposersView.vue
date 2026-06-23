@@ -22,10 +22,12 @@ useHead({
 const composers = computed(() => {
   const map = new Map<string, { trackCount: number; totalLikes: number }>()
   for (const s of allSoundtracks.value) {
-    const entry = map.get(s.composer) ?? { trackCount: 0, totalLikes: 0 }
-    entry.trackCount++
-    entry.totalLikes += s.likes
-    map.set(s.composer, entry)
+    for (const c of s.composers ?? []) {
+      const entry = map.get(c) ?? { trackCount: 0, totalLikes: 0 }
+      entry.trackCount++
+      entry.totalLikes += s.likes
+      map.set(c, entry)
+    }
   }
   return [...map.entries()]
     .map(([name, data]) => ({ name, ...data }))

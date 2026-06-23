@@ -23,7 +23,7 @@ async function main() {
   const { data: soundtracks, error } = await supabase
     .from("soundtracks")
     .select(
-      "id, game_title, composer, release_year, cover_image_url, created_at",
+      "id, game_title, composers, release_year, cover_image_url, created_at",
     )
     .order("created_at", { ascending: false })
     .limit(50);
@@ -33,7 +33,7 @@ async function main() {
   const items = (soundtracks ?? []).map((s) => {
     const link = `${BASE}/soundtrack/${s.id}`;
     const pubDate = new Date(s.created_at).toUTCString();
-    const description = `${escape(s.game_title)} soundtrack by ${escape(s.composer)} (${s.release_year})`;
+    const description = `${escape(s.game_title)} soundtrack by ${(s.composers ?? []).map(escape).join(", ")} (${s.release_year})`;
     const image = s.cover_image_url
       ? `<enclosure url="${escape(s.cover_image_url)}" type="image/jpeg" length="0" />`
       : "";

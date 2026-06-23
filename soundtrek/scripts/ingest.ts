@@ -13,9 +13,9 @@
  * = ~100 searches/day. Default batch size is 80 to leave headroom.
  * Run once per day until your target count is reached.
  *
- * Composer names: IGDB doesn't store composers — the script falls back to the
- * developer studio name. Run scripts/enrich-composers.ts afterwards to patch
- * in real composer names from VGMdb.
+ * Composers: IGDB doesn't store individual composers. The studio name is stored
+ * in the `studio` field and `composers` is left empty. Run enrich-composers.ts
+ * afterwards to populate real composer names from VGMdb.
  */
 
 import { createClient } from '@supabase/supabase-js'
@@ -139,7 +139,6 @@ function parseCoverUrl(url: string): string {
 function parseDeveloper(game: IGDBGame): string {
   const dev = game.involved_companies?.find(c => c.developer)
   const pub = game.involved_companies?.find(c => c.publisher)
-  // Note: this is the studio name, not the composer. Enrich with VGMdb later.
   return dev?.company.name ?? pub?.company.name ?? 'Unknown'
 }
 
@@ -292,7 +291,8 @@ async function main() {
 
     const row = {
       game_title:          game.name,
-      composer:            parseDeveloper(game), // studio name — enrich with VGMdb later
+      studio:              parseDeveloper(game),
+      composers:           [] as string[], // populated by enrich-composers.ts
       console:             parsePlatform(game),
       release_year:        parseReleaseYear(game),
       cover_image_url:     game.cover ? parseCoverUrl(game.cover.url) : null,

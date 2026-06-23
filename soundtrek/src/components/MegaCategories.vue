@@ -1,60 +1,32 @@
 <script setup lang="ts">
 import { storeToRefs } from "pinia";
 import { useSoundtrackStore } from "@/stores/soundtracks";
+import { toSlug } from "@/utils/slug";
 
 const emit = defineEmits<{ navigate: [path: string] }>();
-const { topGenres, topThemes } = storeToRefs(useSoundtrackStore());
+const { topMoods } = storeToRefs(useSoundtrackStore());
 </script>
 
 <template>
   <div class="col">
-    <p class="col-heading">Genres</p>
+    <p class="col-heading">Moods</p>
     <div class="tag-grid">
-      <span v-if="topGenres.length === 0" class="empty-note"
-        >No genres yet</span
-      >
+      <span v-if="topMoods.length === 0" class="empty-note">No moods yet</span>
       <button
-        v-for="g in topGenres"
-        :key="g"
+        v-for="m in topMoods"
+        :key="m"
         class="tag-chip"
-        @click="emit('navigate', `/discover?genre=${encodeURIComponent(g)}`)"
+        @click="emit('navigate', `/category/mood/${toSlug(m)}`)"
       >
-        {{ g }}
+        {{ m }}
       </button>
     </div>
 
-    <p class="col-heading" style="margin-top: 1.25rem">Themes</p>
-    <div class="tag-grid">
-      <span v-if="topThemes.length === 0" class="empty-note"
-        >No themes yet</span
-      >
-      <button
-        v-for="t in topThemes"
-        :key="t"
-        class="tag-chip tag-chip--theme"
-        @click="emit('navigate', `/discover?theme=${encodeURIComponent(t)}`)"
-      >
-        {{ t }}
-      </button>
-    </div>
-
-    <button class="browse-all-btn" @click="emit('navigate', '/explore')">
-      <svg
-        width="13"
-        height="13"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        stroke-width="2"
-        stroke-linecap="round"
-        stroke-linejoin="round"
-      >
-        <rect x="3" y="3" width="7" height="7" />
-        <rect x="14" y="3" width="7" height="7" />
-        <rect x="3" y="14" width="7" height="7" />
-        <rect x="14" y="14" width="7" height="7" />
+    <button class="see-more-btn" @click="emit('navigate', '/explore')">
+      See more
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M5 12h14M12 5l7 7-7 7" />
       </svg>
-      Browse by Category
     </button>
   </div>
 </template>
@@ -102,11 +74,6 @@ const { topGenres, topThemes } = storeToRefs(useSoundtrackStore());
   background: color-mix(in srgb, var(--accent) 10%, transparent);
 }
 
-.tag-chip--theme:hover {
-  border-color: var(--accent-3);
-  color: var(--accent-3);
-  background: color-mix(in srgb, var(--accent-3) 10%, transparent);
-}
 
 .empty-note {
   font-size: 0.75rem;
@@ -114,28 +81,23 @@ const { topGenres, topThemes } = storeToRefs(useSoundtrackStore());
   padding: 0.25rem 0.5rem;
 }
 
-.browse-all-btn {
+.see-more-btn {
   display: flex;
   align-items: center;
-  gap: 0.4rem;
-  margin-top: 1.1rem;
-  padding: 0.45rem 0.9rem;
-  border-radius: 7px;
-  border: 1px solid var(--border);
+  gap: 0.35rem;
+  margin-top: 0.5rem;
+  padding: 0.3rem 0.5rem;
+  border: none;
   background: transparent;
-  color: var(--text-secondary);
-  font-size: 0.78rem;
+  color: var(--accent-light);
+  font-size: 1rem;
+  font-weight: 500;
   cursor: pointer;
-  align-self: flex-start;
-  transition:
-    color 0.15s,
-    border-color 0.15s,
-    background 0.15s;
+  border-radius: 5px;
+  transition: background 0.12s;
 }
 
-.browse-all-btn:hover {
-  color: var(--text-primary);
-  border-color: var(--accent);
-  background: color-mix(in srgb, var(--accent) 8%, transparent);
+.see-more-btn:hover {
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
 }
 </style>

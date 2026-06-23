@@ -33,7 +33,7 @@ function goToSoundtrack() {
     <div class="info">
       <span class="title">{{ soundtrack.game_title }}</span>
       <span class="meta"
-        >{{ soundtrack.composer }} · {{ soundtrack.console }} ·
+        >{{ soundtrack.composers.join(', ') || soundtrack.studio }} · {{ soundtrack.console }} ·
         {{ soundtrack.release_year }}</span
       >
     </div>
@@ -62,9 +62,9 @@ function goToSoundtrack() {
 <style scoped>
 .track-row {
   display: grid;
-  grid-template-columns: 2.5rem 60px 1fr auto auto;
+  grid-template-columns: 2rem 80px 1fr auto auto;
   align-items: center;
-  gap: 1rem;
+  gap: 2rem;
   padding: 0.65rem 0.75rem;
   border-radius: 6px;
   cursor: pointer;
@@ -76,7 +76,7 @@ function goToSoundtrack() {
 }
 
 .rank {
-  font-size: 1.1rem;
+  font-size: 1.6rem;
   font-weight: 700;
   color: var(--text-muted);
   text-align: right;
@@ -95,8 +95,8 @@ function goToSoundtrack() {
 }
 
 .cover {
-  width: 64px;
-  height: 64px;
+  width: 80px;
+  aspect-ratio: 3 / 4;
   border-radius: 5px;
   overflow: hidden;
   background: var(--surface-2);
