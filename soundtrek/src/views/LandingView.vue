@@ -16,7 +16,7 @@ const { playNote } = useNotePlayer();
 // Animate up on hover
 const hoverIn = (el: EventTarget | null, index: number) => {
   if (!el) return;
-  //playNote(index);
+  playNote(index);
   animate(el, {
     y: "-20",
     duration: 200,
@@ -61,7 +61,7 @@ const router = useRouter();
 const store = useSoundtrackStore();
 
 function scrollToTop() {
-  document.getElementById('app-main')?.scrollTo({ top: 0, behavior: 'smooth' });
+  document.getElementById("app-main")?.scrollTo({ top: 0, behavior: "smooth" });
 }
 const { allSoundtracks } = storeToRefs(store);
 
@@ -265,13 +265,21 @@ onMounted(async () => {
           </div>
           <div class="footer-col">
             <p class="footer-col-heading">Charts</p>
-            <RouterLink to="/top" class="footer-link">Top Soundtracks</RouterLink>
-            <RouterLink to="/top-composers" class="footer-link">Top Composers</RouterLink>
+            <RouterLink to="/top" class="footer-link"
+              >Top Soundtracks</RouterLink
+            >
+            <RouterLink to="/top-composers" class="footer-link"
+              >Top Composers</RouterLink
+            >
           </div>
           <div class="footer-col">
             <p class="footer-col-heading">Contribute</p>
-            <RouterLink to="/submit" class="footer-link">Submit a Soundtrack</RouterLink>
-            <RouterLink to="/contact" class="footer-link">Contact Us</RouterLink>
+            <RouterLink to="/submit" class="footer-link"
+              >Submit a Soundtrack</RouterLink
+            >
+            <RouterLink to="/contact" class="footer-link"
+              >Contact Us</RouterLink
+            >
           </div>
         </nav>
       </div>
@@ -288,16 +296,42 @@ onMounted(async () => {
           <p class="footer-meta">
             Made with ♥ by Joshua Roberts &nbsp;·&nbsp; Updated {{ buildDate }}
             &nbsp;·&nbsp;
-            <a href="/rss.xml" class="footer-rss" target="_blank" rel="noopener">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                <path d="M6.18 15.64a2.18 2.18 0 1 1 0 4.36 2.18 2.18 0 0 1 0-4.36M4 4.44A15.56 15.56 0 0 1 19.56 20h-2.83A12.73 12.73 0 0 0 4 7.27V4.44m0 5.66a9.9 9.9 0 0 1 9.9 9.9h-2.83A7.07 7.07 0 0 0 4 12.93V10.1z"/>
+            <a
+              href="/rss.xml"
+              class="footer-rss"
+              target="_blank"
+              rel="noopener"
+            >
+              <svg
+                width="12"
+                height="12"
+                viewBox="0 0 24 24"
+                fill="currentColor"
+                aria-hidden="true"
+              >
+                <path
+                  d="M6.18 15.64a2.18 2.18 0 1 1 0 4.36 2.18 2.18 0 0 1 0-4.36M4 4.44A15.56 15.56 0 0 1 19.56 20h-2.83A12.73 12.73 0 0 0 4 7.27V4.44m0 5.66a9.9 9.9 0 0 1 9.9 9.9h-2.83A7.07 7.07 0 0 0 4 12.93V10.1z"
+                />
               </svg>
               RSS
             </a>
           </p>
         </div>
-        <button class="back-to-top" @click="scrollToTop" aria-label="Back to top">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <button
+          class="back-to-top"
+          @click="scrollToTop"
+          aria-label="Back to top"
+        >
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2.5"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
             <polyline points="18 15 12 9 6 15" />
           </svg>
           Back to top

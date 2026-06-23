@@ -165,6 +165,11 @@ function reset() {
   display: flex;
   flex-direction: column;
   align-items: center;
+  text-align: center;
+}
+
+.success-card .btn-primary {
+  align-self: center;
   gap: 1rem;
   padding: 3rem 2rem;
   border: 1px solid var(--border);

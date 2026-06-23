@@ -51,6 +51,9 @@ export const AnyNull = runtime.AnyNull
 
 
 export const ModelName = {
+  Composer: 'Composer',
+  ContactMessage: 'ContactMessage',
+  Submission: 'Submission',
   Soundtrack: 'Soundtrack'
 } as const
 
@@ -70,6 +73,38 @@ export const TransactionIsolationLevel = runtime.makeStrictEnum({
 export type TransactionIsolationLevel = (typeof TransactionIsolationLevel)[keyof typeof TransactionIsolationLevel]
 
 
+export const ComposerScalarFieldEnum = {
+  slug: 'slug',
+  name: 'name',
+  support_url: 'support_url',
+  created_at: 'created_at'
+} as const
+
+export type ComposerScalarFieldEnum = (typeof ComposerScalarFieldEnum)[keyof typeof ComposerScalarFieldEnum]
+
+
+export const ContactMessageScalarFieldEnum = {
+  id: 'id',
+  name: 'name',
+  email: 'email',
+  message: 'message',
+  created_at: 'created_at'
+} as const
+
+export type ContactMessageScalarFieldEnum = (typeof ContactMessageScalarFieldEnum)[keyof typeof ContactMessageScalarFieldEnum]
+
+
+export const SubmissionScalarFieldEnum = {
+  id: 'id',
+  game_title: 'game_title',
+  notes: 'notes',
+  status: 'status',
+  submitted_at: 'submitted_at'
+} as const
+
+export type SubmissionScalarFieldEnum = (typeof SubmissionScalarFieldEnum)[keyof typeof SubmissionScalarFieldEnum]
+
+
 export const SoundtrackScalarFieldEnum = {
   id: 'id',
   game_title: 'game_title',
@@ -80,8 +115,13 @@ export const SoundtrackScalarFieldEnum = {
   youtube_playlist_id: 'youtube_playlist_id',
   youtube_video_id: 'youtube_video_id',
   source_type: 'source_type',
+  spotify_id: 'spotify_id',
+  spotify_type: 'spotify_type',
+  streaming_links: 'streaming_links',
   mood_tags: 'mood_tags',
   genre_tags: 'genre_tags',
+  theme_tags: 'theme_tags',
+  likes: 'likes',
   created_at: 'created_at'
 } as const
 
@@ -94,6 +134,13 @@ export const SortOrder = {
 } as const
 
 export type SortOrder = (typeof SortOrder)[keyof typeof SortOrder]
+
+
+export const JsonNullValueInput = {
+  JsonNull: JsonNull
+} as const
+
+export type JsonNullValueInput = (typeof JsonNullValueInput)[keyof typeof JsonNullValueInput]
 
 
 export const QueryMode = {
@@ -110,4 +157,13 @@ export const NullsOrder = {
 } as const
 
 export type NullsOrder = (typeof NullsOrder)[keyof typeof NullsOrder]
+
+
+export const JsonNullValueFilter = {
+  DbNull: DbNull,
+  JsonNull: JsonNull,
+  AnyNull: AnyNull
+} as const
+
+export type JsonNullValueFilter = (typeof JsonNullValueFilter)[keyof typeof JsonNullValueFilter]
 

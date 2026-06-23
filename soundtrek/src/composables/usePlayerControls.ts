@@ -37,7 +37,9 @@ export function usePlayerControls(
   spotifyEmbedRef: Ref<SpotifyEmbedControls | null>,
 ) {
   const isPlaying = ref(false);
-  const volume = ref(Number(localStorage.getItem("player-volume") || "100"));
+  const volume = ref(
+    !import.meta.env.SSR ? Number(localStorage.getItem("player-volume") || "100") : 100,
+  );
   const muted = ref(false);
   const currentTrackIndex = ref(0);
   const playerVideoIds = ref<string[]>([]);
@@ -148,6 +150,7 @@ export function usePlayerControls(
   }
 
   watch(volume, (v) => {
+    if (import.meta.env.SSR) return;
     localStorage.setItem("player-volume", String(v));
     if (muted.value && v > 0) muted.value = false;
     applyVolume();

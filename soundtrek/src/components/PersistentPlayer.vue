@@ -38,7 +38,7 @@ const hasBoth = computed(() => hasYoutube.value && hasSpotify.value);
 interface PlaylistItem { videoId: string; title: string; unavailable: boolean }
 const playlistItems = ref<PlaylistItem[]>([]);
 const showPanel = computed(
-  () => playlistItems.value.length > 0 && activeSource.value === "youtube",
+  () => !!(nowPlaying.value?.youtube_playlist_id) && activeSource.value === "youtube",
 );
 const PANEL_WIDTH = 220;
 const displayWidth = computed(() => {
@@ -258,18 +258,12 @@ watch(
   async (track) => {
     playlistItems.value = [];
     if (!track?.youtube_playlist_id) return;
-    const key = (import.meta.env.VITE_YOUTUBE_API_KEY ?? "") as string;
-    if (!key) return;
+    const proxyUrl = import.meta.env.VITE_YOUTUBE_PROXY_URL;
+    if (!proxyUrl) return;
     try {
-      const res = await fetch(
-        `https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&playlistId=${track.youtube_playlist_id}&maxResults=50&key=${key}`,
-      );
-      const data = await res.json();
-      playlistItems.value = (data.items ?? []).map((item: any) => {
-        const title = item.snippet.title as string;
-        const unavailable = title === "Deleted video" || title === "Private video";
-        return { videoId: item.snippet.resourceId.videoId, title, unavailable };
-      });
+      const res = await fetch(`${proxyUrl}/playlist/${track.youtube_playlist_id}`);
+      if (!res.ok) return;
+      playlistItems.value = await res.json();
     } catch {}
   },
   { immediate: true },

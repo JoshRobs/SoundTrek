@@ -28,10 +28,12 @@ export type AggregateSoundtrack = {
 
 export type SoundtrackAvgAggregateOutputType = {
   release_year: number | null
+  likes: number | null
 }
 
 export type SoundtrackSumAggregateOutputType = {
   release_year: number | null
+  likes: number | null
 }
 
 export type SoundtrackMinAggregateOutputType = {
@@ -44,6 +46,9 @@ export type SoundtrackMinAggregateOutputType = {
   youtube_playlist_id: string | null
   youtube_video_id: string | null
   source_type: string | null
+  spotify_id: string | null
+  spotify_type: string | null
+  likes: number | null
   created_at: Date | null
 }
 
@@ -57,6 +62,9 @@ export type SoundtrackMaxAggregateOutputType = {
   youtube_playlist_id: string | null
   youtube_video_id: string | null
   source_type: string | null
+  spotify_id: string | null
+  spotify_type: string | null
+  likes: number | null
   created_at: Date | null
 }
 
@@ -70,8 +78,13 @@ export type SoundtrackCountAggregateOutputType = {
   youtube_playlist_id: number
   youtube_video_id: number
   source_type: number
+  spotify_id: number
+  spotify_type: number
+  streaming_links: number
   mood_tags: number
   genre_tags: number
+  theme_tags: number
+  likes: number
   created_at: number
   _all: number
 }
@@ -79,10 +92,12 @@ export type SoundtrackCountAggregateOutputType = {
 
 export type SoundtrackAvgAggregateInputType = {
   release_year?: true
+  likes?: true
 }
 
 export type SoundtrackSumAggregateInputType = {
   release_year?: true
+  likes?: true
 }
 
 export type SoundtrackMinAggregateInputType = {
@@ -95,6 +110,9 @@ export type SoundtrackMinAggregateInputType = {
   youtube_playlist_id?: true
   youtube_video_id?: true
   source_type?: true
+  spotify_id?: true
+  spotify_type?: true
+  likes?: true
   created_at?: true
 }
 
@@ -108,6 +126,9 @@ export type SoundtrackMaxAggregateInputType = {
   youtube_playlist_id?: true
   youtube_video_id?: true
   source_type?: true
+  spotify_id?: true
+  spotify_type?: true
+  likes?: true
   created_at?: true
 }
 
@@ -121,8 +142,13 @@ export type SoundtrackCountAggregateInputType = {
   youtube_playlist_id?: true
   youtube_video_id?: true
   source_type?: true
+  spotify_id?: true
+  spotify_type?: true
+  streaming_links?: true
   mood_tags?: true
   genre_tags?: true
+  theme_tags?: true
+  likes?: true
   created_at?: true
   _all?: true
 }
@@ -223,8 +249,13 @@ export type SoundtrackGroupByOutputType = {
   youtube_playlist_id: string | null
   youtube_video_id: string | null
   source_type: string
+  spotify_id: string | null
+  spotify_type: string | null
+  streaming_links: runtime.JsonValue
   mood_tags: string[]
   genre_tags: string[]
+  theme_tags: string[]
+  likes: number
   created_at: Date
   _count: SoundtrackCountAggregateOutputType | null
   _avg: SoundtrackAvgAggregateOutputType | null
@@ -261,8 +292,13 @@ export type SoundtrackWhereInput = {
   youtube_playlist_id?: Prisma.StringNullableFilter<"Soundtrack"> | string | null
   youtube_video_id?: Prisma.StringNullableFilter<"Soundtrack"> | string | null
   source_type?: Prisma.StringFilter<"Soundtrack"> | string
+  spotify_id?: Prisma.StringNullableFilter<"Soundtrack"> | string | null
+  spotify_type?: Prisma.StringNullableFilter<"Soundtrack"> | string | null
+  streaming_links?: Prisma.JsonFilter<"Soundtrack">
   mood_tags?: Prisma.StringNullableListFilter<"Soundtrack">
   genre_tags?: Prisma.StringNullableListFilter<"Soundtrack">
+  theme_tags?: Prisma.StringNullableListFilter<"Soundtrack">
+  likes?: Prisma.IntFilter<"Soundtrack"> | number
   created_at?: Prisma.DateTimeFilter<"Soundtrack"> | Date | string
 }
 
@@ -276,8 +312,13 @@ export type SoundtrackOrderByWithRelationInput = {
   youtube_playlist_id?: Prisma.SortOrderInput | Prisma.SortOrder
   youtube_video_id?: Prisma.SortOrderInput | Prisma.SortOrder
   source_type?: Prisma.SortOrder
+  spotify_id?: Prisma.SortOrderInput | Prisma.SortOrder
+  spotify_type?: Prisma.SortOrderInput | Prisma.SortOrder
+  streaming_links?: Prisma.SortOrder
   mood_tags?: Prisma.SortOrder
   genre_tags?: Prisma.SortOrder
+  theme_tags?: Prisma.SortOrder
+  likes?: Prisma.SortOrder
   created_at?: Prisma.SortOrder
 }
 
@@ -294,8 +335,13 @@ export type SoundtrackWhereUniqueInput = Prisma.AtLeast<{
   youtube_playlist_id?: Prisma.StringNullableFilter<"Soundtrack"> | string | null
   youtube_video_id?: Prisma.StringNullableFilter<"Soundtrack"> | string | null
   source_type?: Prisma.StringFilter<"Soundtrack"> | string
+  spotify_id?: Prisma.StringNullableFilter<"Soundtrack"> | string | null
+  spotify_type?: Prisma.StringNullableFilter<"Soundtrack"> | string | null
+  streaming_links?: Prisma.JsonFilter<"Soundtrack">
   mood_tags?: Prisma.StringNullableListFilter<"Soundtrack">
   genre_tags?: Prisma.StringNullableListFilter<"Soundtrack">
+  theme_tags?: Prisma.StringNullableListFilter<"Soundtrack">
+  likes?: Prisma.IntFilter<"Soundtrack"> | number
   created_at?: Prisma.DateTimeFilter<"Soundtrack"> | Date | string
 }, "id">
 
@@ -309,8 +355,13 @@ export type SoundtrackOrderByWithAggregationInput = {
   youtube_playlist_id?: Prisma.SortOrderInput | Prisma.SortOrder
   youtube_video_id?: Prisma.SortOrderInput | Prisma.SortOrder
   source_type?: Prisma.SortOrder
+  spotify_id?: Prisma.SortOrderInput | Prisma.SortOrder
+  spotify_type?: Prisma.SortOrderInput | Prisma.SortOrder
+  streaming_links?: Prisma.SortOrder
   mood_tags?: Prisma.SortOrder
   genre_tags?: Prisma.SortOrder
+  theme_tags?: Prisma.SortOrder
+  likes?: Prisma.SortOrder
   created_at?: Prisma.SortOrder
   _count?: Prisma.SoundtrackCountOrderByAggregateInput
   _avg?: Prisma.SoundtrackAvgOrderByAggregateInput
@@ -332,8 +383,13 @@ export type SoundtrackScalarWhereWithAggregatesInput = {
   youtube_playlist_id?: Prisma.StringNullableWithAggregatesFilter<"Soundtrack"> | string | null
   youtube_video_id?: Prisma.StringNullableWithAggregatesFilter<"Soundtrack"> | string | null
   source_type?: Prisma.StringWithAggregatesFilter<"Soundtrack"> | string
+  spotify_id?: Prisma.StringNullableWithAggregatesFilter<"Soundtrack"> | string | null
+  spotify_type?: Prisma.StringNullableWithAggregatesFilter<"Soundtrack"> | string | null
+  streaming_links?: Prisma.JsonWithAggregatesFilter<"Soundtrack">
   mood_tags?: Prisma.StringNullableListFilter<"Soundtrack">
   genre_tags?: Prisma.StringNullableListFilter<"Soundtrack">
+  theme_tags?: Prisma.StringNullableListFilter<"Soundtrack">
+  likes?: Prisma.IntWithAggregatesFilter<"Soundtrack"> | number
   created_at?: Prisma.DateTimeWithAggregatesFilter<"Soundtrack"> | Date | string
 }
 
@@ -347,8 +403,13 @@ export type SoundtrackCreateInput = {
   youtube_playlist_id?: string | null
   youtube_video_id?: string | null
   source_type: string
+  spotify_id?: string | null
+  spotify_type?: string | null
+  streaming_links?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   mood_tags?: Prisma.SoundtrackCreatemood_tagsInput | string[]
   genre_tags?: Prisma.SoundtrackCreategenre_tagsInput | string[]
+  theme_tags?: Prisma.SoundtrackCreatetheme_tagsInput | string[]
+  likes?: number
   created_at?: Date | string
 }
 
@@ -362,8 +423,13 @@ export type SoundtrackUncheckedCreateInput = {
   youtube_playlist_id?: string | null
   youtube_video_id?: string | null
   source_type: string
+  spotify_id?: string | null
+  spotify_type?: string | null
+  streaming_links?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   mood_tags?: Prisma.SoundtrackCreatemood_tagsInput | string[]
   genre_tags?: Prisma.SoundtrackCreategenre_tagsInput | string[]
+  theme_tags?: Prisma.SoundtrackCreatetheme_tagsInput | string[]
+  likes?: number
   created_at?: Date | string
 }
 
@@ -377,8 +443,13 @@ export type SoundtrackUpdateInput = {
   youtube_playlist_id?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   youtube_video_id?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   source_type?: Prisma.StringFieldUpdateOperationsInput | string
+  spotify_id?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  spotify_type?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  streaming_links?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   mood_tags?: Prisma.SoundtrackUpdatemood_tagsInput | string[]
   genre_tags?: Prisma.SoundtrackUpdategenre_tagsInput | string[]
+  theme_tags?: Prisma.SoundtrackUpdatetheme_tagsInput | string[]
+  likes?: Prisma.IntFieldUpdateOperationsInput | number
   created_at?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
@@ -392,8 +463,13 @@ export type SoundtrackUncheckedUpdateInput = {
   youtube_playlist_id?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   youtube_video_id?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   source_type?: Prisma.StringFieldUpdateOperationsInput | string
+  spotify_id?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  spotify_type?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  streaming_links?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   mood_tags?: Prisma.SoundtrackUpdatemood_tagsInput | string[]
   genre_tags?: Prisma.SoundtrackUpdategenre_tagsInput | string[]
+  theme_tags?: Prisma.SoundtrackUpdatetheme_tagsInput | string[]
+  likes?: Prisma.IntFieldUpdateOperationsInput | number
   created_at?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
@@ -407,8 +483,13 @@ export type SoundtrackCreateManyInput = {
   youtube_playlist_id?: string | null
   youtube_video_id?: string | null
   source_type: string
+  spotify_id?: string | null
+  spotify_type?: string | null
+  streaming_links?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   mood_tags?: Prisma.SoundtrackCreatemood_tagsInput | string[]
   genre_tags?: Prisma.SoundtrackCreategenre_tagsInput | string[]
+  theme_tags?: Prisma.SoundtrackCreatetheme_tagsInput | string[]
+  likes?: number
   created_at?: Date | string
 }
 
@@ -422,8 +503,13 @@ export type SoundtrackUpdateManyMutationInput = {
   youtube_playlist_id?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   youtube_video_id?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   source_type?: Prisma.StringFieldUpdateOperationsInput | string
+  spotify_id?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  spotify_type?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  streaming_links?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   mood_tags?: Prisma.SoundtrackUpdatemood_tagsInput | string[]
   genre_tags?: Prisma.SoundtrackUpdategenre_tagsInput | string[]
+  theme_tags?: Prisma.SoundtrackUpdatetheme_tagsInput | string[]
+  likes?: Prisma.IntFieldUpdateOperationsInput | number
   created_at?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
@@ -437,8 +523,13 @@ export type SoundtrackUncheckedUpdateManyInput = {
   youtube_playlist_id?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   youtube_video_id?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   source_type?: Prisma.StringFieldUpdateOperationsInput | string
+  spotify_id?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  spotify_type?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  streaming_links?: Prisma.JsonNullValueInput | runtime.InputJsonValue
   mood_tags?: Prisma.SoundtrackUpdatemood_tagsInput | string[]
   genre_tags?: Prisma.SoundtrackUpdategenre_tagsInput | string[]
+  theme_tags?: Prisma.SoundtrackUpdatetheme_tagsInput | string[]
+  likes?: Prisma.IntFieldUpdateOperationsInput | number
   created_at?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
@@ -460,13 +551,19 @@ export type SoundtrackCountOrderByAggregateInput = {
   youtube_playlist_id?: Prisma.SortOrder
   youtube_video_id?: Prisma.SortOrder
   source_type?: Prisma.SortOrder
+  spotify_id?: Prisma.SortOrder
+  spotify_type?: Prisma.SortOrder
+  streaming_links?: Prisma.SortOrder
   mood_tags?: Prisma.SortOrder
   genre_tags?: Prisma.SortOrder
+  theme_tags?: Prisma.SortOrder
+  likes?: Prisma.SortOrder
   created_at?: Prisma.SortOrder
 }
 
 export type SoundtrackAvgOrderByAggregateInput = {
   release_year?: Prisma.SortOrder
+  likes?: Prisma.SortOrder
 }
 
 export type SoundtrackMaxOrderByAggregateInput = {
@@ -479,6 +576,9 @@ export type SoundtrackMaxOrderByAggregateInput = {
   youtube_playlist_id?: Prisma.SortOrder
   youtube_video_id?: Prisma.SortOrder
   source_type?: Prisma.SortOrder
+  spotify_id?: Prisma.SortOrder
+  spotify_type?: Prisma.SortOrder
+  likes?: Prisma.SortOrder
   created_at?: Prisma.SortOrder
 }
 
@@ -492,11 +592,15 @@ export type SoundtrackMinOrderByAggregateInput = {
   youtube_playlist_id?: Prisma.SortOrder
   youtube_video_id?: Prisma.SortOrder
   source_type?: Prisma.SortOrder
+  spotify_id?: Prisma.SortOrder
+  spotify_type?: Prisma.SortOrder
+  likes?: Prisma.SortOrder
   created_at?: Prisma.SortOrder
 }
 
 export type SoundtrackSumOrderByAggregateInput = {
   release_year?: Prisma.SortOrder
+  likes?: Prisma.SortOrder
 }
 
 export type SoundtrackCreatemood_tagsInput = {
@@ -507,8 +611,8 @@ export type SoundtrackCreategenre_tagsInput = {
   set: string[]
 }
 
-export type StringFieldUpdateOperationsInput = {
-  set?: string
+export type SoundtrackCreatetheme_tagsInput = {
+  set: string[]
 }
 
 export type IntFieldUpdateOperationsInput = {
@@ -517,10 +621,6 @@ export type IntFieldUpdateOperationsInput = {
   decrement?: number
   multiply?: number
   divide?: number
-}
-
-export type NullableStringFieldUpdateOperationsInput = {
-  set?: string | null
 }
 
 export type SoundtrackUpdatemood_tagsInput = {
@@ -533,8 +633,9 @@ export type SoundtrackUpdategenre_tagsInput = {
   push?: string | string[]
 }
 
-export type DateTimeFieldUpdateOperationsInput = {
-  set?: Date | string
+export type SoundtrackUpdatetheme_tagsInput = {
+  set?: string[]
+  push?: string | string[]
 }
 
 
@@ -549,8 +650,13 @@ export type SoundtrackSelect<ExtArgs extends runtime.Types.Extensions.InternalAr
   youtube_playlist_id?: boolean
   youtube_video_id?: boolean
   source_type?: boolean
+  spotify_id?: boolean
+  spotify_type?: boolean
+  streaming_links?: boolean
   mood_tags?: boolean
   genre_tags?: boolean
+  theme_tags?: boolean
+  likes?: boolean
   created_at?: boolean
 }, ExtArgs["result"]["soundtrack"]>
 
@@ -564,8 +670,13 @@ export type SoundtrackSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Ex
   youtube_playlist_id?: boolean
   youtube_video_id?: boolean
   source_type?: boolean
+  spotify_id?: boolean
+  spotify_type?: boolean
+  streaming_links?: boolean
   mood_tags?: boolean
   genre_tags?: boolean
+  theme_tags?: boolean
+  likes?: boolean
   created_at?: boolean
 }, ExtArgs["result"]["soundtrack"]>
 
@@ -579,8 +690,13 @@ export type SoundtrackSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Ex
   youtube_playlist_id?: boolean
   youtube_video_id?: boolean
   source_type?: boolean
+  spotify_id?: boolean
+  spotify_type?: boolean
+  streaming_links?: boolean
   mood_tags?: boolean
   genre_tags?: boolean
+  theme_tags?: boolean
+  likes?: boolean
   created_at?: boolean
 }, ExtArgs["result"]["soundtrack"]>
 
@@ -594,12 +710,17 @@ export type SoundtrackSelectScalar = {
   youtube_playlist_id?: boolean
   youtube_video_id?: boolean
   source_type?: boolean
+  spotify_id?: boolean
+  spotify_type?: boolean
+  streaming_links?: boolean
   mood_tags?: boolean
   genre_tags?: boolean
+  theme_tags?: boolean
+  likes?: boolean
   created_at?: boolean
 }
 
-export type SoundtrackOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "game_title" | "composer" | "console" | "release_year" | "cover_image_url" | "youtube_playlist_id" | "youtube_video_id" | "source_type" | "mood_tags" | "genre_tags" | "created_at", ExtArgs["result"]["soundtrack"]>
+export type SoundtrackOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "game_title" | "composer" | "console" | "release_year" | "cover_image_url" | "youtube_playlist_id" | "youtube_video_id" | "source_type" | "spotify_id" | "spotify_type" | "streaming_links" | "mood_tags" | "genre_tags" | "theme_tags" | "likes" | "created_at", ExtArgs["result"]["soundtrack"]>
 
 export type $SoundtrackPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   name: "Soundtrack"
@@ -614,8 +735,13 @@ export type $SoundtrackPayload<ExtArgs extends runtime.Types.Extensions.Internal
     youtube_playlist_id: string | null
     youtube_video_id: string | null
     source_type: string
+    spotify_id: string | null
+    spotify_type: string | null
+    streaming_links: runtime.JsonValue
     mood_tags: string[]
     genre_tags: string[]
+    theme_tags: string[]
+    likes: number
     created_at: Date
   }, ExtArgs["result"]["soundtrack"]>
   composites: {}
@@ -1049,8 +1175,13 @@ export interface SoundtrackFieldRefs {
   readonly youtube_playlist_id: Prisma.FieldRef<"Soundtrack", 'String'>
   readonly youtube_video_id: Prisma.FieldRef<"Soundtrack", 'String'>
   readonly source_type: Prisma.FieldRef<"Soundtrack", 'String'>
+  readonly spotify_id: Prisma.FieldRef<"Soundtrack", 'String'>
+  readonly spotify_type: Prisma.FieldRef<"Soundtrack", 'String'>
+  readonly streaming_links: Prisma.FieldRef<"Soundtrack", 'Json'>
   readonly mood_tags: Prisma.FieldRef<"Soundtrack", 'String[]'>
   readonly genre_tags: Prisma.FieldRef<"Soundtrack", 'String[]'>
+  readonly theme_tags: Prisma.FieldRef<"Soundtrack", 'String[]'>
+  readonly likes: Prisma.FieldRef<"Soundtrack", 'Int'>
   readonly created_at: Prisma.FieldRef<"Soundtrack", 'DateTime'>
 }
     

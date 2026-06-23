@@ -3,6 +3,8 @@
 .env.*
 !.env.example
 
+.dev.vars
+
 # Logs
 logs
 *.log

@@ -8,5 +8,8 @@
  *
  * 🟢 You can import this file directly.
  */
+export type * from './models/Composer'
+export type * from './models/ContactMessage'
+export type * from './models/Submission'
 export type * from './models/Soundtrack'
 export type * from './commonInputTypes'

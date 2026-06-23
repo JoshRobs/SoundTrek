@@ -1,8 +1,16 @@
-import { createApp } from "vue";
+import { ViteSSG } from "vite-ssg";
 import { createPinia } from "pinia";
 import { createHead } from "@unhead/vue/client";
 import "./style.css";
 import App from "./App.vue";
-import router from "./router";
+import { routes, scrollBehavior, setupScrollGuards } from "./router";
 
-createApp(App).use(createPinia()).use(router).use(createHead()).mount("#app");
+export const createApp = ViteSSG(
+  App,
+  { routes, scrollBehavior },
+  ({ app, router }) => {
+    app.use(createPinia());
+    app.use(createHead());
+    if (!import.meta.env.SSR) setupScrollGuards(router);
+  },
+);

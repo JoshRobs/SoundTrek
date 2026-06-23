@@ -32,7 +32,7 @@ export function useNotePlayer() {
     osc.frequency.setValueAtTime(freq, now);
 
     gain.gain.setValueAtTime(0, now);
-    gain.gain.linearRampToValueAtTime(0.005, now + 0.01);
+    gain.gain.linearRampToValueAtTime(0.0, now + 0.01);
     gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.5);
 
     osc.connect(gain);

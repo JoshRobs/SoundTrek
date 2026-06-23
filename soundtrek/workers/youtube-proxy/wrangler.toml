@@ -1,0 +1,12 @@
+name = "soundtrek-youtube-proxy"
+main = "src/index.ts"
+compatibility_date = "2024-11-01"
+
+# Run: wrangler kv namespace create YOUTUBE_CACHE
+# Then paste the returned id below
+[[kv_namespaces]]
+binding = "YOUTUBE_CACHE"
+id = "f530810858954e51bd363c98a1e53469"
+
+# Run: wrangler secret put YOUTUBE_API_KEY
+# Then paste your YouTube Data API v3 key when prompted
