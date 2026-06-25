@@ -245,4 +245,56 @@ const store = useSoundtrackStore();
   overflow: hidden;
   text-overflow: ellipsis;
 }
+
+@media (max-width: 768px) {
+  .card {
+    padding: 0;
+    overflow: hidden;
+  }
+
+  .card-body {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+  }
+
+  .cover {
+    width: 100%;
+    aspect-ratio: 3 / 4;
+    border-radius: 0;
+  }
+
+  .cover-overlay {
+    display: none;
+  }
+
+  .info-panel {
+    padding: 0.55rem 0.65rem 0.65rem;
+    gap: 0.2rem;
+  }
+
+  .game-title {
+    font-size: 0.85rem;
+  }
+
+  .composer {
+    font-size: 0.72rem;
+  }
+
+  .meta {
+    font-size: 0.68rem;
+  }
+
+  .likes {
+    font-size: 0.68rem;
+  }
+
+  .tags {
+    display: none;
+  }
+
+  .play-btn {
+    display: none;
+  }
+}
 </style>

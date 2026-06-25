@@ -97,4 +97,9 @@
 .pushable:focus:not(:focus-visible) {
   outline: none;
 }
+@media (max-width: 768px) {
+  .front {
+    padding: 18px 18px;
+  }
+}
 </style>

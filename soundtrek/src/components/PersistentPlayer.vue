@@ -38,7 +38,7 @@ const hasBoth = computed(() => hasYoutube.value && hasSpotify.value);
 interface PlaylistItem { videoId: string; title: string; unavailable: boolean }
 const playlistItems = ref<PlaylistItem[]>([]);
 const showPanel = computed(
-  () => !!(nowPlaying.value?.youtube_playlist_id) && activeSource.value === "youtube",
+  () => !!(nowPlaying.value?.youtube_playlist_id) && activeSource.value === "youtube" && ytPlaylistMode.value,
 );
 const PANEL_WIDTH = 220;
 const displayWidth = computed(() => {
@@ -227,7 +227,16 @@ const {
   prevTrack,
   playTrackAt,
   setSpotifyPlaying,
+  ytPlaylistMode,
+  setYtPlaylistMode,
 } = usePlayerControls(nowPlaying, activeSource, ytContainerRef, spotifyEmbedRef);
+
+const canToggleYtMode = computed(
+  () =>
+    activeSource.value === "youtube" &&
+    !!nowPlaying.value?.youtube_playlist_id &&
+    !!nowPlaying.value?.youtube_video_id,
+);
 
 function playVideoById(videoId: string) {
   const idx = playerVideoIds.value.indexOf(videoId);
@@ -401,7 +410,7 @@ function ctxSwitchSource(src: "youtube" | "spotify") {
       </div>
       <div v-if="minimized && hasSource" class="center-controls">
         <button
-          v-if="nowPlaying.source_type === 'playlist'"
+          v-if="nowPlaying.source_type === 'playlist' && ytPlaylistMode"
           class="track-nav-btn"
           aria-label="Previous track"
           @click="prevTrack"
@@ -436,7 +445,7 @@ function ctxSwitchSource(src: "youtube" | "spotify") {
           </svg>
         </button>
         <button
-          v-if="nowPlaying.source_type === 'playlist'"
+          v-if="nowPlaying.source_type === 'playlist' && ytPlaylistMode"
           class="track-nav-btn"
           aria-label="Next track"
           @click="nextTrack"
@@ -608,7 +617,7 @@ function ctxSwitchSource(src: "youtube" | "spotify") {
       </div>
 
       <div
-        v-if="nowPlaying.source_type === 'playlist' && hasSource && !showPanel"
+        v-if="nowPlaying.source_type === 'playlist' && hasSource && ytPlaylistMode"
         class="playlist-nav"
       >
         <button
@@ -710,6 +719,30 @@ function ctxSwitchSource(src: "youtube" | "spotify") {
             Playlist
           </span>
         </template>
+        <button
+          v-if="canToggleYtMode"
+          class="yt-mode-btn"
+          :title="ytPlaylistMode ? 'Switch to single video' : 'Switch to full playlist'"
+          @click="setYtPlaylistMode(!ytPlaylistMode)"
+        >
+          <template v-if="ytPlaylistMode">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M8 5v14l11-7z"/>
+            </svg>
+            Single video
+          </template>
+          <template v-else>
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="8" y1="6" x2="21" y2="6" />
+              <line x1="8" y1="12" x2="21" y2="12" />
+              <line x1="8" y1="18" x2="21" y2="18" />
+              <line x1="3" y1="6" x2="3.01" y2="6" />
+              <line x1="3" y1="12" x2="3.01" y2="12" />
+              <line x1="3" y1="18" x2="3.01" y2="18" />
+            </svg>
+            Full playlist
+          </template>
+        </button>
       </div>
     </div>
   </div>
@@ -1117,6 +1150,27 @@ function ctxSwitchSource(src: "youtube" | "spotify") {
 
 .meta-dot {
   color: rgba(255, 255, 255, 0.12);
+}
+
+.yt-mode-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  margin-left: auto;
+  padding: 0.15rem 0.45rem;
+  border-radius: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: transparent;
+  color: rgba(255, 255, 255, 0.3);
+  font-size: 0.65rem;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+}
+
+.yt-mode-btn:hover {
+  color: rgba(255, 255, 255, 0.75);
+  border-color: rgba(255, 255, 255, 0.25);
+  background: rgba(255, 255, 255, 0.05);
 }
 
 .meta-playlist {

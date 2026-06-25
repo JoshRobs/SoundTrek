@@ -120,6 +120,16 @@ const sortedItems = computed(() => {
   gap: 1.25rem;
 }
 
+@media (max-width: 768px) {
+  .page-inner {
+    padding: 0 1rem 3rem;
+  }
+
+  .grid {
+    gap: 0.75rem;
+  }
+}
+
 .state {
   display: flex;
   justify-content: center;

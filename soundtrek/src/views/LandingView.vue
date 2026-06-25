@@ -78,9 +78,8 @@ const nowListeningItems = ref<Soundtrack[]>([]);
 const featuredItems = ref<Soundtrack[]>([]);
 const recentItems = ref<Soundtrack[]>([]);
 
-onMounted(async () => {
-  await store.loadAll();
-  const all = allSoundtracks.value;
+function buildSections(all: Soundtrack[]) {
+  if (!all.length || nowListeningItems.value.length > 0) return;
   const shuffled = [...all].sort(() => Math.random() - 0.5);
   nowListeningItems.value = shuffled.slice(0, 3);
   featuredItems.value = shuffled.slice(3, 7);
@@ -90,6 +89,15 @@ onMounted(async () => {
         new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
     )
     .slice(0, 4);
+}
+
+// Build immediately if store already has data (returning from another page),
+// so the page renders at full height before the router restores scroll position
+buildSections(allSoundtracks.value);
+
+onMounted(async () => {
+  await store.loadAll();
+  buildSections(allSoundtracks.value);
 
   animate(".letter", {
     y: [{ to: ["-40", "0"] }, { to: "0%", delay: 1000, ease: "in(3)" }],
@@ -262,6 +270,7 @@ onMounted(async () => {
             <RouterLink to="/discover" class="footer-link">Discover</RouterLink>
             <RouterLink to="/explore" class="footer-link">Explore</RouterLink>
             <RouterLink to="/catalog" class="footer-link">Catalog</RouterLink>
+            <RouterLink to="/studios" class="footer-link">Studios</RouterLink>
           </div>
           <div class="footer-col">
             <p class="footer-col-heading">Charts</p>
@@ -394,7 +403,7 @@ onMounted(async () => {
 /* ── Sections ─────────────────────────────────────────────────────────── */
 .sections {
   width: 100%;
-  padding: 0 2.5rem 6rem;
+  padding: 0 2.5rem 0rem;
 }
 
 .landing-section {
@@ -693,5 +702,90 @@ onMounted(async () => {
 .back-to-top:hover {
   color: var(--text-primary);
   border-color: var(--text-muted);
+}
+
+/* ── Mobile ───────────────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .hero {
+    min-height: 100svh;
+    padding: 3.5rem 1.25rem 4rem;
+    gap: 1rem;
+  }
+
+  .sections {
+    padding: 0 1rem 4rem;
+  }
+
+  .landing-section {
+    flex-direction: column;
+    gap: 1.25rem;
+    padding: 2rem 0;
+  }
+
+  .section--reverse {
+    flex-direction: column;
+  }
+
+  .section-title {
+    flex: none;
+    width: 100%;
+  }
+
+  .section-label {
+    font-size: 0.95rem;
+    margin-bottom: 0.3rem;
+  }
+
+  .section-heading {
+    font-size: clamp(1.7rem, 6vw, 2.4rem);
+  }
+
+  .cover-overlay {
+    display: none;
+  }
+
+  .cover-row {
+    gap: 0.6rem;
+  }
+
+  .cover-row .cover-card,
+  .cover-grid .cover-card {
+    aspect-ratio: unset;
+  }
+
+  .cover-row .cover-img,
+  .cover-grid .cover-img {
+    height: auto;
+    aspect-ratio: 3 / 4;
+  }
+
+  .cover-grid {
+    max-width: 100%;
+    gap: 0.6rem;
+  }
+
+  .footer {
+    padding: 2.5rem 1.25rem 2rem;
+  }
+
+  .footer-inner {
+    flex-direction: column;
+    gap: 1.5rem;
+  }
+
+  .footer-nav {
+    flex-wrap: wrap;
+    gap: 1.5rem 2.5rem;
+  }
+
+  .footer-bottom {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1rem;
+  }
+
+  .back-to-top {
+    align-self: flex-start;
+  }
 }
 </style>

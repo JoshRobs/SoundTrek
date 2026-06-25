@@ -62,6 +62,16 @@ useHead({
   padding: 0 2rem 4rem;
 }
 
+@media (max-width: 768px) {
+  .page-inner {
+    padding: 0 1rem 3rem;
+  }
+
+  .rows {
+    gap: 2rem;
+  }
+}
+
 .hero {
   padding: 2.5rem 0 2rem;
 }

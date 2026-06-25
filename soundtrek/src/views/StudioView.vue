@@ -220,4 +220,24 @@ useHead(computed(() => ({
   width: var(--spinner-size);
   height: var(--spinner-size);
 }
+
+@media (max-width: 768px) {
+  .page-inner {
+    padding: 0 1rem 3rem;
+  }
+
+  .grid {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.75rem;
+    margin-top: 1rem;
+  }
+
+  .grid-title {
+    font-size: 0.82rem;
+  }
+
+  .grid-meta {
+    font-size: 0.7rem;
+  }
+}
 </style>

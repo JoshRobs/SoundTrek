@@ -181,23 +181,56 @@ function toggleLike() {
   store.likeSoundtrack(id, delta);
 }
 
-async function share() {
-  const url = `https://soundtrek.app/soundtrack/${id}`;
-  const isTouchOnly = window.matchMedia("(hover: none) and (pointer: coarse)").matches;
-  if (isTouchOnly && navigator.share) {
+function share() {
+  const url = window.location.href;
+  const isMobileDevice = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+
+  if (isMobileDevice && typeof navigator.share === "function") {
     try {
-      await navigator.share({
-        title: track.value ? `${track.value.game_title} OST` : "SoundTrek",
-        url,
-      });
+      navigator
+        .share({
+          title: track.value ? `${track.value.game_title} OST` : "SoundTrek",
+          url,
+        })
+        .catch((err: Error) => {
+          if (err?.name !== "AbortError") copyUrl(url);
+        });
     } catch {
-      // user cancelled
+      copyUrl(url);
     }
     return;
   }
-  await navigator.clipboard.writeText(url);
-  copied.value = true;
-  setTimeout(() => (copied.value = false), 2000);
+
+  copyUrl(url);
+}
+
+function copyUrl(url: string) {
+  if (navigator.clipboard?.writeText) {
+    navigator.clipboard
+      .writeText(url)
+      .then(() => {
+        copied.value = true;
+        setTimeout(() => (copied.value = false), 2000);
+      })
+      .catch(() => execCommandCopy(url));
+    return;
+  }
+  execCommandCopy(url);
+}
+
+function execCommandCopy(url: string) {
+  try {
+    const el = document.createElement("input");
+    el.value = url;
+    el.style.cssText =
+      "position:fixed;top:0;left:0;opacity:0;pointer-events:none";
+    document.body.appendChild(el);
+    el.select();
+    document.execCommand("copy");
+    document.body.removeChild(el);
+    copied.value = true;
+    setTimeout(() => (copied.value = false), 2000);
+  } catch {}
 }
 
 onMounted(async () => {
@@ -1068,6 +1101,104 @@ onUnmounted(() => {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+/* ── Mobile ───────────────────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .back-btn {
+    top: 1rem;
+    left: 1rem;
+    font-size: 0.9rem;
+  }
+
+  .hero {
+    padding: 4rem 1rem 1.5rem;
+  }
+
+  .hero-body {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1.25rem;
+  }
+
+  .cover-wrap {
+    width: min(220px, 60vw);
+    aspect-ratio: 3 / 4;
+    align-self: center;
+  }
+
+  .cover-play-overlay {
+    display: none;
+  }
+
+  .info {
+    width: 100%;
+  }
+
+  .composers {
+    font-size: 0.9rem;
+    margin-bottom: 1.25rem;
+  }
+
+  .actions {
+    gap: 0.5rem;
+    flex-wrap: wrap;
+  }
+
+  .play-btn {
+    padding: 0.6rem 1.25rem;
+    font-size: 0.88rem;
+  }
+
+  .like-btn,
+  .share-btn {
+    padding: 0.6rem 0.85rem;
+    font-size: 0.82rem;
+  }
+
+  .links-section {
+    padding: 0 1rem 2.5rem;
+  }
+
+  .related-section {
+    padding: 0 1rem 2rem;
+  }
+
+  .related-section:last-of-type {
+    padding-bottom: 5rem;
+  }
+
+  .related-card {
+    width: 120px;
+  }
+
+  .related-title {
+    font-size: 0.82rem;
+  }
+
+  .related-meta {
+    font-size: 0.72rem;
+  }
+
+  .nav-edge {
+    display: none;
+  }
+
+  .loading {
+    flex-direction: column;
+    align-items: center;
+    gap: 1.5rem;
+    padding: 2rem 1rem;
+  }
+
+  .cover-skeleton {
+    width: 160px;
+    height: 210px;
+  }
+
+  .skeleton-lines {
+    width: 100%;
+  }
 }
 
 /* ── Not found ────────────────────────────────────────────────────────────── */

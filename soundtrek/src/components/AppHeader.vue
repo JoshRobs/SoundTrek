@@ -1,13 +1,18 @@
 <script setup lang="ts">
+import { ref } from "vue";
 import { RouterLink, useRouter, useRoute } from "vue-router";
 import { useSoundtrackStore } from "@/stores/soundtracks";
+import { useIsMobile } from "@/composables/useIsMobile";
 import RandomizeHeaderButton from "./RandomizeHeaderButton.vue";
 import ExploreMenu from "./ExploreMenu.vue";
 import GameSearchBox from "./GameSearchBox.vue";
+import MobileDrawer from "./MobileDrawer.vue";
 
 const router = useRouter();
 const route = useRoute();
 const store = useSoundtrackStore();
+const { isMobile } = useIsMobile();
+const drawerOpen = ref(false);
 
 function onSearchSelect(id: string) {
   router.push(`/soundtrack/${id}`);
@@ -23,22 +28,41 @@ function randomPick() {
   <header class="header">
     <div class="header-left">
       <RouterLink to="/" class="logo">SoundTrek</RouterLink>
-      <RandomizeHeaderButton @click="randomPick" />
+      <RandomizeHeaderButton v-if="!isMobile" @click="randomPick" />
     </div>
-    <div class="header-center">
-      <ExploreMenu />
-      <RouterLink to="/catalog" class="nav-link">Catalog</RouterLink>
-    </div>
-    <div id="header-right" class="header-right">
-      <div class="header-search">
-        <GameSearchBox
-          :autofocus="false"
-          :compact="true"
-          @select="onSearchSelect"
-        />
+
+    <template v-if="!isMobile">
+      <div class="header-center">
+        <ExploreMenu />
+        <RouterLink to="/catalog" class="nav-link">Catalog</RouterLink>
       </div>
-    </div>
+      <div id="header-right" class="header-right">
+        <div class="header-search">
+          <GameSearchBox
+            :autofocus="false"
+            :compact="true"
+            @select="onSearchSelect"
+          />
+        </div>
+      </div>
+    </template>
+
+    <template v-else>
+      <!-- spacer so hamburger aligns right -->
+      <div />
+      <div id="header-right" class="header-right">
+        <button class="hamburger" aria-label="Open menu" @click="drawerOpen = true">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="3" y1="6" x2="21" y2="6" />
+            <line x1="3" y1="12" x2="21" y2="12" />
+            <line x1="3" y1="18" x2="21" y2="18" />
+          </svg>
+        </button>
+      </div>
+    </template>
   </header>
+
+  <MobileDrawer v-if="drawerOpen" @close="drawerOpen = false" />
 </template>
 
 <style scoped>
@@ -142,5 +166,24 @@ function randomPick() {
 
 .header-search {
   width: 300px;
+}
+
+.hamburger {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.hamburger:hover {
+  background: var(--surface-2);
+  color: var(--text-primary);
 }
 </style>

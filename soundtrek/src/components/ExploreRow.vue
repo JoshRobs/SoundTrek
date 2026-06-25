@@ -226,4 +226,14 @@ function seeAll() {
 .fade-leave-to {
   opacity: 0;
 }
+
+@media (max-width: 768px) {
+  .row-label {
+    font-size: 1.35rem;
+  }
+
+  .nav-edge {
+    display: none;
+  }
+}
 </style>

@@ -189,6 +189,13 @@ watch(() => route.query, (query) => {
   gap: 1rem;
 }
 
+@media (max-width: 768px) {
+  .main {
+    padding: 1rem;
+    justify-content: flex-start;
+  }
+}
+
 .state {
   display: flex;
   flex-direction: column;

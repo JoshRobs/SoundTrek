@@ -116,6 +116,12 @@ useHead(computed(() => ({
   padding: 0 1.5rem 3rem;
 }
 
+@media (max-width: 768px) {
+  .page-inner {
+    padding: 0 1rem 3rem;
+  }
+}
+
 .bio {
   font-size: 0.95rem;
   color: var(--text-secondary);
@@ -217,6 +223,22 @@ useHead(computed(() => ({
 }
 .home-link:hover {
   text-decoration: underline;
+}
+
+@media (max-width: 768px) {
+  .grid {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.75rem;
+    margin-top: 1rem;
+  }
+
+  .grid-title {
+    font-size: 0.82rem;
+  }
+
+  .grid-year {
+    font-size: 0.7rem;
+  }
 }
 
 .spinner {

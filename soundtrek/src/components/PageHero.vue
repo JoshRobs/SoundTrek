@@ -19,6 +19,12 @@ defineProps<{
   padding: 2.5rem 0 2rem;
 }
 
+@media (max-width: 768px) {
+  .hero {
+    padding: 1.25rem 0 1rem;
+  }
+}
+
 .hero-label {
   margin: 0 0 0.25rem;
   font-size: 0.9rem;

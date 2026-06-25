@@ -1,7 +1,10 @@
 <script setup lang="ts">
 import { ref, computed } from "vue";
 import { useHead } from "@unhead/vue";
+import { useRouter } from "vue-router";
 import { supabase } from "@/lib/supabase";
+
+const router = useRouter();
 
 useHead({
   title: "Submit a Soundtrack | SoundTrek",
@@ -49,6 +52,13 @@ function reset() {
 <template>
   <div class="submit-page">
     <div class="submit-inner">
+      <button class="back-btn" @click="router.back()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M19 12H5M12 5l-7 7 7 7"/>
+        </svg>
+        Back
+      </button>
+
       <div class="page-header">
         <p class="page-label">Community</p>
         <h1 class="page-title">Submit a Soundtrack</h1>
@@ -128,6 +138,28 @@ function reset() {
 .submit-inner {
   max-width: 800px;
   margin: 0 auto;
+}
+
+.back-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-bottom: 1.75rem;
+  padding: 0.4rem 0.75rem 0.4rem 0.5rem;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  font-family: inherit;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+}
+
+.back-btn:hover {
+  color: var(--text-primary);
+  border-color: var(--text-muted);
+  background: var(--surface);
 }
 
 .page-header {
@@ -290,5 +322,15 @@ function reset() {
   border: 1px solid color-mix(in srgb, #f87171 30%, transparent);
   color: #f87171;
   font-size: 0.85rem;
+}
+
+@media (max-width: 768px) {
+  .submit-page {
+    padding: 2rem 1.25rem 4rem;
+  }
+
+  .input {
+    font-size: 1rem;
+  }
 }
 </style>

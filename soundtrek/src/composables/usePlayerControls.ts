@@ -43,6 +43,7 @@ export function usePlayerControls(
   const muted = ref(false);
   const currentTrackIndex = ref(0);
   const playerVideoIds = ref<string[]>([]);
+  const ytPlaylistMode = ref(true);
   let premuteVolume = volume.value;
   let player: YT.Player | null = null;
   let initId = 0;
@@ -99,7 +100,8 @@ export function usePlayerControls(
     await loadYTApi();
     await nextTick();
     if (myId !== initId) return;
-    createPlayer(track.youtube_video_id, track.youtube_playlist_id);
+    const usePlaylist = ytPlaylistMode.value && !!track.youtube_playlist_id;
+    createPlayer(track.youtube_video_id, usePlaylist ? track.youtube_playlist_id : null);
   }
 
   function applyVolume() {
@@ -156,10 +158,19 @@ export function usePlayerControls(
     applyVolume();
   });
 
+  function setYtPlaylistMode(mode: boolean) {
+    ytPlaylistMode.value = mode;
+    isPlaying.value = false;
+    currentTrackIndex.value = 0;
+    playerVideoIds.value = [];
+    initPlayer();
+  }
+
   watch([nowPlaying, activeSource], () => {
     isPlaying.value = false;
     currentTrackIndex.value = 0;
     playerVideoIds.value = [];
+    ytPlaylistMode.value = true;
     initPlayer();
   });
 
@@ -178,5 +189,7 @@ export function usePlayerControls(
     prevTrack,
     playTrackAt,
     setSpotifyPlaying,
+    ytPlaylistMode,
+    setYtPlaylistMode,
   };
 }

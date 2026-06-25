@@ -130,4 +130,14 @@ onMounted(() => store.loadAll());
   color: #f87171;
   font-size: 0.9rem;
 }
+
+@media (max-width: 768px) {
+  .page-inner {
+    padding: 0 1rem 3rem;
+  }
+
+  .studio-link {
+    padding: 0.7rem 0.5rem;
+  }
+}
 </style>

@@ -122,4 +122,22 @@ const router = useRouter();
   color: var(--text-muted);
   margin: 0;
 }
+
+@media (max-width: 768px) {
+  .card {
+    width: 140px;
+  }
+
+  .title {
+    font-size: 0.85rem;
+  }
+
+  .meta {
+    font-size: 0.72rem;
+  }
+
+  .hover-overlay {
+    display: none;
+  }
+}
 </style>

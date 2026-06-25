@@ -136,4 +136,11 @@ const initials = computed(() =>
 }
 
 .composer-row:hover .arrow { opacity: 1; }
+
+@media (max-width: 768px) {
+  .composer-row {
+    gap: 0.75rem;
+    padding: 0.55rem 0.5rem;
+  }
+}
 </style>

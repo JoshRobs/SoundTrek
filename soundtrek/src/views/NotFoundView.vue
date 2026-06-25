@@ -79,4 +79,10 @@ const router = useRouter();
 .btn-primary:hover {
   background: var(--accent-hover);
 }
+
+@media (max-width: 768px) {
+  .not-found-page {
+    padding: 3rem 1.25rem;
+  }
+}
 </style>

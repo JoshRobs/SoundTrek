@@ -8,7 +8,9 @@
     "build": "vue-tsc -b && tsx scripts/generate-sitemap.ts && tsx scripts/generate-rss.ts && vite-ssg build",
     "preview": "vite preview",
     "generate-sitemap": "tsx scripts/generate-sitemap.ts",
-    "generate-rss": "tsx scripts/generate-rss.ts"
+    "generate-rss": "tsx scripts/generate-rss.ts",
+    "enrich-composers": "tsx scripts/enrich-composers.ts",
+    "enrich-bios": "tsx scripts/enrich-bios.ts"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.8.0",
@@ -19,7 +21,8 @@
     "pinia": "^3.0.4",
     "vite-ssg": "^28.3.0",
     "vue": "^3.5.34",
-    "vue-router": "^5.1.0"
+    "vue-router": "^5.1.0",
+    "youtubei.js": "^17.1.0"
   },
   "devDependencies": {
     "@prisma/client": "^7.8.0",

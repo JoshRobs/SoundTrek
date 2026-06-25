@@ -68,4 +68,11 @@ const platformMeta: Record<StreamingPlatform, { label: string; color: string }> 
   background: color-mix(in srgb, var(--platform-color) 20%, transparent);
   border-color: color-mix(in srgb, var(--platform-color) 55%, transparent);
 }
+
+@media (max-width: 768px) {
+  .link-btn {
+    padding: 0.5rem 1rem;
+    font-size: 0.82rem;
+  }
+}
 </style>

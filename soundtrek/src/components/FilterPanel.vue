@@ -175,4 +175,11 @@ function toggle(key: FilterKey, val: string) {
   color: var(--text-primary);
   border-color: var(--text-secondary);
 }
+
+@media (max-width: 768px) {
+  .filter-panel {
+    padding: 0.75rem 1rem;
+    gap: 0.75rem;
+  }
+}
 </style>

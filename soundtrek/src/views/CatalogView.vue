@@ -1,48 +1,81 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
-import { useHead } from '@unhead/vue'
-import { RouterLink } from 'vue-router'
-import { storeToRefs } from 'pinia'
-import { useSoundtrackStore } from '@/stores/soundtracks'
+import { computed, onMounted, onUnmounted, ref } from "vue";
+import { useHead } from "@unhead/vue";
+import { RouterLink } from "vue-router";
+import { storeToRefs } from "pinia";
+import { useSoundtrackStore } from "@/stores/soundtracks";
 
-const store = useSoundtrackStore()
-const { allSoundtracks, loading } = storeToRefs(store)
+const store = useSoundtrackStore();
+const { allSoundtracks, loading } = storeToRefs(store);
 
-onMounted(() => store.loadAll())
-
-const LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('')
+const LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
 
 const grouped = computed(() => {
-  const map = new Map<string, typeof allSoundtracks.value>()
+  const map = new Map<string, typeof allSoundtracks.value>();
   const sorted = [...allSoundtracks.value].sort((a, b) =>
-    a.game_title.localeCompare(b.game_title, undefined, { sensitivity: 'base' })
-  )
+    a.game_title.localeCompare(b.game_title, undefined, {
+      sensitivity: "base",
+    }),
+  );
   for (const s of sorted) {
-    const letter = s.game_title[0].toUpperCase()
-    const key = /[A-Z]/.test(letter) ? letter : '#'
-    if (!map.has(key)) map.set(key, [])
-    map.get(key)!.push(s)
+    const letter = s.game_title[0].toUpperCase();
+    const key = /[A-Z]/.test(letter) ? letter : "#";
+    if (!map.has(key)) map.set(key, []);
+    map.get(key)!.push(s);
   }
-  return map
-})
+  return map;
+});
 
-const activeLetters = computed(() => new Set(grouped.value.keys()))
+const activeLetters = computed(() => new Set(grouped.value.keys()));
 
 useHead({
-  title: 'Catalog | SoundTrek',
+  title: "Catalog | SoundTrek",
   meta: [
-    { name: 'description', content: 'A complete alphabetical catalog of every video game soundtrack on SoundTrek.' },
-    { property: 'og:title', content: 'Catalog | SoundTrek' },
-    { property: 'og:description', content: 'A complete alphabetical catalog of every video game soundtrack on SoundTrek.' },
-    { property: 'og:url', content: 'https://soundtrek.app/catalog' },
+    {
+      name: "description",
+      content:
+        "A complete alphabetical catalog of every video game soundtrack on SoundTrek.",
+    },
+    { property: "og:title", content: "Catalog | SoundTrek" },
+    {
+      property: "og:description",
+      content:
+        "A complete alphabetical catalog of every video game soundtrack on SoundTrek.",
+    },
+    { property: "og:url", content: "https://soundtrek.app/catalog" },
   ],
-})
+});
 
-const sectionRefs = ref<Record<string, HTMLElement | null>>({})
+const sectionRefs = ref<Record<string, HTMLElement | null>>({});
 
 function scrollTo(letter: string) {
-  sectionRefs.value[letter]?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  sectionRefs.value[letter]?.scrollIntoView({
+    behavior: "smooth",
+    block: "start",
+  });
 }
+
+// ── Back to top ────────────────────────────────────────────────────────────
+const showBackTop = ref(false);
+let scrollEl: HTMLElement | null = null;
+
+function onScroll() {
+  showBackTop.value = (scrollEl?.scrollTop ?? 0) > 400;
+}
+
+function backToTop() {
+  scrollEl?.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+onMounted(() => {
+  store.loadAll();
+  scrollEl = document.getElementById("app-main");
+  scrollEl?.addEventListener("scroll", onScroll, { passive: true });
+});
+
+onUnmounted(() => {
+  scrollEl?.removeEventListener("scroll", onScroll);
+});
 </script>
 
 <template>
@@ -57,16 +90,23 @@ function scrollTo(letter: string) {
         v-for="l in LETTERS"
         :key="l"
         class="letter-btn"
-        :class="{ active: activeLetters.has(l), inactive: !activeLetters.has(l) }"
+        :class="{
+          active: activeLetters.has(l),
+          inactive: !activeLetters.has(l),
+        }"
         :disabled="!activeLetters.has(l)"
         @click="scrollTo(l)"
-      >{{ l }}</button>
+      >
+        {{ l }}
+      </button>
       <button
         v-if="activeLetters.has('#')"
         class="letter-btn"
         :class="{ active: true }"
         @click="scrollTo('#')"
-      >#</button>
+      >
+        #
+      </button>
     </nav>
 
     <div v-if="loading" class="state">
@@ -77,7 +117,7 @@ function scrollTo(letter: string) {
       <section
         v-for="[letter, tracks] in grouped"
         :key="letter"
-        :ref="el => sectionRefs[letter] = el as HTMLElement"
+        :ref="(el) => (sectionRefs[letter] = el as HTMLElement)"
         class="letter-section"
       >
         <h2 class="letter-heading">{{ letter }}</h2>
@@ -85,13 +125,39 @@ function scrollTo(letter: string) {
           <li v-for="s in tracks" :key="s.id" class="track-item">
             <RouterLink :to="`/soundtrack/${s.id}`" class="track-link">
               {{ s.game_title }}
-              <span class="track-meta">{{ s.composers.join(', ') || s.studio }} · {{ s.release_year }}</span>
+              <span class="track-meta"
+                >{{ s.composers.join(", ") || s.studio }} ·
+                {{ s.release_year }}</span
+              >
             </RouterLink>
           </li>
         </ul>
       </section>
     </div>
   </div>
+
+  <Transition name="back-top">
+    <button
+      v-if="showBackTop"
+      class="back-top-btn"
+      aria-label="Back to top"
+      @click="backToTop"
+    >
+      <svg
+        width="16"
+        height="16"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2.5"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <polyline points="18 15 12 9 6 15" />
+      </svg>
+      Top
+    </button>
+  </Transition>
 </template>
 
 <style scoped>
@@ -101,12 +167,18 @@ function scrollTo(letter: string) {
   padding: 3rem 2rem 6rem;
 }
 
+@media (max-width: 768px) {
+  .catalog-page {
+    padding: 1.5rem 1rem 5rem;
+  }
+}
+
 .catalog-header {
   margin-bottom: 2rem;
 }
 
 .catalog-title {
-  font-family: 'Bebas Neue', sans-serif;
+  font-family: "Bebas Neue", sans-serif;
   font-size: clamp(2.5rem, 5vw, 4rem);
   font-weight: 400;
   letter-spacing: 0.05em;
@@ -140,7 +212,10 @@ function scrollTo(letter: string) {
   font-size: 0.8rem;
   font-weight: 600;
   cursor: pointer;
-  transition: background 0.12s, color 0.12s, border-color 0.12s;
+  transition:
+    background 0.12s,
+    color 0.12s,
+    border-color 0.12s;
 }
 
 .letter-btn.active {
@@ -172,7 +247,7 @@ function scrollTo(letter: string) {
 }
 
 .letter-heading {
-  font-family: 'Bebas Neue', sans-serif;
+  font-family: "Bebas Neue", sans-serif;
   font-size: 2rem;
   font-weight: 400;
   letter-spacing: 0.06em;
@@ -223,9 +298,70 @@ function scrollTo(letter: string) {
   flex-shrink: 0;
 }
 
+@media (max-width: 768px) {
+  .track-link {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.15rem;
+    padding: 0.7rem 0.25rem;
+  }
+
+  .track-meta {
+    white-space: normal;
+  }
+}
+
 .state {
   display: flex;
   justify-content: center;
   padding: 4rem 0;
+}
+
+/* ── Back to top ──────────────────────────────────────────────────────────── */
+.back-top-btn {
+  position: fixed;
+  bottom: 2.5rem;
+  right: 1.5rem;
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.45rem 0.85rem 0.45rem 0.7rem;
+  border-radius: 99px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(15, 15, 15, 0.9);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  z-index: 100;
+  transition:
+    color 0.15s,
+    border-color 0.15s,
+    transform 0.15s;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.back-top-btn:hover {
+  color: rgba(255, 255, 255, 0.9);
+  border-color: rgba(255, 255, 255, 0.25);
+}
+
+.back-top-btn:active {
+  transform: scale(0.95);
+}
+
+.back-top-enter-active,
+.back-top-leave-active {
+  transition:
+    opacity 0.2s ease,
+    transform 0.2s ease;
+}
+
+.back-top-enter-from,
+.back-top-leave-to {
+  opacity: 0;
+  transform: translateY(8px);
 }
 </style>

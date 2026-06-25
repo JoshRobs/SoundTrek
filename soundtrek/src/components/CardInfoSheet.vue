@@ -68,7 +68,7 @@ const emit = defineEmits<{ 'update:open': [value: boolean]; next: [] }>()
   right: 0;
   background: var(--card);
   border-radius: 16px 16px 0 0;
-  padding: 0.75rem 1.25rem 2rem;
+  padding: 0.75rem 1.25rem calc(2rem + env(safe-area-inset-bottom, 0px));
   display: flex;
   flex-direction: column;
   gap: 1rem;

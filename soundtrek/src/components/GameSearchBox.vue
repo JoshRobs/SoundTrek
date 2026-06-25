@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, watch, onMounted } from "vue";
+import { ref, computed, watch, onMounted, onUnmounted } from "vue";
 import { storeToRefs } from "pinia";
 import { useSoundtrackStore } from "@/stores/soundtracks";
 
@@ -16,9 +16,11 @@ const store = useSoundtrackStore();
 const { allSoundtracks } = storeToRefs(store);
 
 const query = ref("");
-const focused = ref(false);
+const focused = ref(false);   // controls focus-ring styling only
+const dropdownOpen = ref(false);
 const activeIdx = ref(-1);
 const inputEl = ref<HTMLInputElement>();
+const searchWrapEl = ref<HTMLElement>();
 
 const results = computed(() => {
   const q = query.value.trim().toLowerCase();
@@ -32,7 +34,7 @@ const results = computed(() => {
   return [...titleMatches, ...composerMatches].slice(0, 8);
 });
 
-const showDropdown = computed(() => focused.value && results.value.length > 0);
+const showDropdown = computed(() => dropdownOpen.value && results.value.length > 0);
 
 watch(query, () => {
   activeIdx.value = -1;
@@ -40,7 +42,7 @@ watch(query, () => {
 
 function select(id: string) {
   query.value = "";
-  focused.value = false;
+  dropdownOpen.value = false;
   emit("select", id);
 }
 
@@ -56,7 +58,7 @@ function onKeydown(e: KeyboardEvent) {
     e.preventDefault();
     select(results.value[activeIdx.value].s.id);
   } else if (e.key === "Escape") {
-    focused.value = false;
+    dropdownOpen.value = false;
     activeIdx.value = -1;
   }
 }
@@ -64,18 +66,32 @@ function onKeydown(e: KeyboardEvent) {
 function onBlur() {
   setTimeout(() => {
     focused.value = false;
-    activeIdx.value = -1;
+    // intentionally leave dropdownOpen — iOS "Done" button triggers blur but
+    // the user may still want to tap a result
   }, 150);
+}
+
+function onDocPointerdown(e: PointerEvent) {
+  if (!searchWrapEl.value?.contains(e.target as Node)) {
+    dropdownOpen.value = false;
+    focused.value = false;
+    activeIdx.value = -1;
+  }
 }
 
 onMounted(() => {
   store.loadAll();
   if (props.autofocus) inputEl.value?.focus();
+  document.addEventListener("pointerdown", onDocPointerdown);
+});
+
+onUnmounted(() => {
+  document.removeEventListener("pointerdown", onDocPointerdown);
 });
 </script>
 
 <template>
-  <div class="search-wrap">
+  <div ref="searchWrapEl" class="search-wrap">
     <div class="search-box" :class="{ focused, compact }">
       <svg
         class="search-icon"
@@ -99,7 +115,7 @@ onMounted(() => {
         placeholder="Search games or composers…"
         autocomplete="off"
         spellcheck="false"
-        @focus="focused = true"
+        @focus="focused = true; dropdownOpen = true"
         @blur="onBlur"
         @keydown="onKeydown"
       />
@@ -332,5 +348,11 @@ onMounted(() => {
 .search-box.compact .clear-btn:hover {
   background: transparent;
   color: var(--text-primary);
+}
+
+@media (max-width: 768px) {
+  .search-box.compact .search-input {
+    font-size: 1rem;
+  }
 }
 </style>

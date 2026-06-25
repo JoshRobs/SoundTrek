@@ -98,6 +98,12 @@ loadAll();
   padding: 0 1.5rem 4rem;
 }
 
+@media (max-width: 768px) {
+  .page-inner {
+    padding: 0 0.75rem 3rem;
+  }
+}
+
 .track-list {
   list-style: none;
   margin: 0;

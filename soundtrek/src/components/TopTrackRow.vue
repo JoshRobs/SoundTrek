@@ -186,4 +186,44 @@ function goToSoundtrack() {
   border-color: var(--accent);
   color: #fff;
 }
+
+@media (max-width: 768px) {
+  .track-row {
+    grid-template-columns: 2rem 56px 1fr auto auto;
+    gap: 0.6rem;
+    padding: 0.55rem 0.5rem;
+  }
+
+  .rank {
+    font-size: 1.1rem;
+  }
+
+  .cover {
+    width: 56px;
+  }
+
+  .title {
+    font-size: 0.9rem;
+  }
+
+  .meta {
+    font-size: 0.72rem;
+  }
+
+  .likes {
+    font-size: 0.82rem;
+    gap: 0.2rem;
+  }
+
+  .likes svg {
+    width: 14px;
+    height: 14px;
+  }
+
+  .play-btn {
+    opacity: 1;
+    width: 32px;
+    height: 32px;
+  }
+}
 </style>

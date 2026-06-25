@@ -104,8 +104,6 @@ const consoleSticker = computed(() =>
               <path d="M8 5v14l11-7z" />
             </svg>
           </div>
-
-
         </div>
 
         <img
@@ -120,7 +118,10 @@ const consoleSticker = computed(() =>
     <div class="bottom-bar">
       <div class="title-row">
         <div class="title-group">
-          <RouterLink :to="`/soundtrack/${soundtrack.id}`" class="game-title-link">
+          <RouterLink
+            :to="`/soundtrack/${soundtrack.id}`"
+            class="game-title-link"
+          >
             <h1 class="game-title">{{ soundtrack.game_title }}</h1>
           </RouterLink>
           <span class="composers">
@@ -130,7 +131,8 @@ const consoleSticker = computed(() =>
               :to="`/composer/${toSlug(c)}`"
               class="composer-link"
               @click.stop
-            >{{ c }}</RouterLink>
+              >{{ c }}</RouterLink
+            >
           </span>
         </div>
         <button
@@ -213,7 +215,6 @@ const consoleSticker = computed(() =>
   background: transparent;
   gap: 1rem;
 }
-
 
 .cover-frame {
   position: relative;
@@ -335,7 +336,6 @@ const consoleSticker = computed(() =>
   color: var(--text-muted);
 }
 
-
 .bottom-bar {
   flex-shrink: 0;
   padding: 0.9rem 1rem 1rem;
@@ -425,7 +425,7 @@ const consoleSticker = computed(() =>
 
 .game-title {
   font-family: "Bebas Neue", sans-serif;
-  font-size: 1.7rem;
+  font-size: 1.9rem;
   font-weight: 400;
   letter-spacing: 0.04em;
   line-height: 1;
@@ -435,7 +435,6 @@ const consoleSticker = computed(() =>
   overflow: hidden;
   text-overflow: ellipsis;
 }
-
 
 .composers {
   display: flex;
@@ -513,5 +512,60 @@ const consoleSticker = computed(() =>
 }
 .next-btn:active {
   transform: scale(0.97);
+}
+
+@media (max-width: 768px) {
+  /*
+   * Size card width so that the 3/4 cover + bottom bar (~160px) + gaps
+   * all fit within the available screen height without scrolling.
+   * svh = smallest viewport height (browser chrome fully visible).
+   * (svh - 260px) is the space left for the cover after header, mini-player,
+   * padding, and bottom bar. Multiply by 0.75 to get the matching 3/4 width.
+   */
+  .card {
+    width: min(100%, calc((100svh - 260px) * 0.67));
+    max-width: 100%;
+    gap: 0.3rem;
+  }
+
+  /* Flatten the 3D effect — no hover on touch so the offset just looks broken */
+  .cover-frame {
+    transform: translate(0, 0);
+  }
+
+  .cover-3d::before,
+  .cover-3d::after {
+    display: none;
+  }
+
+  /* Force 3/4 aspect ratio on mobile */
+  .cover-wrap {
+    aspect-ratio: 3 / 4;
+  }
+
+  .cover-img {
+    height: 100%;
+    max-height: none;
+  }
+
+  /* Play overlay always subtly visible on touch devices */
+  .play-overlay {
+    opacity: 1;
+    background: rgba(0, 0, 0, 0.2);
+  }
+
+  /* Tooltip is hover-only — hidden on touch */
+  .like-tooltip {
+    display: none;
+  }
+
+  .like-btn svg {
+    width: 26px;
+    height: 26px;
+  }
+
+  .game-title {
+    font-size: 1.5rem;
+  }
 }
 </style>
