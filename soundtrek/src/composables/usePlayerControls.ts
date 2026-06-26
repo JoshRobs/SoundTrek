@@ -151,6 +151,46 @@ export function usePlayerControls(
     if (activeSource.value === "spotify") isPlaying.value = !isPaused;
   }
 
+  // ── Media Session API ─────────────────────────────────────────────────────
+  function updateMediaSession() {
+    if (import.meta.env.SSR || !("mediaSession" in navigator)) return;
+    const track = nowPlaying.value;
+    if (!track) {
+      navigator.mediaSession.playbackState = "none";
+      return;
+    }
+    navigator.mediaSession.metadata = new MediaMetadata({
+      title: track.game_title,
+      artist: (track.composers ?? []).join(", ") || track.studio || "",
+      album: "SoundTrek",
+      artwork: track.cover_image_url
+        ? [{ src: track.cover_image_url, sizes: "512x512", type: "image/jpeg" }]
+        : [],
+    });
+    navigator.mediaSession.playbackState = isPlaying.value ? "playing" : "paused";
+  }
+
+  function setupMediaSessionHandlers() {
+    if (import.meta.env.SSR || !("mediaSession" in navigator)) return;
+    navigator.mediaSession.setActionHandler("play", () => {
+      if (activeSource.value === "youtube") player?.playVideo();
+      else spotifyEmbedRef.value?.play();
+      isPlaying.value = true;
+      updateMediaSession();
+    });
+    navigator.mediaSession.setActionHandler("pause", () => {
+      if (activeSource.value === "youtube") player?.pauseVideo();
+      else spotifyEmbedRef.value?.pause();
+      isPlaying.value = false;
+      updateMediaSession();
+    });
+    navigator.mediaSession.setActionHandler("nexttrack", () => nextTrack());
+    navigator.mediaSession.setActionHandler("previoustrack", () => prevTrack());
+  }
+
+  watch(nowPlaying, updateMediaSession);
+  watch(isPlaying, updateMediaSession);
+
   watch(volume, (v) => {
     if (import.meta.env.SSR) return;
     localStorage.setItem("player-volume", String(v));
@@ -174,7 +214,10 @@ export function usePlayerControls(
     initPlayer();
   });
 
-  onMounted(() => initPlayer());
+  onMounted(() => {
+    initPlayer();
+    setupMediaSessionHandlers();
+  });
   onUnmounted(destroyPlayer);
 
   return {

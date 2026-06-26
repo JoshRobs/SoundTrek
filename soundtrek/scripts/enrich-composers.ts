@@ -1,32 +1,24 @@
 /**
- * SoundTrek Enrichment Script
+ * SoundTrek Composer Enrichment Script
  *
- * Enriches the soundtracks table with:
- *   - theme_tags  via IGDB /v4/games (themes field)
- *   - composers   via MusicBrainz release-group artist relations
+ * Enriches the soundtracks table with composers via MusicBrainz release-group artist relations.
  *
  * Usage:
  *   npx tsx scripts/enrich-composers.ts
  *   npx tsx scripts/enrich-composers.ts --dry-run
  *   npx tsx scripts/enrich-composers.ts --limit=50
- *   npx tsx scripts/enrich-composers.ts --force           # re-enrich already-populated rows
- *   npx tsx scripts/enrich-composers.ts --skip-themes     # composers only
- *   npx tsx scripts/enrich-composers.ts --skip-composers  # themes only
+ *   npx tsx scripts/enrich-composers.ts --force   # re-enrich already-populated rows
  */
 
 import { createClient } from '@supabase/supabase-js'
 import 'dotenv/config'
 
-const TWITCH_CLIENT_ID     = requireEnv('TWITCH_CLIENT_ID')
-const TWITCH_CLIENT_SECRET = requireEnv('TWITCH_CLIENT_SECRET')
 const SUPABASE_URL         = requireEnv('VITE_SUPABASE_URL')
 const SUPABASE_SERVICE_KEY = requireEnv('SUPABASE_SERVICE_KEY')
 
-const DRY_RUN        = process.argv.includes('--dry-run')
-const FORCE          = process.argv.includes('--force')
-const SKIP_THEMES    = process.argv.includes('--skip-themes')
-const SKIP_COMPOSERS = process.argv.includes('--skip-composers')
-const LIMIT          = parseInt(process.argv.find(a => a.startsWith('--limit='))?.split('=')[1] ?? '500')
+const DRY_RUN = process.argv.includes('--dry-run')
+const FORCE   = process.argv.includes('--force')
+const LIMIT   = parseInt(process.argv.find(a => a.startsWith('--limit='))?.split('=')[1] ?? '500')
 
 function requireEnv(name: string): string {
   const val = process.env[name]
@@ -38,12 +30,7 @@ function sleep(ms: number) {
   return new Promise(r => setTimeout(r, ms))
 }
 
-function escapeIgdb(s: string): string {
-  return s.replace(/\\/g, '\\\\').replace(/"/g, '\\"')
-}
-
 function sanitizeForLucene(s: string): string {
-  // Strip characters that break Lucene query parsing; we wrap in quotes instead of escaping
   return s.replace(/"/g, '').replace(/[+\-&|!(){}[\]^~*?:\\/]/g, ' ').replace(/\s+/g, ' ').trim()
 }
 
@@ -52,7 +39,7 @@ function promptLine(question: string): Promise<string> {
     process.stdout.write(question)
     let input = ''
     const handler = (key: string) => {
-      if (key === '') { // Ctrl+C
+      if (key === '') {
         process.stdout.write('\n')
         process.stdin.setRawMode(false)
         process.exit()
@@ -62,7 +49,7 @@ function promptLine(question: string): Promise<string> {
         process.stdin.pause()
         process.stdout.write('\n')
         resolve(input)
-      } else if (key === '' || key === '\b') { // Backspace
+      } else if (key === '' || key === '\b') {
         if (input.length > 0) {
           input = input.slice(0, -1)
           process.stdout.write('\b \b')
@@ -83,7 +70,7 @@ function promptKey(question: string, validKeys: string[]): Promise<string> {
   return new Promise(resolve => {
     process.stdout.write(question)
     const handler = (key: string) => {
-      if (key === '') { // Ctrl+C
+      if (key === '') {
         process.stdout.write('\n')
         process.stdin.setRawMode(false)
         process.exit()
@@ -101,65 +88,6 @@ function promptKey(question: string, validKeys: string[]): Promise<string> {
     process.stdin.setEncoding('utf8')
     process.stdin.on('data', handler)
   })
-}
-
-// ── IGDB ──────────────────────────────────────────────────────────────────────
-
-async function getIGDBToken(): Promise<string> {
-  const res = await fetch(
-    `https://id.twitch.tv/oauth2/token?client_id=${TWITCH_CLIENT_ID}&client_secret=${TWITCH_CLIENT_SECRET}&grant_type=client_credentials`,
-    { method: 'POST' },
-  )
-  const data = await res.json() as { access_token: string }
-  if (!data.access_token) throw new Error('Failed to get IGDB token')
-  return data.access_token
-}
-
-interface IGDBGame {
-  name: string
-  themes?: { name: string }[]
-}
-
-async function igdbPost(endpoint: string, body: string, token: string): Promise<IGDBGame[]> {
-  const res = await fetch(`https://api.igdb.com/v4/${endpoint}`, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${token}`,
-      'Client-ID': TWITCH_CLIENT_ID,
-      'Content-Type': 'text/plain',
-    },
-    body,
-  })
-  if (!res.ok) return []
-  return res.json() as Promise<IGDBGame[]>
-}
-
-async function fetchIGDBThemes(gameTitle: string, token: string): Promise<string[]> {
-  // Exact match first
-  const exact = await igdbPost(
-    'games',
-    `fields name, themes.name; where name = "${escapeIgdb(gameTitle)}"; limit 1;`,
-    token,
-  )
-  await sleep(250)
-
-  if (exact[0]?.themes?.length) {
-    return exact[0].themes.map(t => t.name.toLowerCase())
-  }
-
-  // Fall back to IGDB search
-  const results = await igdbPost(
-    'games',
-    `search "${escapeIgdb(gameTitle)}"; fields name, themes.name; limit 5;`,
-    token,
-  )
-  await sleep(250)
-
-  const titleLower = gameTitle.toLowerCase()
-  const match =
-    results.find(g => g.name.toLowerCase() === titleLower) ?? results[0]
-
-  return match?.themes?.map(t => t.name.toLowerCase()) ?? []
 }
 
 // ── MusicBrainz ───────────────────────────────────────────────────────────────
@@ -188,7 +116,7 @@ interface MBArtistCredit {
 }
 
 async function mbGet<T>(url: string): Promise<T | null> {
-  await sleep(1100) // MusicBrainz requires max 1 req/sec
+  await sleep(1100)
   try {
     const res = await fetch(url, { headers: MB_HEADERS })
     if (!res.ok) return null
@@ -252,7 +180,6 @@ async function fetchMBComposers(gameTitle: string): Promise<string[]> {
   const groups = searchData?.['release-groups'] ?? []
   if (!groups.length) return []
 
-  // Sort: starts-with matches first, then soundtrack preference
   const sorted = [...groups].sort((a, b) => {
     const aScore = (a.title.toLowerCase().startsWith(titleLower) ? 2 : 0)
       + (a['secondary-types']?.includes('Soundtrack') ? 1 : 0)
@@ -261,7 +188,6 @@ async function fetchMBComposers(gameTitle: string): Promise<string[]> {
     return bScore - aScore
   })
 
-  // Fetch composers for every candidate up front
   console.log('  Fetching MB candidates...')
   const candidates: { rg: MBReleaseGroup; composers: string[] }[] = []
   for (const rg of sorted) {
@@ -269,7 +195,6 @@ async function fetchMBComposers(gameTitle: string): Promise<string[]> {
     candidates.push({ rg, composers })
   }
 
-  // Display numbered list
   candidates.forEach(({ rg, composers }, i) => {
     const types = [rg['primary-type'], ...(rg['secondary-types'] ?? [])].filter(Boolean).join(', ')
     const composerStr = composers.length ? composers.join(', ') : 'none found'
@@ -292,30 +217,23 @@ async function fetchMBComposers(gameTitle: string): Promise<string[]> {
 // ── Main ──────────────────────────────────────────────────────────────────────
 
 async function main() {
-  console.log('SoundTrek Enrichment')
-  console.log(`  Themes:    ${SKIP_THEMES    ? 'skip' : 'IGDB'}`)
-  console.log(`  Composers: ${SKIP_COMPOSERS ? 'skip' : 'MusicBrainz'}`)
+  console.log('SoundTrek Composer Enrichment')
   if (DRY_RUN) console.log('  Mode: DRY RUN')
   if (FORCE)   console.log('  Force: re-enriching already-populated rows')
   console.log('')
 
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY)
-  const igdbToken = SKIP_THEMES ? null : await getIGDBToken()
+
   const { data: rows, error } = await supabase
     .from('soundtracks')
-    .select('id, game_title, theme_tags, composers')
+    .select('id, game_title, composers')
     .limit(LIMIT)
 
   if (error) throw error
   if (!rows?.length) { console.log('No rows found.'); return }
 
-  const toProcess = rows.filter(row => {
-    const needsThemes    = !SKIP_THEMES    && (FORCE || !row.theme_tags?.length)
-    const needsComposers = !SKIP_COMPOSERS && (FORCE || !row.composers?.length)
-    return needsThemes || needsComposers
-  })
-
-  console.log(`Total rows: ${rows.length} | Need enrichment: ${toProcess.length}\n`)
+  const toProcess = rows.filter(row => FORCE || !row.composers?.length)
+  console.log(`Total rows: ${rows.length} | Need composers: ${toProcess.length}\n`)
 
   let updated = 0
   let failed  = 0
@@ -323,37 +241,18 @@ async function main() {
   for (const row of toProcess) {
     console.log(`\n→ ${row.game_title}`)
 
-    const patch: { theme_tags?: string[]; composers?: string[] } = {}
-
-    if (!SKIP_THEMES && (FORCE || !row.theme_tags?.length)) {
-      const themes = await fetchIGDBThemes(row.game_title, igdbToken!)
-      if (themes.length) {
-        patch.theme_tags = themes
-        console.log(`  themes: ${themes.join(', ')}`)
-      } else {
-        console.log('  themes: not found')
-      }
-    }
-
-    if (!SKIP_COMPOSERS && (FORCE || !row.composers?.length)) {
-      const composers = await fetchMBComposers(row.game_title)
-      if (composers.length) {
-        patch.composers = composers
-        console.log(`  composers: ${composers.join(', ')}`)
-      } else {
-        console.log('  composers: not found')
-      }
-    }
-
-    if (!Object.keys(patch).length) {
-      console.log('  (nothing to update)')
+    const composers = await fetchMBComposers(row.game_title)
+    if (!composers.length) {
+      console.log('  composers: not found')
       continue
     }
+
+    console.log(`  composers: ${composers.join(', ')}`)
 
     if (!DRY_RUN) {
       const { error: updateError } = await supabase
         .from('soundtracks')
-        .update(patch)
+        .update({ composers })
         .eq('id', row.id)
 
       if (updateError) {

@@ -84,8 +84,8 @@ watch(nowPlaying, (s, prev) => {
     return;
   }
   minimized.value = false;
-  const preferSpotify = !!(s.spotify_id && s.spotify_type);
-  activeSource.value = preferSpotify ? "spotify" : "youtube";
+  const hasYt = !!(s.youtube_video_id || s.youtube_playlist_id);
+  activeSource.value = hasYt ? "youtube" : "spotify";
   if (!prev) applySourceDefaults(activeSource.value);
 });
 

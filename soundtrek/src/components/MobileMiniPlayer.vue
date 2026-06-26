@@ -36,7 +36,6 @@ const {
   nextTrack,
   prevTrack,
   playTrackAt,
-  setSpotifyPlaying,
   ytPlaylistMode,
   setYtPlaylistMode,
 } = usePlayerControls(
@@ -101,8 +100,8 @@ watch(nowPlaying, (s, prev) => {
     skipNextReset = false;
     return;
   }
-  const preferSpotify = !!(s.spotify_id && s.spotify_type);
-  activeSource.value = preferSpotify ? "spotify" : "youtube";
+  const hasYt = !!(s.youtube_video_id || s.youtube_playlist_id);
+  activeSource.value = hasYt ? "youtube" : "spotify";
   if (!prev) sheetOpen.value = true;
 });
 
@@ -339,13 +338,19 @@ function goToPage() {
               ref="ytContainerRef"
               class="yt-container"
             />
-            <SpotifyEmbed
+            <a
               v-if="activeSource === 'spotify' && hasSpotify"
-              ref="spotifyEmbedRef"
-              :spotify-type="nowPlaying.spotify_type!"
-              :spotify-id="nowPlaying.spotify_id!"
-              @playback-update="setSpotifyPlaying"
-            />
+              :href="`https://open.spotify.com/${nowPlaying.spotify_type}/${nowPlaying.spotify_id}`"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="spotify-open"
+            >
+              <svg width="36" height="36" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/>
+              </svg>
+              <span class="spotify-open-label">Open in Spotify</span>
+              <span class="spotify-open-sub">Tap to open the Spotify app</span>
+            </a>
           </div>
 
           <!-- Playlist mode toggle + track list -->
@@ -675,6 +680,37 @@ function goToPage() {
 .yt-container :deep(iframe) {
   display: block;
   border: none;
+}
+
+/* ── Open in Spotify ──────────────────────────────────────────────────────── */
+.spotify-open {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  width: 100%;
+  height: 100%;
+  text-decoration: none;
+  background: #121212;
+  color: #1db954;
+  transition: background 0.15s;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.spotify-open:active {
+  background: #1a1a1a;
+}
+
+.spotify-open-label {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #fff;
+}
+
+.spotify-open-sub {
+  font-size: 0.72rem;
+  color: rgba(255, 255, 255, 0.35);
 }
 
 /* ── Playlist toggle ──────────────────────────────────────────────────────── */

@@ -111,14 +111,43 @@ async function findWikipediaTitle(composerName: string): Promise<string | null> 
     `https://musicbrainz.org/ws/2/artist/${best.id}?inc=url-rels&fmt=json`,
   )
 
-  const wikiRel = (artistData?.relations ?? []).find(
-    r => r.type === 'wikipedia' && r.url.resource.includes('en.wikipedia.org'),
-  )
+  const relations = artistData?.relations ?? []
 
-  if (!wikiRel) return null
+  // Direct English Wikipedia link (regardless of relationship type label)
+  const wikiRel = relations.find(r => r.url.resource.includes('en.wikipedia.org'))
+  if (wikiRel) {
+    const match = wikiRel.url.resource.match(/\/wiki\/(.+)$/)
+    if (match) return decodeURIComponent(match[1])
+  }
 
-  const match = wikiRel.url.resource.match(/\/wiki\/(.+)$/)
-  return match ? decodeURIComponent(match[1]) : null
+  // Wikidata link — resolve to English Wikipedia sitelink
+  const wikidataRel = relations.find(r => r.url.resource.includes('wikidata.org/wiki/'))
+  if (wikidataRel) {
+    const qMatch = wikidataRel.url.resource.match(/\/(Q\d+)$/)
+    if (qMatch) {
+      const title = await resolveWikidataTitle(qMatch[1])
+      if (title) return title
+    }
+  }
+
+  return null
+}
+
+async function resolveWikidataTitle(entityId: string): Promise<string | null> {
+  await sleep(300)
+  try {
+    const res = await fetch(
+      `https://www.wikidata.org/w/api.php?action=wbgetentities&ids=${entityId}&props=sitelinks&sitefilter=enwiki&format=json`,
+      { headers: { 'User-Agent': 'SoundTrek/1.0 (https://soundtrek.app)' } },
+    )
+    if (!res.ok) return null
+    const data = await res.json() as {
+      entities?: Record<string, { sitelinks?: { enwiki?: { title: string } } }>
+    }
+    return data.entities?.[entityId]?.sitelinks?.enwiki?.title ?? null
+  } catch {
+    return null
+  }
 }
 
 // ── Wikipedia ─────────────────────────────────────────────────────────────────
@@ -131,9 +160,38 @@ async function fetchWikiBio(pageTitle: string): Promise<string | null> {
       { headers: { 'User-Agent': 'SoundTrek/1.0 (https://soundtrek.app)' } },
     )
     if (!res.ok) return null
-    const data = await res.json() as { extract?: string; type?: string }
+    const data = await res.json() as { extract?: string; type?: string; title?: string }
     if (data.type === 'disambiguation') return null
     return data.extract ?? null
+  } catch {
+    return null
+  }
+}
+
+async function searchWikipediaTitle(name: string): Promise<string | null> {
+  // Try direct page lookup first — works when the article title matches the name exactly
+  await sleep(300)
+  try {
+    const res = await fetch(
+      `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(name)}`,
+      { headers: { 'User-Agent': 'SoundTrek/1.0 (https://soundtrek.app)' } },
+    )
+    if (res.ok) {
+      const data = await res.json() as { type?: string; title?: string; extract?: string }
+      if (data.type !== 'disambiguation' && data.extract) return data.title ?? null
+    }
+  } catch {}
+
+  // Fall back to the Wikipedia search API
+  await sleep(300)
+  try {
+    const res = await fetch(
+      `https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(name)}&srnamespace=0&srlimit=3&format=json`,
+      { headers: { 'User-Agent': 'SoundTrek/1.0 (https://soundtrek.app)' } },
+    )
+    if (!res.ok) return null
+    const data = await res.json() as { query?: { search?: Array<{ title: string }> } }
+    return data.query?.search?.[0]?.title ?? null
   } catch {
     return null
   }
@@ -181,13 +239,20 @@ async function main() {
     console.log(`\n→ ${name}`)
 
     process.stdout.write('  MusicBrainz lookup...')
-    const wikiTitle = await findWikipediaTitle(name)
+    let wikiTitle = await findWikipediaTitle(name)
+    let source = 'MusicBrainz'
+    if (!wikiTitle) {
+      console.log(' not found')
+      process.stdout.write('  Wikipedia search...')
+      wikiTitle = await searchWikipediaTitle(name)
+      source = 'Wikipedia'
+    }
     if (!wikiTitle) {
       console.log(' not found')
       skipped++
       continue
     }
-    console.log(` → "${wikiTitle}"`)
+    console.log(` → "${wikiTitle}" (via ${source})`)
 
     const bio = await fetchWikiBio(wikiTitle)
     if (!bio) {

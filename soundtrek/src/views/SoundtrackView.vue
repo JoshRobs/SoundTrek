@@ -5,6 +5,7 @@ import { storeToRefs } from "pinia";
 import { useHead } from "@unhead/vue";
 import { useSoundtrackStore } from "@/stores/soundtracks";
 import StreamingLinks from "@/components/StreamingLinks.vue";
+import type { StreamingLink } from "@/types/soundtrack";
 import { toSlug } from "@/utils/slug";
 import { useLikes } from "@/composables/useLikes";
 
@@ -72,6 +73,32 @@ useHead(
     };
   }),
 );
+
+const listenOnLinks = computed((): StreamingLink[] => {
+  const t = track.value;
+  if (!t) return [];
+
+  const links: StreamingLink[] = [];
+
+  if (t.spotify_id && t.spotify_type) {
+    links.push({ platform: "spotify", url: `https://open.spotify.com/${t.spotify_type}/${t.spotify_id}` });
+  }
+
+  if (t.youtube_playlist_id || t.youtube_video_id) {
+    const ytUrl = t.youtube_playlist_id
+      ? `https://www.youtube.com/playlist?list=${t.youtube_playlist_id}`
+      : `https://www.youtube.com/watch?v=${t.youtube_video_id}`;
+    links.push({ platform: "youtube", url: ytUrl });
+  }
+
+  for (const link of (t.streaming_links ?? [])) {
+    if (link.platform !== "spotify" && link.platform !== "youtube") {
+      links.push(link);
+    }
+  }
+
+  return links;
+});
 
 const moreFromStudio = computed(() => {
   if (!track.value) return [];
@@ -420,9 +447,9 @@ onUnmounted(() => {
     </div>
 
     <!-- Streaming links -->
-    <div v-if="track.streaming_links?.length" class="links-section">
+    <div v-if="listenOnLinks.length" class="links-section">
       <h2 class="links-heading">Listen On</h2>
-      <StreamingLinks :links="track.streaming_links" />
+      <StreamingLinks :links="listenOnLinks" />
     </div>
 
     <!-- More from studio -->

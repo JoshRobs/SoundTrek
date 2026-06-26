@@ -191,7 +191,7 @@ watch(() => route.query, (query) => {
 
 @media (max-width: 768px) {
   .main {
-    padding: 1rem;
+    padding: 1rem 1rem 5rem;
     justify-content: flex-start;
   }
 }

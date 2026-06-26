@@ -4,7 +4,7 @@ import type { StreamingLink, StreamingPlatform } from '@/types/soundtrack'
 defineProps<{ links: StreamingLink[] }>()
 
 const platformMeta: Record<StreamingPlatform, { label: string; color: string }> = {
-  youtube:      { label: 'YouTube',      color: '#ff0000' },
+  youtube:      { label: 'YouTube',      color: '#ff5555' },
   spotify:      { label: 'Spotify',      color: '#1db954' },
   apple_music:  { label: 'Apple Music',  color: '#fc3c44' },
   bandcamp:     { label: 'Bandcamp',     color: '#1da0c3' },
