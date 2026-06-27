@@ -38,12 +38,36 @@ const {
   playTrackAt,
   ytPlaylistMode,
   setYtPlaylistMode,
+  ytFallbackNeeded,
 } = usePlayerControls(
   nowPlaying,
   activeSource,
   ytContainerRef,
   spotifyEmbedRef,
 );
+
+// ── Fallback when YT video/playlist is unavailable ─────────────────────────
+const fallbackNotice = ref("");
+let noticeDismissTimer: ReturnType<typeof setTimeout> | null = null;
+
+watch(ytFallbackNeeded, (failed) => {
+  if (!failed) return;
+  const track = nowPlaying.value;
+  if (!track) return;
+
+  if (ytPlaylistMode.value && track.youtube_video_id) {
+    setYtPlaylistMode(false);
+    fallbackNotice.value = "Playlist unavailable — switched to single video";
+  } else if (!!(track.spotify_id && track.spotify_type)) {
+    activeSource.value = "spotify";
+    fallbackNotice.value = "Video unavailable — switched to Spotify";
+  } else {
+    fallbackNotice.value = "Video unavailable";
+  }
+
+  if (noticeDismissTimer) clearTimeout(noticeDismissTimer);
+  noticeDismissTimer = setTimeout(() => { fallbackNotice.value = ""; }, 4000);
+});
 
 const isPlaylist = computed(
   () => nowPlaying.value?.source_type === "playlist" && ytPlaylistMode.value,
@@ -330,6 +354,16 @@ function goToPage() {
               Spotify
             </button>
           </div>
+
+          <!-- Fallback notice -->
+          <Transition name="notice">
+            <div v-if="fallbackNotice" class="fallback-notice">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+              </svg>
+              {{ fallbackNotice }}
+            </div>
+          </Transition>
 
           <!-- Embed -->
           <div class="sheet-embed">
@@ -663,6 +697,22 @@ function goToPage() {
   border-bottom-color: #1db954;
   color: #1db954;
 }
+
+/* ── Fallback notice ──────────────────────────────────────────────────────── */
+.fallback-notice {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.5rem 1rem;
+  background: rgba(251, 191, 36, 0.08);
+  border-top: 1px solid rgba(251, 191, 36, 0.2);
+  font-size: 0.72rem;
+  color: rgba(251, 191, 36, 0.85);
+  flex-shrink: 0;
+}
+
+.notice-enter-active, .notice-leave-active { transition: opacity 0.3s, max-height 0.3s; max-height: 40px; overflow: hidden; }
+.notice-enter-from, .notice-leave-to { opacity: 0; max-height: 0; }
 
 /* ── Embed ────────────────────────────────────────────────────────────────── */
 .sheet-embed {

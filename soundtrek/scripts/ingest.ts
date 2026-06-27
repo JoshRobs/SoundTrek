@@ -5,13 +5,14 @@
  * Data API, then inserts rows into the Supabase soundtracks table.
  *
  * Usage:
- *   npx tsx scripts/ingest.ts              # process next batch
+ *   npx tsx scripts/ingest.ts              # process next batch (YouTube Data API)
+ *   npx tsx scripts/ingest.ts --no-quota   # use Innertube instead (no key, unlimited)
  *   npx tsx scripts/ingest.ts --dry-run    # preview without inserting
  *   npx tsx scripts/ingest.ts --reset      # clear progress and start over
  *
- * YouTube quota: each search costs 100 units. Free tier = 10,000 units/day
- * = ~100 searches/day. Default batch size is 80 to leave headroom.
- * Run once per day until your target count is reached.
+ * YouTube quota: each Data API search costs 100 units (free tier = 10,000/day ≈ 100
+ * searches). Use --no-quota to bypass this via youtubei.js (Innertube) — no API key
+ * required and no daily limit, though results may occasionally differ.
  *
  * Composers: IGDB doesn't store individual composers. The studio name is stored
  * in the `studio` field and `composers` is left empty. Run enrich-composers.ts
@@ -24,15 +25,19 @@ import 'dotenv/config'
 
 // ── Config ────────────────────────────────────────────────────────────────────
 
-const TWITCH_CLIENT_ID  = requireEnv('TWITCH_CLIENT_ID')
+const TWITCH_CLIENT_ID     = requireEnv('TWITCH_CLIENT_ID')
 const TWITCH_CLIENT_SECRET = requireEnv('TWITCH_CLIENT_SECRET')
-const YOUTUBE_API_KEY   = requireEnv('YOUTUBE_API_KEY')
-const SUPABASE_URL      = requireEnv('VITE_SUPABASE_URL')
+const SUPABASE_URL         = requireEnv('VITE_SUPABASE_URL')
 const SUPABASE_SERVICE_KEY = requireEnv('SUPABASE_SERVICE_KEY')
 
-const BATCH_SIZE = parseInt(process.env.INGEST_BATCH_SIZE ?? '80')
-const DRY_RUN   = process.argv.includes('--dry-run')
-const RESET     = process.argv.includes('--reset')
+const DRY_RUN     = process.argv.includes('--dry-run')
+const RESET       = process.argv.includes('--reset')
+// --no-quota: use youtubei.js (YouTube Innertube, no API key or quota) instead
+// of the YouTube Data API. Slower but unlimited.
+const NO_QUOTA    = process.argv.includes('--no-quota')
+const BATCH_SIZE  = parseInt(process.env.INGEST_BATCH_SIZE ?? (NO_QUOTA ? '200' : '80'))
+
+const YOUTUBE_API_KEY = NO_QUOTA ? '' : requireEnv('YOUTUBE_API_KEY')
 const PROGRESS_FILE = 'scripts/.progress.json'
 
 function requireEnv(name: string): string {
@@ -154,7 +159,52 @@ function parseReleaseYear(game: IGDBGame): number {
   return new Date(game.first_release_date * 1000).getFullYear()
 }
 
-// ── YouTube ───────────────────────────────────────────────────────────────────
+// ── YouTube (Innertube / no-quota path) ───────────────────────────────────────
+
+type YTResult = {
+  youtube_video_id: string | null
+  youtube_playlist_id: string | null
+  source_type: 'video' | 'playlist'
+}
+
+async function searchYouTubeInnertube(
+  yt: import('youtubei.js').Innertube,
+  gameTitle: string,
+): Promise<YTResult | null> {
+  const query = `${gameTitle} full OST complete soundtrack`
+
+  // General search — youtubei.js returns mixed results; filter for playlists/videos
+  const results  = await yt.search(query)
+  const allItems = ((results as any).results ?? []) as any[]
+
+  const playlist = allItems.find((item: any) => item.type === 'Playlist' && item.id)
+  if (playlist?.id) {
+    // First video is often on the playlist item itself; fall back to fetching the playlist
+    let firstVideoId: string | null =
+      playlist.first_video?.id ?? playlist.videos?.[0]?.id ?? null
+    if (!firstVideoId) {
+      try {
+        const pl = await yt.getPlaylist(playlist.id)
+        firstVideoId = (pl as any).videos?.[0]?.id ?? null
+      } catch {}
+    }
+    return {
+      youtube_playlist_id: playlist.id,
+      youtube_video_id: firstVideoId,
+      source_type: 'playlist',
+    }
+  }
+
+  // Fall back to single video
+  const video = allItems.find((item: any) => item.type === 'Video' && item.id)
+  if (video?.id) {
+    return { youtube_video_id: video.id, youtube_playlist_id: null, source_type: 'video' }
+  }
+
+  return null
+}
+
+// ── YouTube (Data API / quota path) ──────────────────────────────────────────
 
 async function fetchFirstPlaylistVideo(playlistId: string): Promise<string | null> {
   const params = new URLSearchParams({
@@ -242,12 +292,21 @@ function sleep(ms: number) {
 
 async function main() {
   console.log(`SoundTrek Ingestion Script`)
-  if (DRY_RUN) console.log('  Mode: DRY RUN (nothing will be inserted)')
+  if (DRY_RUN)   console.log('  Mode: DRY RUN (nothing will be inserted)')
+  if (NO_QUOTA)  console.log('  YouTube: Innertube (no API key / no quota)')
+  else           console.log('  YouTube: Data API (100 searches/day)')
   console.log('')
 
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY)
-  const token = await getIGDBToken()
+  const token    = await getIGDBToken()
   const progress = loadProgress()
+
+  // Initialise Innertube once and reuse across all searches
+  let innertube: import('youtubei.js').Innertube | null = null
+  if (NO_QUOTA) {
+    const { Innertube } = await import('youtubei.js')
+    innertube = await Innertube.create()
+  }
 
   console.log(`Offset: ${progress.offset} | Already processed: ${progress.processedIgdbIds.length}`)
 
@@ -280,8 +339,10 @@ async function main() {
       continue
     }
 
-    // YouTube search — 100 quota units each
-    const yt = await searchYouTube(game.name)
+    // YouTube search
+    const yt = NO_QUOTA && innertube
+      ? await searchYouTubeInnertube(innertube, game.name)
+      : await searchYouTube(game.name)
     if (yt) {
       const ytId = yt.youtube_video_id ?? yt.youtube_playlist_id
       process.stdout.write(`[YT: ${yt.source_type} ${ytId}] `)
@@ -297,7 +358,6 @@ async function main() {
       release_year:        parseReleaseYear(game),
       cover_image_url:     game.cover ? parseCoverUrl(game.cover.url) : null,
       source_type:         yt?.source_type ?? 'video',
-      youtube_video_id:    yt?.youtube_video_id ?? null,
       youtube_playlist_id: yt?.youtube_playlist_id ?? null,
       genre_tags:          game.genres?.map(g => g.name.toLowerCase()) ?? [],
       mood_tags:           deriveMoodTags(game),
@@ -326,16 +386,17 @@ async function main() {
   progress.offset += BATCH_SIZE
   saveProgress(progress)
 
-  const quotaUsed = (inserted + failed) * 100
+  const quotaLine = NO_QUOTA
+    ? ''
+    : `YouTube quota used: ~${(inserted + failed) * 100} / 10,000 units\n`
   console.log(`
 ────────────────────────────────
 Inserted : ${inserted}
 Skipped  : ${skipped} (already in DB)
 Failed   : ${failed}
-YouTube quota used: ~${quotaUsed} / 10,000 units
-Next offset: ${progress.offset}
+${quotaLine}Next offset: ${progress.offset}
 ────────────────────────────────
-Run again tomorrow (or now if quota remains) to continue.
+Run again to continue.
 `)
 }
 

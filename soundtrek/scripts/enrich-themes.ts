@@ -102,16 +102,21 @@ async function main() {
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY)
   const token = await getIGDBToken()
 
-  const { data: rows, error } = await supabase
+  const query = supabase
     .from('soundtracks')
     .select('id, game_title, theme_tags')
     .limit(LIMIT)
 
-  if (error) throw error
-  if (!rows?.length) { console.log('No rows found.'); return }
+  if (!FORCE) {
+    query.or('theme_tags.is.null,theme_tags.eq.{}')
+  }
 
-  const toProcess = rows.filter(row => FORCE || !row.theme_tags?.length)
-  console.log(`Total rows: ${rows.length} | Need themes: ${toProcess.length}\n`)
+  const { data: toProcess, error } = await query
+
+  if (error) throw error
+  if (!toProcess?.length) { console.log('No rows need themes.'); return }
+
+  console.log(`Rows to process: ${toProcess.length}\n`)
 
   let updated = 0
   let skipped = 0

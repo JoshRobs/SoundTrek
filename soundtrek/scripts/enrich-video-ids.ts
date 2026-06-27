@@ -8,6 +8,9 @@
  * Prefers videos longer than 20 minutes (full OST compilations).
  * Falls back to the top result if nothing long enough is found.
  *
+ * Progress is tracked via the DB itself: rows with youtube_video_id already
+ * set are skipped. Rows where nothing was found on YouTube are retried each run.
+ *
  * Usage:
  *   npx tsx scripts/enrich-video-ids.ts
  *   npx tsx scripts/enrich-video-ids.ts --dry-run
@@ -104,25 +107,32 @@ async function main() {
 
   console.log(`Already processed: ${progress.processedIds.length}`)
 
-  // Fetch next unprocessed batch
-  const query = supabase
+  // Fetch all IDs from DB, subtract processed ones client-side, then query
+  // the next batch by inclusion. This avoids URL overflow from a large NOT IN list.
+  const { data: allIdRows, error: idErr } = await supabase
     .from('soundtracks')
-    .select('id, game_title')
-    .limit(BATCH_SIZE)
+    .select('id')
+  if (idErr) throw idErr
 
-  if (progress.processedIds.length) {
-    query.not('id', 'in', `(${progress.processedIds.join(',')})`)
-  }
+  const processedSet = new Set(progress.processedIds)
+  const unprocessedIds = (allIdRows ?? [])
+    .map(r => r.id as string)
+    .filter(id => !processedSet.has(id))
+    .slice(0, BATCH_SIZE)
 
-  const { data: rows, error } = await query
-
-  if (error) throw error
-  if (!rows?.length) {
+  if (!unprocessedIds.length) {
     console.log('All rows processed.')
     return
   }
 
-  console.log(`Rows to process this run: ${rows.length}\n`)
+  const { data: rows, error } = await supabase
+    .from('soundtracks')
+    .select('id, game_title')
+    .in('id', unprocessedIds)
+
+  if (error) throw error
+
+  console.log(`Rows to process this run: ${rows?.length ?? 0}\n`)
 
   const yt = await Innertube.create()
 
@@ -169,10 +179,9 @@ async function main() {
     await sleep(1200)
   }
 
-  const remaining = (await supabase
-    .from('soundtracks')
-    .select('id', { count: 'exact', head: true })
-    .not('id', 'in', `(${progress.processedIds.join(',')})`)).count ?? 0
+  const { data: remainingIds } = await supabase.from('soundtracks').select('id')
+  const processedSetFinal = new Set(progress.processedIds)
+  const remaining = (remainingIds ?? []).filter(r => !processedSetFinal.has(r.id as string)).length
 
   console.log(`
 ────────────────────────────────

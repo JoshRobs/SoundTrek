@@ -44,15 +44,20 @@ export function usePlayerControls(
   const currentTrackIndex = ref(0);
   const playerVideoIds = ref<string[]>([]);
   const ytPlaylistMode = ref(true);
+  const ytFallbackNeeded = ref(false);
   let premuteVolume = volume.value;
   let player: YT.Player | null = null;
   let initId = 0;
+  let recoveryTimer: ReturnType<typeof setTimeout> | null = null;
+
+  function clearRecoveryTimer() {
+    if (recoveryTimer) { clearTimeout(recoveryTimer); recoveryTimer = null; }
+  }
 
   function destroyPlayer() {
+    clearRecoveryTimer();
     if (player) {
-      try {
-        player.destroy();
-      } catch {}
+      try { player.destroy(); } catch {}
       player = null;
     }
   }
@@ -74,22 +79,39 @@ export function usePlayerControls(
         rel: 0,
         ...(playlistId ? { list: playlistId, listType: "playlist" } : {}),
       },
+      // Cast to any: onError exists in the YT API but is missing from the type definitions
       events: {
         onReady: () => {
           player?.setVolume(muted.value ? 0 : volume.value);
           playerVideoIds.value = (player as any)?.getPlaylist() ?? [];
         },
-        onStateChange: (e) => {
+        onStateChange: (e: { data: number }) => {
           isPlaying.value = e.data === 1;
           if (e.data === 1 || e.data === 2) {
             currentTrackIndex.value = player?.getPlaylistIndex() ?? 0;
+            clearRecoveryTimer();
           }
         },
-      },
+        onError: (e: { data: number }) => {
+          // 100 = not found/private, 101/150 = embedding disabled
+          if (![100, 101, 150].includes(e.data)) return;
+          if (playlistId) {
+            // Give the player 2.5s to auto-skip to a working video
+            clearRecoveryTimer();
+            recoveryTimer = setTimeout(() => {
+              if (!isPlaying.value) ytFallbackNeeded.value = true;
+            }, 2500);
+          } else {
+            ytFallbackNeeded.value = true;
+          }
+        },
+      } as any,
     });
   }
 
   async function initPlayer() {
+    clearRecoveryTimer();
+    ytFallbackNeeded.value = false;
     const myId = ++initId;
     const track = nowPlaying.value;
     const source = activeSource.value;
@@ -234,5 +256,6 @@ export function usePlayerControls(
     setSpotifyPlaying,
     ytPlaylistMode,
     setYtPlaylistMode,
+    ytFallbackNeeded,
   };
 }

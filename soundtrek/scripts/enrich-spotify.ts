@@ -53,14 +53,23 @@ function sleep(ms: number) {
 }
 
 // ── Progress tracking ─────────────────────────────────────────────────────────
+// Uses a cursor (last processed ID ordered ascending) instead of a list of IDs,
+// so the Supabase query stays small regardless of how many rows have been processed.
 
 interface Progress {
-  processedIds: string[];
+  lastId: string | null;
 }
 
 function loadProgress(): Progress {
-  if (RESET || !existsSync(PROGRESS_FILE)) return { processedIds: [] };
-  return JSON.parse(readFileSync(PROGRESS_FILE, "utf-8")) as Progress;
+  if (RESET || !existsSync(PROGRESS_FILE)) return { lastId: null };
+  try {
+    const raw = JSON.parse(readFileSync(PROGRESS_FILE, "utf-8"));
+    // Migrate old format (processedIds array → cursor)
+    if (Array.isArray(raw.processedIds)) return { lastId: null };
+    return raw as Progress;
+  } catch {
+    return { lastId: null };
+  }
 }
 
 function saveProgress(p: Progress) {
@@ -326,21 +335,18 @@ async function main() {
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
   const progress = loadProgress();
 
-  console.log(`Already processed: ${progress.processedIds.length}`);
+  if (progress.lastId) console.log(`Resuming after ID: ${progress.lastId}`);
 
-  // Build query
+  // Cursor-based pagination: fetch rows with id > lastId, ordered by id.
+  // This keeps the query tiny regardless of how many rows have been processed.
   let query = supabase
     .from("soundtracks")
     .select("id, game_title, studio, streaming_links, spotify_id")
+    .order("id")
     .limit(BATCH_SIZE);
 
-  if (!OVERWRITE) {
-    query = query.is("spotify_id", null);
-  }
-
-  if (progress.processedIds.length) {
-    query = query.not("id", "in", `(${progress.processedIds.join(",")})`);
-  }
+  if (!OVERWRITE) query = query.is("spotify_id", null);
+  if (progress.lastId) query = query.gt("id", progress.lastId);
 
   const { data: rows, error } = await query;
 
@@ -366,7 +372,7 @@ async function main() {
     } catch (err) {
       console.log(`[ERROR: ${(err as Error).message}]`);
       failed++;
-      progress.processedIds.push(row.id);
+      progress.lastId = row.id;
       saveProgress(progress);
       await sleep(1000);
       continue;
@@ -381,12 +387,9 @@ async function main() {
       );
 
       if (!DRY_RUN) {
-        // Merge Spotify into streaming_links without duplicating
         const existingLinks: { platform: string; url: string }[] =
           Array.isArray(row.streaming_links) ? row.streaming_links : [];
-        const hasSpotifyLink = existingLinks.some(
-          (l) => l.platform === "spotify",
-        );
+        const hasSpotifyLink = existingLinks.some((l) => l.platform === "spotify");
         const newLinks = hasSpotifyLink
           ? existingLinks
           : [...existingLinks, { platform: "spotify", url: result.url }];
@@ -413,18 +416,17 @@ async function main() {
       }
     }
 
-    progress.processedIds.push(row.id);
+    progress.lastId = row.id;
     saveProgress(progress);
 
-    // Conservative delay between games — search endpoint is strict on Client Credentials
     await sleep(3000);
   }
 
+  // Remaining count: just how many null rows exist after our cursor
   const { count: remaining } = await supabase
     .from("soundtracks")
     .select("id", { count: "exact", head: true })
-    .is("spotify_id", null)
-    .not("id", "in", `(${progress.processedIds.join(",")})`);
+    .is("spotify_id", null);
 
   console.log(`
 ────────────────────────────────
