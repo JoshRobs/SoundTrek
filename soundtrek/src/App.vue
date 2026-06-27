@@ -1,13 +1,13 @@
 <script setup lang="ts">
-import { storeToRefs } from 'pinia'
-import AppHeader from '@/components/AppHeader.vue'
-import PersistentPlayer from '@/components/PersistentPlayer.vue'
-import MobileMiniPlayer from '@/components/MobileMiniPlayer.vue'
-import { useIsMobile } from '@/composables/useIsMobile'
-import { useSoundtrackStore } from '@/stores/soundtracks'
+import { storeToRefs } from "pinia";
+import AppHeader from "@/components/AppHeader.vue";
+import PersistentPlayer from "@/components/PersistentPlayer.vue";
+import MobileMiniPlayer from "@/components/MobileMiniPlayer.vue";
+import { useIsMobile } from "@/composables/useIsMobile";
+import { useSoundtrackStore } from "@/stores/soundtracks";
 
-const { isMobile } = useIsMobile()
-const { nowPlaying } = storeToRefs(useSoundtrackStore())
+const { isMobile } = useIsMobile();
+const { nowPlaying } = storeToRefs(useSoundtrackStore());
 </script>
 
 <template>
@@ -46,5 +46,15 @@ const { nowPlaying } = storeToRefs(useSoundtrackStore())
 
 .app-main.has-mini-player {
   padding-bottom: 72px;
+}
+
+@media print {
+  .app-shell {
+    height: auto;
+  }
+  .app-main {
+    overflow: visible;
+    min-height: unset;
+  }
 }
 </style>

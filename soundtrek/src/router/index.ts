@@ -19,6 +19,7 @@ import CatalogView from "@/views/CatalogView.vue";
 import SubmitView from "@/views/SubmitView.vue";
 import ContactView from "@/views/ContactView.vue";
 import PrivacyView from "@/views/PrivacyView.vue";
+import TermsView from "@/views/TermsView.vue";
 import NotFoundView from "@/views/NotFoundView.vue";
 
 export const routes: RouteRecordRaw[] = [
@@ -36,6 +37,7 @@ export const routes: RouteRecordRaw[] = [
   { path: "/submit", component: SubmitView },
   { path: "/contact", component: ContactView },
   { path: "/privacy-policy", component: PrivacyView },
+  { path: "/terms-of-service", component: TermsView },
   { path: "/:pathMatch(.*)*", component: NotFoundView },
 ];
 

@@ -289,6 +289,12 @@ onMounted(async () => {
             <RouterLink to="/contact" class="footer-link"
               >Contact Us</RouterLink
             >
+            <RouterLink to="/privacy-policy" class="footer-link"
+              >Privacy Policy</RouterLink
+            >
+            <RouterLink to="/terms-of-service" class="footer-link"
+              >Terms of Service</RouterLink
+            >
           </div>
         </nav>
       </div>
