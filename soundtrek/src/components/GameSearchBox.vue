@@ -22,14 +22,18 @@ const activeIdx = ref(-1);
 const inputEl = ref<HTMLInputElement>();
 const searchWrapEl = ref<HTMLElement>();
 
+function normalize(s: string) {
+  return s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+}
+
 const results = computed(() => {
-  const q = query.value.trim().toLowerCase();
+  const q = normalize(query.value.trim());
   if (!q) return [];
   const titleMatches: { s: typeof allSoundtracks.value[0]; by: 'title' | 'composer' }[] = [];
   const composerMatches: { s: typeof allSoundtracks.value[0]; by: 'title' | 'composer' }[] = [];
   for (const s of allSoundtracks.value) {
-    if (s.game_title.toLowerCase().includes(q)) titleMatches.push({ s, by: 'title' });
-    else if ((s.composers ?? []).some((c) => c.toLowerCase().includes(q)) || s.studio.toLowerCase().includes(q)) composerMatches.push({ s, by: 'composer' });
+    if (normalize(s.game_title).includes(q)) titleMatches.push({ s, by: 'title' });
+    else if ((s.composers ?? []).some((c) => normalize(c).includes(q)) || normalize(s.studio).includes(q)) composerMatches.push({ s, by: 'composer' });
   }
   return [...titleMatches, ...composerMatches].slice(0, 8);
 });

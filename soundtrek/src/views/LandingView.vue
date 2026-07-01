@@ -5,6 +5,7 @@ import { useHead } from "@unhead/vue";
 import { storeToRefs } from "pinia";
 import GameSearchBox from "@/components/GameSearchBox.vue";
 import RandomizeButton from "@/components/RandomizeButton.vue";
+import HeroCovers from "@/components/HeroCovers.vue";
 import { useSoundtrackStore } from "@/stores/soundtracks";
 import type { Soundtrack } from "@/types/soundtrack";
 import { animate, stagger } from "animejs";
@@ -77,18 +78,21 @@ function play(s: Soundtrack) {
 const nowListeningItems = ref<Soundtrack[]>([]);
 const featuredItems = ref<Soundtrack[]>([]);
 const recentItems = ref<Soundtrack[]>([]);
+const heroCovers = ref<Soundtrack[]>([]);
+const displayCount = ref(0);
 
 function buildSections(all: Soundtrack[]) {
   if (!all.length || nowListeningItems.value.length > 0) return;
   const shuffled = [...all].sort(() => Math.random() - 0.5);
-  nowListeningItems.value = shuffled.slice(0, 3);
-  featuredItems.value = shuffled.slice(3, 7);
+  heroCovers.value = shuffled.filter((s) => s.cover_image_url).slice(0, 35);
+  nowListeningItems.value = shuffled.slice(0, 4);
+  featuredItems.value = shuffled.slice(3, 9);
   recentItems.value = [...all]
     .sort(
       (a, b) =>
         new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
     )
-    .slice(0, 4);
+    .slice(0, 5);
 }
 
 // Build immediately if store already has data (returning from another page),
@@ -106,25 +110,50 @@ onMounted(async () => {
     delay: stagger(40),
     fill: "forwards",
   });
+
+  const target = allSoundtracks.value.length;
+  if (target > 0) {
+    const counter = { n: 0 };
+    animate(counter, {
+      n: target,
+      duration: 2200,
+      ease: "out(3)",
+      onUpdate: () => {
+        displayCount.value = Math.round(counter.n);
+      },
+    });
+  }
 });
 </script>
 
 <template>
   <div class="landing">
     <div class="hero">
-      <p class="logo">
-        <span
-          v-for="(char, i) in text"
-          :key="i"
-          class="letter"
-          @mouseenter="hoverIn($event.target, i)"
-          @mouseleave="hoverOut($event.target)"
-          >{{ char }}</span
-        >
-      </p>
-      <p class="tagline">Discover video game soundtracks</p>
-      <GameSearchBox @select="(id) => router.push(`/soundtrack/${id}`)" />
-      <RandomizeButton @click="randomSoundtrack" />
+      <HeroCovers v-if="heroCovers.length" :covers="heroCovers" />
+
+      <div class="hero-content">
+        <p class="logo">
+          <span
+            v-for="(char, i) in text"
+            :key="i"
+            class="letter"
+            @mouseenter="hoverIn($event.target, i)"
+            @mouseleave="hoverOut($event.target)"
+            >{{ char }}</span
+          >
+        </p>
+        <p class="tagline">Discover video game soundtracks</p>
+        <GameSearchBox @select="(id) => router.push(`/soundtrack/${id}`)" />
+
+        <div v-if="displayCount > 0" class="track-counter">
+          <span class="counter-number">{{
+            displayCount.toLocaleString()
+          }}</span>
+          <span class="counter-label">soundtracks to discover</span>
+        </div>
+
+        <RandomizeButton @click="randomSoundtrack" />
+      </div>
     </div>
 
     <div class="sections">
@@ -371,21 +400,37 @@ onMounted(async () => {
 
 /* ── Hero ─────────────────────────────────────────────────────────────── */
 .hero {
+  position: relative;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 1.25rem;
   width: 100%;
-  max-width: 560px;
   min-height: 100vh;
-  padding: 4rem 1rem 12rem;
-  margin: 0 auto;
   background-image: radial-gradient(
     ellipse at 50% 55%,
     color-mix(in srgb, var(--accent) 10%, transparent) 0%,
     transparent 65%
   );
+}
+
+.hero-content {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.25rem;
+  width: 100%;
+  max-width: 560px;
+  margin: 0 auto;
+  padding: 4rem 1rem 12rem;
+  pointer-events: none;
+}
+
+.hero-content > * {
+  pointer-events: auto;
 }
 
 .logo {
@@ -396,14 +441,44 @@ onMounted(async () => {
   line-height: 1;
   color: var(--text-primary);
   text-align: center;
+  text-shadow:
+    -2px -2px rgb(0, 0, 0),
+    4px 4px rgb(46, 46, 46);
 }
 
 .tagline {
   margin: -0.5rem 0 0.5rem;
-  font-size: 0.9rem;
-  color: var(--text-muted);
+  font-size: clamp(1rem, 2.5vw, 1.25rem);
+  color: var(--text-secondary);
   text-align: center;
   letter-spacing: 0.03em;
+}
+
+/* ── Track counter ────────────────────────────────────────────────────── */
+.track-counter {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.15rem;
+}
+
+.counter-number {
+  font-family: "Bebas Neue", sans-serif;
+  font-size: clamp(2.8rem, 9vw, 4.5rem);
+  line-height: 1;
+  letter-spacing: 0.04em;
+  color: var(--text-primary);
+  text-shadow:
+    -2px -2px rgb(0, 0, 0),
+    4px 4px rgb(24, 24, 24);
+}
+
+.counter-label {
+  font-family: "Bebas Neue", sans-serif;
+  font-size: clamp(1rem, 3vw, 1.6rem);
+  letter-spacing: 0.12em;
+  color: rgb(187, 187, 187);
+  text-shadow: 1px 1px rgb(29, 29, 29);
 }
 
 /* ── Sections ─────────────────────────────────────────────────────────── */
@@ -551,9 +626,9 @@ onMounted(async () => {
 /* ── Section 2: Featured grid ─────────────────────────────────────────── */
 .cover-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr 1fr 1fr;
   gap: 0.75rem;
-  max-width: 600px;
+  max-width: 780px;
 }
 
 .cover-grid .cover-card {
@@ -714,6 +789,9 @@ onMounted(async () => {
 @media (max-width: 768px) {
   .hero {
     min-height: 100svh;
+  }
+
+  .hero-content {
     padding: 3.5rem 1.25rem 4rem;
     gap: 1rem;
   }

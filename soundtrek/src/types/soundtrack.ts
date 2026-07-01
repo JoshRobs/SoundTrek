@@ -21,6 +21,7 @@ export interface Soundtrack {
   console: string
   release_year: number
   cover_image_url: string | null
+  cover_image_url_hd: string | null
   youtube_playlist_id: string | null
   youtube_video_id: string | null
   source_type: 'playlist' | 'video'

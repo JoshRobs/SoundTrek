@@ -5,12 +5,20 @@ import { storeToRefs } from "pinia";
 import { useSoundtrackStore } from "@/stores/soundtracks";
 import StreamingLinks from "./StreamingLinks.vue";
 import { usePlayerControls } from "@/composables/usePlayerControls";
+import { useLikes } from "@/composables/useLikes";
 import SpotifyEmbed from "./SpotifyEmbed.vue";
 
 const router = useRouter();
 
 const store = useSoundtrackStore();
 const { nowPlaying } = storeToRefs(store);
+const { isLiked, toggleLike: rawToggle } = useLikes();
+
+function toggleLike() {
+  if (!nowPlaying.value) return;
+  const delta = rawToggle(nowPlaying.value.id);
+  store.likeSoundtrack(nowPlaying.value.id, delta);
+}
 
 const minimized = ref(false);
 const activeSource = ref<"youtube" | "spotify">("youtube");
@@ -480,6 +488,16 @@ function ctxSwitchSource(src: "youtube" | "spotify") {
         </button>
       </div>
       <div class="player-actions">
+        <button
+          class="action-btn like-btn"
+          :class="{ liked: nowPlaying && isLiked(nowPlaying.id) }"
+          :aria-label="nowPlaying && isLiked(nowPlaying.id) ? 'Unlike' : 'Like'"
+          @click="toggleLike"
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+          </svg>
+        </button>
         <div v-if="activeSource === 'youtube'" class="volume-control">
           <button
             class="action-btn"
@@ -961,6 +979,19 @@ function ctxSwitchSource(src: "youtube" | "spotify") {
 .action-btn:hover {
   background: rgba(255, 255, 255, 0.07);
   color: rgba(255, 255, 255, 0.85);
+}
+
+.like-btn svg {
+  transition: fill 0.15s, stroke 0.15s;
+}
+
+.like-btn.liked {
+  color: #e53e3e;
+}
+
+.like-btn.liked svg {
+  fill: #e53e3e;
+  stroke: #e53e3e;
 }
 
 .source-bar {

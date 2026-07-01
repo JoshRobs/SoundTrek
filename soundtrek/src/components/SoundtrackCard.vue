@@ -93,7 +93,7 @@ const consoleSticker = computed(() =>
         <div class="cover-wrap" @click="store.setNowPlaying(props.soundtrack)">
           <img
             v-if="soundtrack.cover_image_url"
-            :src="soundtrack.cover_image_url"
+            :src="soundtrack.cover_image_url_hd ?? soundtrack.cover_image_url"
             :alt="soundtrack.game_title"
             class="cover-img"
           />
