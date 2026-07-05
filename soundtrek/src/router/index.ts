@@ -5,6 +5,7 @@ import {
   type RouteLocationNormalized,
   type RouteLocationNormalizedLoaded,
 } from "vue-router";
+import { supabase } from "@/lib/supabase";
 import LandingView from "@/views/LandingView.vue";
 import HomeView from "@/views/HomeView.vue";
 import ComposerView from "@/views/ComposerView.vue";
@@ -20,12 +21,16 @@ import SubmitView from "@/views/SubmitView.vue";
 import ContactView from "@/views/ContactView.vue";
 import PrivacyView from "@/views/PrivacyView.vue";
 import TermsView from "@/views/TermsView.vue";
+import LoginView from "@/views/LoginView.vue";
+import SavedView from "@/views/SavedView.vue";
+import AccountView from "@/views/AccountView.vue";
+import ResetPasswordView from "@/views/ResetPasswordView.vue";
 import NotFoundView from "@/views/NotFoundView.vue";
 
 export const routes: RouteRecordRaw[] = [
   { path: "/", component: LandingView },
   { path: "/discover", component: HomeView },
-  { path: "/soundtrack/:id", component: SoundtrackView },
+  { path: "/soundtrack/:slug", component: SoundtrackView },
   { path: "/composer/:slug", component: ComposerView },
   { path: "/studio/:slug", component: StudioView },
   { path: "/top", component: TopView },
@@ -38,6 +43,10 @@ export const routes: RouteRecordRaw[] = [
   { path: "/contact", component: ContactView },
   { path: "/privacy-policy", component: PrivacyView },
   { path: "/terms-of-service", component: TermsView },
+  { path: "/login", component: LoginView },
+  { path: "/saved", component: SavedView },
+  { path: "/account", component: AccountView },
+  { path: "/reset-password", component: ResetPasswordView },
   { path: "/:pathMatch(.*)*", component: NotFoundView },
 ];
 
@@ -54,9 +63,16 @@ export function scrollBehavior(
 }
 
 export function setupScrollGuards(router: Router) {
-  router.beforeEach((_, from) => {
+  router.beforeEach(async (to, from) => {
     const el = document.getElementById("app-main");
     if (el) scrollPositions.set(from.fullPath, el.scrollTop);
+
+    if (to.meta.requiresAuth) {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        return { path: "/login", query: { redirect: to.fullPath } };
+      }
+    }
   });
   router.afterEach((to) => {
     nextTick(() => {

@@ -41,6 +41,25 @@ function requireEnv(name: string): string {
   return val
 }
 
+function toSlug(name: string): string {
+  return name
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .replace(/[''']/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '')
+}
+
+function generateSlug(title: string, year: number, id: string, taken: Set<string>): string {
+  const base = toSlug(title)
+  let slug = base
+  if (taken.has(slug)) slug = `${base}-${year}`
+  if (taken.has(slug)) slug = `${base}-${id.slice(0, 6)}`
+  taken.add(slug)
+  return slug
+}
+
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 interface IGDBGame {
@@ -263,6 +282,10 @@ async function main() {
   const token    = await getIGDBToken()
   const progress = loadProgress()
 
+  // Load existing slugs to detect collisions on insert
+  const { data: existingSlugs } = await supabase.from('soundtracks').select('slug')
+  const takenSlugs = new Set((existingSlugs ?? []).map(r => r.slug as string).filter(Boolean))
+
   console.log(`Offset: ${progress.offset} | Already processed: ${progress.processedIgdbIds.length}`)
 
   const games = await fetchIGDBGames(token, progress.offset)
@@ -303,7 +326,10 @@ async function main() {
       process.stdout.write('[YT: not found] ')
     }
 
+    const slug = generateSlug(game.name, parseReleaseYear(game), game.id.toString(), takenSlugs)
+
     const row = {
+      slug,
       game_title:          game.name,
       studio:              parseDeveloper(game),
       composers:           [] as string[], // populated by enrich-composers.ts

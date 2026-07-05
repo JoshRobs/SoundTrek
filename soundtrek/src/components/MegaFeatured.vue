@@ -16,7 +16,7 @@ const { featuredSoundtracks } = storeToRefs(useSoundtrackStore());
       v-for="s in featuredSoundtracks"
       :key="s.id"
       class="feat-item"
-      @click="emit('navigate', `/soundtrack/${s.id}`)"
+      @click="emit('navigate', `/soundtrack/${s.slug ?? s.id}`)"
     >
       <div class="feat-thumb">
         <img

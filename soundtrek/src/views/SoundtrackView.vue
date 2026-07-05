@@ -8,21 +8,30 @@ import StreamingLinks from "@/components/StreamingLinks.vue";
 import type { StreamingLink } from "@/types/soundtrack";
 import { toSlug } from "@/utils/slug";
 import { useLikes } from "@/composables/useLikes";
+import { useSaves } from "@/composables/useSaves";
 
 const route = useRoute();
 const router = useRouter();
 const store = useSoundtrackStore();
 const { allSoundtracks } = storeToRefs(store);
 
-const id = route.params.id as string;
+const param = route.params.slug as string;
 const notFound = ref(false);
 const coverColor = ref("");
 const copied = ref(false);
 const { isLiked, toggleLike: rawToggle } = useLikes();
+const { isSaved, toggleSave } = useSaves();
 
+// Support both slug-based URLs (new) and UUID-based URLs (legacy bookmarks)
 const track = computed(
-  () => allSoundtracks.value.find((s) => s.id === id) ?? null,
+  () =>
+    allSoundtracks.value.find(
+      (s) => s.slug === param || s.id === param,
+    ) ?? null,
 );
+
+// Use the track's actual ID for likes/saves/API calls
+const id = computed(() => track.value?.id ?? param);
 
 useHead(
   computed(() => {
@@ -31,7 +40,7 @@ useHead(
     const description = t
       ? `Listen to the ${t.game_title} soundtrack by ${(t.composers ?? []).join(", ") || t.studio} (${t.release_year}) on SoundTrek.`
       : "";
-    const pageUrl = `https://soundtrek.app/soundtrack/${id}`;
+    const pageUrl = `https://soundtrek.app/soundtrack/${t?.slug ?? param}`;
     return {
       title,
       meta: [
@@ -44,6 +53,9 @@ useHead(
         { name: "twitter:title", content: title },
         { name: "twitter:description", content: description },
         { name: "twitter:image", content: t?.cover_image_url ?? "" },
+      ],
+      link: [
+        { rel: "canonical", href: pageUrl },
       ],
       script: t
         ? [
@@ -103,7 +115,7 @@ const listenOnLinks = computed((): StreamingLink[] => {
 const moreFromStudio = computed(() => {
   if (!track.value) return [];
   return allSoundtracks.value
-    .filter((s) => s.studio === track.value!.studio && s.id !== id)
+    .filter((s) => s.studio === track.value!.studio && s.id !== id.value)
     .slice(0, 12);
 });
 
@@ -112,7 +124,7 @@ const similarSoundtracks = computed(() => {
   const genres = new Set(track.value.genre_tags ?? []);
   const moods = new Set(track.value.mood_tags ?? []);
   return allSoundtracks.value
-    .filter((s) => s.id !== id && s.studio !== track.value!.studio)
+    .filter((s) => s.id !== id.value && s.studio !== track.value!.studio)
     .map((s) => ({
       s,
       score:
@@ -204,8 +216,8 @@ function play() {
 
 function toggleLike() {
   if (!track.value) return;
-  const delta = rawToggle(id);
-  store.likeSoundtrack(id, delta);
+  const delta = rawToggle(id.value);
+  store.likeSoundtrack(id.value, delta);
 }
 
 function share() {
@@ -393,6 +405,27 @@ onUnmounted(() => {
               {{ track.likes }}
             </button>
 
+            <button
+              class="save-btn"
+              :class="{ saved: isSaved(id) }"
+              :aria-label="isSaved(id) ? 'Remove from saved' : 'Save'"
+              @click="toggleSave(id)"
+            >
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                :fill="isSaved(id) ? 'currentColor' : 'none'"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
+              </svg>
+              {{ isSaved(id) ? "Saved" : "Save" }}
+            </button>
+
             <button class="share-btn" @click="share">
               <svg
                 v-if="!copied"
@@ -467,7 +500,7 @@ onUnmounted(() => {
           <RouterLink
             v-for="s in moreFromStudio"
             :key="s.id"
-            :to="`/soundtrack/${s.id}`"
+            :to="`/soundtrack/${s.slug ?? s.id}`"
             class="related-card"
           >
             <div class="related-cover">
@@ -540,7 +573,7 @@ onUnmounted(() => {
           <RouterLink
             v-for="s in similarSoundtracks"
             :key="s.id"
-            :to="`/soundtrack/${s.id}`"
+            :to="`/soundtrack/${s.slug ?? s.id}`"
             class="related-card"
           >
             <div class="related-cover">
@@ -879,6 +912,35 @@ onUnmounted(() => {
 .like-btn.liked svg {
   fill: #f5686c;
   stroke: #f5686c;
+}
+
+.save-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.65rem 1rem;
+  border-radius: 99px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0.88rem;
+  cursor: pointer;
+  transition:
+    border-color 0.15s,
+    color 0.15s,
+    background 0.15s;
+}
+
+.save-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent-light, var(--accent));
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+}
+
+.save-btn.saved {
+  color: var(--accent-light, var(--accent));
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
 }
 
 .share-btn {

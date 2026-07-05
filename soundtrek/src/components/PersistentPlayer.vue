@@ -365,14 +365,14 @@ function onContextMenuKey(e: KeyboardEvent) {
 }
 
 function goToSoundtrackPage() {
-  if (nowPlaying.value) router.push(`/soundtrack/${nowPlaying.value.id}`);
+  if (nowPlaying.value) router.push(`/soundtrack/${nowPlaying.value.slug ?? nowPlaying.value.id}`);
   hideContextMenu();
 }
 
 async function copyLink() {
   if (!nowPlaying.value) return;
   await navigator.clipboard.writeText(
-    `${window.location.origin}/soundtrack/${nowPlaying.value.id}`
+    `${window.location.origin}/soundtrack/${nowPlaying.value.slug ?? nowPlaying.value.id}`
   );
   linkCopied.value = true;
   setTimeout(() => (linkCopied.value = false), 2000);

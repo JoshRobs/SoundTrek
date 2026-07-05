@@ -10,6 +10,7 @@ import { useSoundtrackStore } from "@/stores/soundtracks";
 import type { Soundtrack } from "@/types/soundtrack";
 import { animate, stagger } from "animejs";
 import { useNotePlayer } from "@/composables/useNotePlayer";
+import CategoryBrowser from "@/components/CategoryBrowser.vue";
 
 const text = "SOUNDTREK".split("");
 const { playNote } = useNotePlayer();
@@ -54,6 +55,9 @@ useHead({
     },
     { property: "og:url", content: "https://soundtrek.app/" },
   ],
+  link: [
+    { rel: "canonical", href: "https://soundtrek.app/" },
+  ],
 });
 
 const buildDate = __BUILD_DATE__;
@@ -72,7 +76,7 @@ function randomSoundtrack() {
 }
 
 function play(s: Soundtrack) {
-  router.push(`/soundtrack/${s.id}`);
+  router.push(`/soundtrack/${s.slug ?? s.id}`);
 }
 
 const nowListeningItems = ref<Soundtrack[]>([]);
@@ -155,6 +159,8 @@ onMounted(async () => {
         <RandomizeButton @click="randomSoundtrack" />
       </div>
     </div>
+
+    <CategoryBrowser />
 
     <div class="sections">
       <!-- Section 1: Now Listening — title left -->
@@ -336,6 +342,9 @@ onMounted(async () => {
           <p class="footer-disclaimer">
             SoundTrek is a fan project. All game titles and soundtracks are
             property of their respective owners.
+          </p>
+          <p class="footer-disclaimer">
+            Icon made by <a href="https://www.freepik.com" target="_blank" rel="noopener" class="footer-rss">Freepik</a> from <a href="https://www.flaticon.com" target="_blank" rel="noopener" class="footer-rss">www.flaticon.com</a>.
           </p>
           <p class="footer-meta">
             Made with ♥ by Joshua Roberts &nbsp;·&nbsp; Updated {{ buildDate }}

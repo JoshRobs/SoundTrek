@@ -50,7 +50,7 @@ onMounted(() => {
       :key="slot.soundtrack.id"
       class="hero-cover"
       :style="slot.style"
-      @click="router.push(`/soundtrack/${slot.soundtrack.id}`)"
+      @click="router.push(`/soundtrack/${slot.soundtrack.slug ?? slot.soundtrack.id}`)"
     >
       <img
         :src="

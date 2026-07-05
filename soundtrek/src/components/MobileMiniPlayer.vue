@@ -224,7 +224,7 @@ onMounted(() => window.addEventListener("keydown", onKeydown));
 onUnmounted(() => window.removeEventListener("keydown", onKeydown));
 
 function goToPage() {
-  if (nowPlaying.value) router.push(`/soundtrack/${nowPlaying.value.id}`);
+  if (nowPlaying.value) router.push(`/soundtrack/${nowPlaying.value.slug ?? nowPlaying.value.id}`);
   sheetOpen.value = false;
 }
 </script>

@@ -7,7 +7,7 @@ const router = useRouter();
 </script>
 
 <template>
-  <div class="card" @click="router.push(`/soundtrack/${props.soundtrack.id}`)">
+  <div class="card" @click="router.push(`/soundtrack/${props.soundtrack.slug ?? props.soundtrack.id}`)">
     <div class="cover">
       <img
         v-if="soundtrack.cover_image_url"

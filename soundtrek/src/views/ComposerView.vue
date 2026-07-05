@@ -79,7 +79,7 @@ useHead(computed(() => ({
           <RouterLink
             v-for="s in composerSoundtracks"
             :key="s.id"
-            :to="`/soundtrack/${s.id}`"
+            :to="`/soundtrack/${s.slug ?? s.id}`"
             class="grid-card"
           >
             <div class="grid-cover">

@@ -1,7 +1,6 @@
 import { ref, computed } from "vue";
 import { defineStore } from "pinia";
 import { supabase } from "@/lib/supabase";
-import { mockSoundtracks } from "@/data/mockSoundtracks";
 import type { Soundtrack, FilterState, ExploreRow } from "@/types/soundtrack";
 
 const USE_MOCK = import.meta.env.VITE_USE_MOCK_DATA === "true";
@@ -18,20 +17,22 @@ export const useSoundtrackStore = defineStore("soundtracks", () => {
     loading.value = true;
     error.value = null;
 
-    if (USE_MOCK) {
-      allSoundtracks.value = mockSoundtracks;
-      fetched = true;
-      loading.value = false;
-      return;
-    }
-
     try {
-      const { data, error: err } = await supabase
-        .from("soundtracks")
-        .select("*")
-        .order("created_at", { ascending: true });
-      if (err) throw err;
-      allSoundtracks.value = data ?? [];
+      const PAGE = 1000;
+      let all: Soundtrack[] = [];
+      let from = 0;
+      while (true) {
+        const { data, error: err } = await supabase
+          .from("soundtracks")
+          .select("*")
+          .order("created_at", { ascending: true })
+          .range(from, from + PAGE - 1);
+        if (err) throw err;
+        all = all.concat(data ?? []);
+        if (!data || data.length < PAGE) break;
+        from += PAGE;
+      }
+      allSoundtracks.value = all;
       fetched = true;
     } catch (e: unknown) {
       error.value =

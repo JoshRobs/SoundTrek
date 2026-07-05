@@ -123,7 +123,7 @@ onUnmounted(() => {
         <h2 class="letter-heading">{{ letter }}</h2>
         <ul class="track-list">
           <li v-for="s in tracks" :key="s.id" class="track-item">
-            <RouterLink :to="`/soundtrack/${s.id}`" class="track-link">
+            <RouterLink :to="`/soundtrack/${s.slug ?? s.id}`" class="track-link">
               {{ s.game_title }}
               <span class="track-meta"
                 >{{ s.composers.join(", ") || s.studio }} ·

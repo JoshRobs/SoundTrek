@@ -3,6 +3,7 @@ import { nextTick } from "vue";
 import { storeToRefs } from "pinia";
 import { useRouter } from "vue-router";
 import { useSoundtrackStore } from "@/stores/soundtracks";
+import { useAuth } from "@/composables/useAuth";
 import GameSearchBox from "./GameSearchBox.vue";
 import { toSlug } from "@/utils/slug";
 
@@ -10,6 +11,7 @@ const emit = defineEmits<{ close: [] }>();
 const router = useRouter();
 const { topMoods } = storeToRefs(useSoundtrackStore());
 const store = useSoundtrackStore();
+const { user, signOut } = useAuth();
 
 function navigate(path: string) {
   emit("close");
@@ -23,6 +25,12 @@ function randomPick() {
 
 function onSearchSelect(id: string) {
   navigate(`/soundtrack/${id}`);
+}
+
+async function handleSignOut() {
+  emit("close");
+  await signOut();
+  nextTick(() => router.push("/"));
 }
 </script>
 
@@ -64,6 +72,27 @@ function onSearchSelect(id: string) {
           <button class="nav-item" @click="navigate('/explore')">Explore</button>
           <button class="nav-item" @click="navigate('/catalog')">Catalog</button>
           <button class="nav-item" @click="navigate('/studios')">Studios</button>
+          <button class="nav-item" @click="navigate('/saved')">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
+            </svg>
+            Saved Soundtracks
+          </button>
+          <button v-if="!user" class="nav-item" @click="navigate('/login')">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4" />
+              <polyline points="10 17 15 12 10 7" />
+              <line x1="15" y1="12" x2="3" y2="12" />
+            </svg>
+            Sign in
+          </button>
+          <button v-if="user" class="nav-item" @click="navigate('/account')">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+              <circle cx="12" cy="7" r="4" />
+            </svg>
+            Account
+          </button>
         </nav>
 
         <div v-if="topMoods.length" class="drawer-section">
@@ -83,6 +112,7 @@ function onSearchSelect(id: string) {
         <div class="drawer-footer">
           <button class="footer-link" @click="navigate('/submit')">Submit a Soundtrack</button>
           <button class="footer-link" @click="navigate('/contact')">Contact</button>
+          <button v-if="user" class="footer-link footer-link--danger" @click="handleSignOut">Sign out</button>
         </div>
       </div>
     </Transition>
@@ -251,6 +281,15 @@ function onSearchSelect(id: string) {
 .footer-link:hover {
   background: var(--surface-2);
   color: var(--text-secondary);
+}
+
+.footer-link--danger {
+  color: #f5686c;
+}
+
+.footer-link--danger:hover {
+  background: rgba(245, 104, 108, 0.08);
+  color: #f5686c;
 }
 
 /* ── Transitions ──────────────────────────────────────────────────────────── */

@@ -8,7 +8,7 @@ const store = useSoundtrackStore();
 const router = useRouter();
 
 function goToSoundtrack() {
-  router.push(`/soundtrack/${props.soundtrack.id}`);
+  router.push(`/soundtrack/${props.soundtrack.slug ?? props.soundtrack.id}`);
 }
 </script>
 

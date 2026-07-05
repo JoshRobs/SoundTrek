@@ -6,6 +6,7 @@ import CardInfoSheet from "./CardInfoSheet.vue";
 import { toSlug } from "@/utils/slug";
 import { useSoundtrackStore } from "@/stores/soundtracks";
 import { useLikes } from "@/composables/useLikes";
+import { useSaves } from "@/composables/useSaves";
 
 const props = defineProps<{ soundtrack: Soundtrack }>();
 defineEmits<{ next: [] }>();
@@ -13,6 +14,7 @@ defineEmits<{ next: [] }>();
 const store = useSoundtrackStore();
 const showSheet = ref(false);
 const { isLiked, toggleLike: rawToggle } = useLikes();
+const { isSaved, toggleSave } = useSaves();
 
 function toggleLike() {
   const delta = rawToggle(props.soundtrack.id);
@@ -119,7 +121,7 @@ const consoleSticker = computed(() =>
       <div class="title-row">
         <div class="title-group">
           <RouterLink
-            :to="`/soundtrack/${soundtrack.id}`"
+            :to="`/soundtrack/${soundtrack.slug ?? soundtrack.id}`"
             class="game-title-link"
           >
             <h1 class="game-title">{{ soundtrack.game_title }}</h1>
@@ -135,6 +137,28 @@ const consoleSticker = computed(() =>
             >
           </span>
         </div>
+        <button
+          class="save-btn"
+          :class="{ saved: isSaved(props.soundtrack.id) }"
+          :aria-label="isSaved(props.soundtrack.id) ? 'Remove from saved' : 'Save'"
+          @click="toggleSave(props.soundtrack.id)"
+        >
+          <svg
+            width="28"
+            height="28"
+            viewBox="0 0 24 24"
+            :fill="isSaved(props.soundtrack.id) ? 'currentColor' : 'none'"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
+          </svg>
+          <span class="save-tooltip">{{
+            isSaved(props.soundtrack.id) ? "Saved" : "Save"
+          }}</span>
+        </button>
         <button
           class="like-btn"
           :class="{ liked: isLiked(props.soundtrack.id) }"
@@ -361,6 +385,55 @@ const consoleSticker = computed(() =>
   gap: 0.1rem;
 }
 
+.save-btn {
+  flex-shrink: 0;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.45rem 0.7rem;
+  border-radius: 8px;
+  border: none;
+  background: transparent;
+  color: var(--accent);
+  cursor: pointer;
+  transition:
+    background 0.15s,
+    transform 0.1s;
+  z-index: 10;
+}
+
+.save-btn:hover {
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
+.save-btn:active {
+  transform: scale(0.88);
+}
+
+.save-tooltip {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(20, 20, 20, 0.92);
+  backdrop-filter: blur(6px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 0.72rem;
+  font-weight: 500;
+  white-space: nowrap;
+  padding: 0.3rem 0.6rem;
+  border-radius: 6px;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.save-btn:hover .save-tooltip {
+  opacity: 1;
+}
+
 .like-btn {
   flex-shrink: 0;
   position: relative;
@@ -523,7 +596,7 @@ const consoleSticker = computed(() =>
    * padding, and bottom bar. Multiply by 0.75 to get the matching 3/4 width.
    */
   .card {
-    width: min(100%, calc((100svh - 260px) * 0.67));
+    width: min(100%, calc((100svh - 320px) * 0.75));
     max-width: 100%;
     gap: 0.3rem;
   }
@@ -554,14 +627,21 @@ const consoleSticker = computed(() =>
     background: rgba(0, 0, 0, 0.2);
   }
 
-  /* Tooltip is hover-only — hidden on touch */
-  .like-tooltip {
+  /* Tooltips are hover-only — hidden on touch */
+  .like-tooltip,
+  .save-tooltip {
     display: none;
   }
 
-  .like-btn svg {
-    width: 26px;
-    height: 26px;
+  .like-btn,
+  .save-btn {
+    padding: 0.25rem 0.4rem;
+  }
+
+  .like-btn svg,
+  .save-btn svg {
+    width: 22px;
+    height: 22px;
   }
 
   .game-title {

@@ -1,13 +1,22 @@
 <script setup lang="ts">
 import { storeToRefs } from "pinia";
+import { useRouter } from "vue-router";
 import AppHeader from "@/components/AppHeader.vue";
 import PersistentPlayer from "@/components/PersistentPlayer.vue";
 import MobileMiniPlayer from "@/components/MobileMiniPlayer.vue";
 import { useIsMobile } from "@/composables/useIsMobile";
 import { useSoundtrackStore } from "@/stores/soundtracks";
+import { supabase } from "@/lib/supabase";
 
 const { isMobile } = useIsMobile();
 const { nowPlaying } = storeToRefs(useSoundtrackStore());
+const router = useRouter();
+
+supabase.auth.onAuthStateChange((event) => {
+  if (event === "SIGNED_IN" && window.location.hash.includes("type=signup")) {
+    router.push("/discover");
+  }
+});
 </script>
 
 <template>

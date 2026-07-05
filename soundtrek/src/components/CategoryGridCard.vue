@@ -9,7 +9,7 @@ const store = useSoundtrackStore();
 </script>
 
 <template>
-  <div class="card" @click="router.push(`/soundtrack/${props.soundtrack.id}`)">
+  <div class="card" @click="router.push(`/soundtrack/${props.soundtrack.slug ?? props.soundtrack.id}`)">
     <div class="card-body">
       <div class="cover">
         <img

@@ -40,7 +40,7 @@ const PROGRESS_FILE = "scripts/.progress-spotify.json";
 
 // Minimum confidence score to accept a result (0–10 scale).
 // Lower = more permissive, higher = stricter (may leave more rows empty).
-const MIN_SCORE = 3;
+const MIN_SCORE = 5;
 
 function requireEnv(name: string): string {
   const val = process.env[name];
@@ -253,7 +253,11 @@ async function searchSpotify(gameTitle: string): Promise<SearchResult | null> {
 
   // Only search with the most targeted query first; fall back if score is low.
   // Fewer requests = less rate limiting.
-  const queries = [`${gameTitle} original soundtrack`, `${gameTitle} ost`];
+  const queries = [
+    `${gameTitle} original soundtrack`,
+    `${gameTitle} soundtrack`,
+    `${gameTitle} ost`,
+  ];
 
   const candidates: SearchResult[] = [];
 

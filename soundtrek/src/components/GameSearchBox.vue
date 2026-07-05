@@ -60,7 +60,7 @@ function onKeydown(e: KeyboardEvent) {
     activeIdx.value = Math.max(activeIdx.value - 1, -1);
   } else if (e.key === "Enter" && activeIdx.value >= 0) {
     e.preventDefault();
-    select(results.value[activeIdx.value].s.id);
+    select(results.value[activeIdx.value].s.slug ?? results.value[activeIdx.value].s.id);
   } else if (e.key === "Escape") {
     dropdownOpen.value = false;
     activeIdx.value = -1;
@@ -156,7 +156,7 @@ onUnmounted(() => {
           :class="{ active: i === activeIdx }"
           role="option"
           @mousedown.prevent
-          @click="select(r.s.id)"
+          @click="select(r.s.slug ?? r.s.id)"
         >
           <div class="item-thumb">
             <img
