@@ -25,9 +25,8 @@ const { isSaved, toggleSave } = useSaves();
 // Support both slug-based URLs (new) and UUID-based URLs (legacy bookmarks)
 const track = computed(
   () =>
-    allSoundtracks.value.find(
-      (s) => s.slug === param || s.id === param,
-    ) ?? null,
+    allSoundtracks.value.find((s) => s.slug === param || s.id === param) ??
+    null,
 );
 
 // Use the track's actual ID for likes/saves/API calls
@@ -54,9 +53,7 @@ useHead(
         { name: "twitter:description", content: description },
         { name: "twitter:image", content: t?.cover_image_url ?? "" },
       ],
-      link: [
-        { rel: "canonical", href: pageUrl },
-      ],
+      link: [{ rel: "canonical", href: pageUrl }],
       script: t
         ? [
             {
@@ -93,7 +90,10 @@ const listenOnLinks = computed((): StreamingLink[] => {
   const links: StreamingLink[] = [];
 
   if (t.spotify_id && t.spotify_type) {
-    links.push({ platform: "spotify", url: `https://open.spotify.com/${t.spotify_type}/${t.spotify_id}` });
+    links.push({
+      platform: "spotify",
+      url: `https://open.spotify.com/${t.spotify_type}/${t.spotify_id}`,
+    });
   }
 
   if (t.youtube_playlist_id || t.youtube_video_id) {
@@ -103,7 +103,7 @@ const listenOnLinks = computed((): StreamingLink[] => {
     links.push({ platform: "youtube", url: ytUrl });
   }
 
-  for (const link of (t.streaming_links ?? [])) {
+  for (const link of t.streaming_links ?? []) {
     if (link.platform !== "spotify" && link.platform !== "youtube") {
       links.push(link);
     }
@@ -209,6 +209,15 @@ function extractCoverColor(img: HTMLImageElement) {
     // cross-origin — leave coverColor empty, CSS falls back to accent
   }
 }
+
+const amazonUrl = computed(() => {
+  if (!track.value) return null;
+  if (track.value.amazon_url) return track.value.amazon_url;
+  const tag = import.meta.env.VITE_AMAZON_TAG;
+  if (!tag) return null;
+  const q = encodeURIComponent(`${track.value.game_title} soundtrack`);
+  return `https://www.amazon.com/s?k=${q}&tag=${tag}`;
+});
 
 function play() {
   if (track.value) store.setNowPlaying(track.value);
@@ -318,6 +327,28 @@ onUnmounted(() => {
           : ''
       "
     />
+
+    <!-- Amazon card — absolutely positioned to the right, outside main content -->
+    <a
+      v-if="amazonUrl"
+      :href="amazonUrl"
+      target="_blank"
+      rel="noopener sponsored"
+      class="amazon-card"
+    >
+      <img
+        v-if="track.amazon_image_url"
+        :src="track.amazon_image_url"
+        :alt="`${track.game_title} on Amazon`"
+        class="amazon-product-img"
+      />
+      <div class="amazon-footer">
+        <img src="/amazonLogo.png" alt="Amazon" class="amazon-logo" />
+        <span class="amazon-cta">{{
+          track.amazon_image_url ? "Buy the OST" : "Find on Amazon"
+        }}</span>
+      </div>
+    </a>
 
     <!-- Hero -->
     <div class="hero">
@@ -460,7 +491,6 @@ onUnmounted(() => {
               {{ copied ? "Copied!" : "Share" }}
             </button>
           </div>
-
           <div
             v-if="track.genre_tags?.length || track.mood_tags?.length"
             class="tags"
@@ -475,9 +505,30 @@ onUnmounted(() => {
               tag
             }}</span>
           </div>
+          <a
+            v-if="amazonUrl"
+            :href="amazonUrl"
+            target="_blank"
+            rel="noopener sponsored"
+            class="amazon-inline"
+          >
+            <img
+              src="/amazonLogo.png"
+              alt="Amazon"
+              class="amazon-inline-logo"
+            />
+            <span class="amazon-inline-cta">{{
+              track.amazon_image_url ? "Buy the OST" : "Find on Amazon"
+            }}</span>
+          </a>
         </div>
       </div>
     </div>
+
+    <!-- Amazon disclosure -->
+    <p v-if="amazonUrl" class="amazon-disclosure">
+      As an Amazon Associate, SoundTrek earns from qualifying purchases.
+    </p>
 
     <!-- Streaming links -->
     <div v-if="listenOnLinks.length" class="links-section">
@@ -766,6 +817,65 @@ onUnmounted(() => {
   font-size: 4rem;
 }
 
+/* ── Amazon card ──────────────────────────────────────────────────────────── */
+.amazon-card {
+  display: none; /* only on wide viewports */
+  position: absolute;
+  top: 1.25rem;
+  right: 1.5rem;
+  z-index: 1;
+  width: 130px;
+  flex-direction: column;
+  border-radius: 10px;
+  overflow: hidden;
+  text-decoration: none;
+  border: 1px solid rgba(255, 153, 0, 0.2);
+  background: var(--surface-2);
+  transition:
+    border-color 0.2s,
+    box-shadow 0.2s;
+}
+
+@media (min-width: 1380px) {
+  .amazon-card {
+    display: flex;
+  }
+}
+
+.amazon-card:hover {
+  border-color: rgba(255, 153, 0, 0.55);
+  box-shadow: 0 4px 20px rgba(255, 153, 0, 0.12);
+}
+
+.amazon-product-img {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  object-fit: cover;
+  display: block;
+}
+
+.amazon-footer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.6rem 0.75rem;
+  background: #232f3e;
+}
+
+.amazon-logo {
+  height: 20px;
+  width: auto;
+  object-fit: contain;
+}
+
+.amazon-cta {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #ff9900;
+  white-space: nowrap;
+}
+
 /* ── Info ─────────────────────────────────────────────────────────────────── */
 .info {
   flex: 1;
@@ -991,6 +1101,56 @@ onUnmounted(() => {
   background: color-mix(in srgb, var(--accent) 10%, transparent);
   color: var(--accent-light, var(--accent));
   border: 1px solid color-mix(in srgb, var(--accent) 25%, transparent);
+}
+
+/* ── Amazon inline (mobile / narrow screens) ─────────────────────────────── */
+.amazon-inline {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.55rem 0.85rem;
+  margin-top: 1.5rem;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 153, 0, 0.25);
+  background: #232f3e;
+  text-decoration: none;
+  width: fit-content;
+  transition: border-color 0.15s;
+}
+
+.amazon-inline:hover {
+  border-color: rgba(255, 153, 0, 0.6);
+}
+
+.amazon-inline-logo {
+  height: 24px;
+  width: auto;
+  align-self: center;
+  transform: translateY(3px);
+}
+
+.amazon-inline-cta {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #ff9900;
+  white-space: nowrap;
+}
+
+@media (min-width: 1380px) {
+  .amazon-inline {
+    display: none;
+  }
+}
+
+/* ── Amazon disclosure ────────────────────────────────────────────────────── */
+.amazon-disclosure {
+  position: relative;
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 0 1rem 0.5rem;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  opacity: 0.6;
 }
 
 /* ── Streaming links ──────────────────────────────────────────────────────── */

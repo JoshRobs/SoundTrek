@@ -178,7 +178,11 @@ async function fetchMBComposers(gameTitle: string): Promise<string[]> {
   )
 
   const groups = searchData?.['release-groups'] ?? []
-  if (!groups.length) return []
+  if (!groups.length) {
+    console.log('  No MusicBrainz results found.')
+    const manual = await promptLine('  Composer(s) (or leave blank to skip): ')
+    return manual.split(',').map(s => s.trim()).filter(Boolean)
+  }
 
   const sorted = [...groups].sort((a, b) => {
     const aScore = (a.title.toLowerCase().startsWith(titleLower) ? 2 : 0)
@@ -211,7 +215,12 @@ async function fetchMBComposers(gameTitle: string): Promise<string[]> {
   const idx = parseInt(key) - 1
   if (isNaN(idx) || idx < 0 || idx >= candidates.length) return []
 
-  return candidates[idx].composers
+  const picked = candidates[idx].composers
+  if (picked.length) return picked
+
+  console.log('  No composers found for that release.')
+  const manual = await promptLine('  Composer(s) (or leave blank to skip): ')
+  return manual.split(',').map(s => s.trim()).filter(Boolean)
 }
 
 // ── Main ──────────────────────────────────────────────────────────────────────

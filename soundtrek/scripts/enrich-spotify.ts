@@ -57,18 +57,23 @@ function sleep(ms: number) {
 // so the Supabase query stays small regardless of how many rows have been processed.
 
 interface Progress {
+  // Non-overwrite mode: IDs of rows that were searched but had no Spotify match.
+  // These are skipped on future runs since spotify_id stays null for them.
+  notFoundIds: string[];
+  // Overwrite mode only: cursor to resume paginating through all rows.
   lastId: string | null;
 }
 
 function loadProgress(): Progress {
-  if (RESET || !existsSync(PROGRESS_FILE)) return { lastId: null };
+  if (RESET || !existsSync(PROGRESS_FILE)) return { notFoundIds: [], lastId: null };
   try {
     const raw = JSON.parse(readFileSync(PROGRESS_FILE, "utf-8"));
-    // Migrate old format (processedIds array → cursor)
-    if (Array.isArray(raw.processedIds)) return { lastId: null };
-    return raw as Progress;
+    return {
+      notFoundIds: Array.isArray(raw.notFoundIds) ? raw.notFoundIds : [],
+      lastId: raw.lastId ?? null,
+    };
   } catch {
-    return { lastId: null };
+    return { notFoundIds: [], lastId: null };
   }
 }
 
@@ -339,23 +344,36 @@ async function main() {
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
   const progress = loadProgress();
 
-  if (progress.lastId) console.log(`Resuming after ID: ${progress.lastId}`);
+  const notFoundSet = new Set(progress.notFoundIds);
 
-  // Cursor-based pagination: fetch rows with id > lastId, ordered by id.
-  // This keeps the query tiny regardless of how many rows have been processed.
+  if (OVERWRITE && progress.lastId) console.log(`Resuming after ID: ${progress.lastId}`);
+  if (!OVERWRITE && notFoundSet.size > 0) console.log(`Skipping ${notFoundSet.size} previously not-found rows.`);
+
+  // In normal mode: filter by IS NULL and skip locally — cursor not used because
+  // it would advance past still-null rows and incorrectly report "all done".
+  // In overwrite mode: use cursor to paginate through all rows.
   let query = supabase
     .from("soundtracks")
     .select("id, game_title, studio, streaming_links, spotify_id")
     .order("id")
-    .limit(BATCH_SIZE);
+    .limit(OVERWRITE ? BATCH_SIZE : BATCH_SIZE + notFoundSet.size + 50);
 
-  if (!OVERWRITE) query = query.is("spotify_id", null);
-  if (progress.lastId) query = query.gt("id", progress.lastId);
+  if (!OVERWRITE) {
+    query = query.is("spotify_id", null);
+  } else if (progress.lastId) {
+    query = query.gt("id", progress.lastId);
+  }
 
-  const { data: rows, error } = await query;
+  const { data: allRows, error } = await query;
 
   if (error) throw error;
-  if (!rows?.length) {
+
+  // In normal mode, filter out previously not-found rows locally.
+  const rows = OVERWRITE
+    ? (allRows ?? [])
+    : (allRows ?? []).filter(r => !notFoundSet.has(r.id)).slice(0, BATCH_SIZE);
+
+  if (!rows.length) {
     console.log("All rows processed (or none match the criteria).");
     return;
   }
@@ -376,8 +394,7 @@ async function main() {
     } catch (err) {
       console.log(`[ERROR: ${(err as Error).message}]`);
       failed++;
-      progress.lastId = row.id;
-      saveProgress(progress);
+      if (OVERWRITE) { progress.lastId = row.id; saveProgress(progress); }
       await sleep(1000);
       continue;
     }
@@ -385,6 +402,10 @@ async function main() {
     if (!result) {
       console.log("[not found / low confidence]");
       notFound++;
+      if (!OVERWRITE) {
+        progress.notFoundIds.push(row.id);
+        saveProgress(progress);
+      }
     } else {
       process.stdout.write(
         `[${result.type}:${result.id} score=${result.score.toFixed(1)} tracks=${result.trackCount}] `,
@@ -420,8 +441,7 @@ async function main() {
       }
     }
 
-    progress.lastId = row.id;
-    saveProgress(progress);
+    if (OVERWRITE) { progress.lastId = row.id; saveProgress(progress); }
 
     await sleep(3000);
   }

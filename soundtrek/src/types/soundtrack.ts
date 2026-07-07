@@ -34,6 +34,8 @@ export interface Soundtrack {
   theme_tags: string[]
   likes: number
   created_at: string
+  amazon_url: string | null
+  amazon_image_url: string | null
 }
 
 export interface Composer {

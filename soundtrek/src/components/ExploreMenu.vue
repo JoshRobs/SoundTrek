@@ -118,7 +118,7 @@ function navigate(path: string) {
   background: var(--surface);
   border-bottom: 1px solid var(--border);
   box-shadow: 0 16px 48px rgba(0, 0, 0, 0.5);
-  z-index: 100;
+  z-index: 1000;
 }
 
 .mega-inner {
