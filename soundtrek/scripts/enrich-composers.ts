@@ -169,7 +169,15 @@ async function resolveComposers(rgId: string): Promise<string[]> {
   )]
 }
 
-async function fetchMBComposers(gameTitle: string): Promise<string[]> {
+const MB_TIMEOUT_MS = 10_000
+
+function mbTimeout(): Promise<null> {
+  return new Promise(resolve => setTimeout(() => resolve(null), MB_TIMEOUT_MS))
+}
+
+async function lookupMBCandidates(
+  gameTitle: string,
+): Promise<{ rg: MBReleaseGroup; composers: string[] }[] | null> {
   const title = sanitizeForLucene(gameTitle)
   const titleLower = gameTitle.toLowerCase()
 
@@ -178,11 +186,7 @@ async function fetchMBComposers(gameTitle: string): Promise<string[]> {
   )
 
   const groups = searchData?.['release-groups'] ?? []
-  if (!groups.length) {
-    console.log('  No MusicBrainz results found.')
-    const manual = await promptLine('  Composer(s) (or leave blank to skip): ')
-    return manual.split(',').map(s => s.trim()).filter(Boolean)
-  }
+  if (!groups.length) return []
 
   const sorted = [...groups].sort((a, b) => {
     const aScore = (a.title.toLowerCase().startsWith(titleLower) ? 2 : 0)
@@ -192,12 +196,35 @@ async function fetchMBComposers(gameTitle: string): Promise<string[]> {
     return bScore - aScore
   })
 
-  console.log('  Fetching MB candidates...')
   const candidates: { rg: MBReleaseGroup; composers: string[] }[] = []
   for (const rg of sorted) {
     const composers = await resolveComposers(rg.id)
     candidates.push({ rg, composers })
   }
+  return candidates
+}
+
+async function fetchMBComposers(gameTitle: string): Promise<string[]> {
+  process.stdout.write('  Looking up MusicBrainz...')
+
+  const result = await Promise.race([lookupMBCandidates(gameTitle), mbTimeout()])
+
+  if (result === null) {
+    // Timeout — go straight to manual
+    console.log(' timed out.')
+    const manual = await promptLine('  Composer(s) (or leave blank to skip): ')
+    return manual.split(',').map(s => s.trim()).filter(Boolean)
+  }
+
+  const candidates = result
+
+  if (!candidates.length) {
+    console.log(' no results.')
+    const manual = await promptLine('  Composer(s) (or leave blank to skip): ')
+    return manual.split(',').map(s => s.trim()).filter(Boolean)
+  }
+
+  console.log('')
 
   candidates.forEach(({ rg, composers }, i) => {
     const types = [rg['primary-type'], ...(rg['secondary-types'] ?? [])].filter(Boolean).join(', ')
