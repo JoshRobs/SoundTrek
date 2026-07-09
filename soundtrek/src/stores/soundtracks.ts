@@ -51,7 +51,6 @@ export const useSoundtrackStore = defineStore("soundtracks", () => {
   // ── Discovery state ────────────────────────────────────────────────────────
   const currentSoundtrack = ref<Soundtrack | null>(null);
   const filters = ref<FilterState>({
-    moods: [],
     genres: [],
     themes: [],
     consoles: [],
@@ -89,19 +88,6 @@ export const useSoundtrackStore = defineStore("soundtracks", () => {
       .sort((a, b) => b[1] - a[1])
       .slice(0, 6)
       .map(([t]) => t);
-  });
-
-  const topMoods = computed(() => {
-    const counts = new Map<string, number>();
-    allSoundtracks.value.forEach((s) =>
-      (s.mood_tags ?? []).forEach((m) =>
-        counts.set(m, (counts.get(m) ?? 0) + 1),
-      ),
-    );
-    return [...counts.entries()]
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 9)
-      .map(([m]) => m);
   });
 
   const topComposers = computed(() => {
@@ -158,7 +144,6 @@ export const useSoundtrackStore = defineStore("soundtracks", () => {
     }
 
     buildRows("genre", 6, (s) => s.genre_tags ?? []);
-    buildRows("mood", 5, (s) => s.mood_tags ?? []);
     buildRows("theme", 5, (s) => s.theme_tags ?? []);
     buildRows("console", 4, (s) => [s.console]);
 
@@ -166,14 +151,6 @@ export const useSoundtrackStore = defineStore("soundtracks", () => {
   });
 
   // ── Filter options ─────────────────────────────────────────────────────────
-  const availableMoods = computed(() => {
-    const set = new Set<string>();
-    allSoundtracks.value.forEach((s) =>
-      (s.mood_tags ?? []).forEach((t) => set.add(t)),
-    );
-    return [...set].sort();
-  });
-
   const availableGenres = computed(() => {
     const set = new Set<string>();
     allSoundtracks.value.forEach((s) =>
@@ -199,11 +176,6 @@ export const useSoundtrackStore = defineStore("soundtracks", () => {
   // ── Derived pool ───────────────────────────────────────────────────────────
   const filteredPool = computed(() =>
     allSoundtracks.value.filter((s) => {
-      if (
-        filters.value.moods.length &&
-        !(s.mood_tags ?? []).some((t) => filters.value.moods.includes(t))
-      )
-        return false;
       if (
         filters.value.genres.length &&
         !(s.genre_tags ?? []).some((t) => filters.value.genres.includes(t))
@@ -246,7 +218,7 @@ export const useSoundtrackStore = defineStore("soundtracks", () => {
   }
 
   function resetFilters() {
-    filters.value = { moods: [], genres: [], themes: [], consoles: [] };
+    filters.value = { genres: [], themes: [], consoles: [] };
   }
 
   async function likeSoundtrack(id: string, delta: 1 | -1) {
@@ -275,11 +247,9 @@ export const useSoundtrackStore = defineStore("soundtracks", () => {
     featuredSoundtracks,
     topGenres,
     topThemes,
-    topMoods,
     topComposers,
     topStudios,
     // Filter options
-    availableMoods,
     availableGenres,
     availableThemes,
     availableConsoles,

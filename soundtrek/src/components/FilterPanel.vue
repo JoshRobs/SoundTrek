@@ -4,7 +4,6 @@ import type { FilterState } from '@/types/soundtrack'
 
 const props = defineProps<{
   modelValue: FilterState
-  availableMoods: string[]
   availableGenres: string[]
   availableThemes: string[]
   availableConsoles: string[]
@@ -16,7 +15,7 @@ const emit = defineEmits<{
 }>()
 
 const hasActiveFilters = computed(
-  () => props.modelValue.moods.length > 0 || props.modelValue.genres.length > 0 || props.modelValue.themes.length > 0 || props.modelValue.consoles.length > 0
+  () => props.modelValue.genres.length > 0 || props.modelValue.themes.length > 0 || props.modelValue.consoles.length > 0
 )
 
 type FilterKey = keyof typeof props.modelValue
@@ -32,19 +31,6 @@ function toggle(key: FilterKey, val: string) {
 
 <template>
   <div class="filter-panel">
-    <div v-if="availableMoods.length" class="filter-group">
-      <p class="filter-label">Mood</p>
-      <div class="tag-row">
-        <button
-          v-for="mood in availableMoods"
-          :key="mood"
-          class="filter-tag"
-          :class="{ active: modelValue.moods.includes(mood) }"
-          @click="toggle('moods', mood)"
-        >{{ mood }}</button>
-      </div>
-    </div>
-
     <div v-if="availableGenres.length" class="filter-group">
       <p class="filter-label">Genre</p>
       <div class="tag-row">

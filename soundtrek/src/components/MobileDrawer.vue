@@ -9,7 +9,7 @@ import { toSlug } from "@/utils/slug";
 
 const emit = defineEmits<{ close: [] }>();
 const router = useRouter();
-const { topMoods } = storeToRefs(useSoundtrackStore());
+const { topThemes } = storeToRefs(useSoundtrackStore());
 const store = useSoundtrackStore();
 const { user, signOut } = useAuth();
 
@@ -95,16 +95,16 @@ async function handleSignOut() {
           </button>
         </nav>
 
-        <div v-if="topMoods.length" class="drawer-section">
-          <p class="section-label">Moods</p>
+        <div v-if="topThemes.length" class="drawer-section">
+          <p class="section-label">Themes</p>
           <div class="mood-grid">
             <button
-              v-for="m in topMoods"
-              :key="m"
+              v-for="t in topThemes"
+              :key="t"
               class="mood-chip"
-              @click="navigate(`/category/mood/${toSlug(m)}`)"
+              @click="navigate(`/category/theme/${toSlug(t)}`)"
             >
-              {{ m }}
+              {{ t }}
             </button>
           </div>
         </div>

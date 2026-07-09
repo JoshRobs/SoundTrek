@@ -122,14 +122,14 @@ const moreFromStudio = computed(() => {
 const similarSoundtracks = computed(() => {
   if (!track.value) return [];
   const genres = new Set(track.value.genre_tags ?? []);
-  const moods = new Set(track.value.mood_tags ?? []);
+  const themes = new Set(track.value.theme_tags ?? []);
   return allSoundtracks.value
     .filter((s) => s.id !== id.value && s.studio !== track.value!.studio)
     .map((s) => ({
       s,
       score:
         (s.genre_tags ?? []).filter((t) => genres.has(t)).length * 2 +
-        (s.mood_tags ?? []).filter((t) => moods.has(t)).length,
+        (s.theme_tags ?? []).filter((t) => themes.has(t)).length,
     }))
     .filter(({ score }) => score > 0)
     .sort((a, b) => b.score - a.score)
@@ -492,7 +492,7 @@ onUnmounted(() => {
             </button>
           </div>
           <div
-            v-if="track.genre_tags?.length || track.mood_tags?.length"
+            v-if="track.genre_tags?.length || track.theme_tags?.length"
             class="tags"
           >
             <span
@@ -501,7 +501,7 @@ onUnmounted(() => {
               class="tag genre"
               >{{ tag }}</span
             >
-            <span v-for="tag in track.mood_tags" :key="tag" class="tag mood">{{
+            <span v-for="tag in track.theme_tags" :key="tag" class="tag mood">{{
               tag
             }}</span>
           </div>

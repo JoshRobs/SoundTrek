@@ -29,11 +29,12 @@ export interface Soundtrack {
   spotify_id: string | null
   spotify_type: 'track' | 'album' | 'playlist' | null
   streaming_links: StreamingLink[]
-  mood_tags: string[]
   genre_tags: string[]
   theme_tags: string[]
+  keyword_tags: string[]
   likes: number
   created_at: string
+  description: string | null
   amazon_url: string | null
   amazon_image_url: string | null
 }
@@ -47,7 +48,6 @@ export interface Composer {
 }
 
 export interface FilterState {
-  moods: string[]
   genres: string[]
   themes: string[]
   consoles: string[]

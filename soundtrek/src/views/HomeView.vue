@@ -15,7 +15,6 @@ const {
   loading,
   error,
   filters,
-  availableMoods,
   availableGenres,
   availableThemes,
   availableConsoles,
@@ -34,7 +33,7 @@ useHead({
 
 const showFilters = ref(false)
 const filterCount = computed(() =>
-  filters.value.moods.length + filters.value.genres.length + filters.value.themes.length + filters.value.consoles.length
+  filters.value.genres.length + filters.value.themes.length + filters.value.consoles.length
 )
 
 function applyQueryParams(query: LocationQuery) {
@@ -82,7 +81,6 @@ watch(() => route.query, (query) => {
       <FilterPanel
         v-if="showFilters"
         v-model="filters"
-        :available-moods="availableMoods"
         :available-genres="availableGenres"
         :available-themes="availableThemes"
         :available-consoles="availableConsoles"

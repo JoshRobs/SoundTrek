@@ -47,7 +47,6 @@ const store = useSoundtrackStore();
           <span
             v-for="tag in [
               ...(soundtrack.genre_tags ?? []),
-              ...(soundtrack.mood_tags ?? []),
             ].slice(0, 3)"
             :key="tag"
             class="tag"

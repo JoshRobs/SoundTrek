@@ -4,21 +4,21 @@ import { useSoundtrackStore } from "@/stores/soundtracks";
 import { toSlug } from "@/utils/slug";
 
 const emit = defineEmits<{ navigate: [path: string] }>();
-const { topMoods } = storeToRefs(useSoundtrackStore());
+const { topThemes } = storeToRefs(useSoundtrackStore());
 </script>
 
 <template>
   <div class="col">
-    <p class="col-heading">Moods</p>
+    <p class="col-heading">Themes</p>
     <div class="tag-grid">
-      <span v-if="topMoods.length === 0" class="empty-note">No moods yet</span>
+      <span v-if="topThemes.length === 0" class="empty-note">No themes yet</span>
       <button
-        v-for="m in topMoods"
-        :key="m"
+        v-for="t in topThemes"
+        :key="t"
         class="tag-chip"
-        @click="emit('navigate', `/category/mood/${toSlug(m)}`)"
+        @click="emit('navigate', `/category/theme/${toSlug(t)}`)"
       >
-        {{ m }}
+        {{ t }}
       </button>
     </div>
 
@@ -73,7 +73,6 @@ const { topMoods } = storeToRefs(useSoundtrackStore());
   color: var(--accent-light);
   background: color-mix(in srgb, var(--accent) 10%, transparent);
 }
-
 
 .empty-note {
   font-size: 0.75rem;

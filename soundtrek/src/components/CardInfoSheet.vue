@@ -23,7 +23,6 @@ const emit = defineEmits<{ 'update:open': [value: boolean]; next: [] }>()
         <p class="sheet-meta">{{ soundtrack.console }} · {{ soundtrack.release_year }}</p>
 
         <div class="tags-row">
-          <span v-for="tag in soundtrack.mood_tags"  :key="'m-' + tag" class="tag mood-tag">{{ tag }}</span>
           <span v-for="tag in soundtrack.genre_tags" :key="'g-' + tag" class="tag genre-tag">{{ tag }}</span>
         </div>
 
@@ -126,12 +125,6 @@ const emit = defineEmits<{ 'update:open': [value: boolean]; next: [] }>()
   border-radius: 99px;
   font-size: 0.7rem;
   font-weight: 500;
-}
-
-.mood-tag {
-  background: color-mix(in srgb, var(--accent) 15%, transparent);
-  color: var(--accent-light);
-  border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
 }
 
 .genre-tag {

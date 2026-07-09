@@ -23,7 +23,6 @@ const slug = computed(() => route.params.slug as string)
 
 function getTags(s: Soundtrack, t: string): string[] {
   if (t === 'genre')   return s.genre_tags  ?? []
-  if (t === 'mood')    return s.mood_tags   ?? []
   if (t === 'theme')   return s.theme_tags  ?? []
   if (t === 'console') return [s.console]
   return []
@@ -49,7 +48,7 @@ useHead(computed(() => ({
 })))
 
 const typeLabel = computed(() => {
-  const map: Record<string, string> = { genre: 'Genre', mood: 'Mood', theme: 'Theme', console: 'Console' }
+  const map: Record<string, string> = { genre: 'Genre', theme: 'Theme', console: 'Console' }
   return map[type.value] ?? type.value
 })
 

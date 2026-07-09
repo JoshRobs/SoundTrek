@@ -21,7 +21,6 @@ const cards = computed(() =>
     const matches = allSoundtracks.value.filter((s) => {
       const all = [
         ...(s.genre_tags ?? []),
-        ...(s.mood_tags ?? []),
         ...(s.theme_tags ?? []),
       ].map((t) => t.toLowerCase());
       return cat.tags.some((tag) => all.includes(tag));
