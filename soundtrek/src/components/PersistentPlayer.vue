@@ -43,10 +43,17 @@ const hasSpotify = computed(
 const hasBoth = computed(() => hasYoutube.value && hasSpotify.value);
 
 // ── Playlist side panel ─────────────────────────────────────────────────────
-interface PlaylistItem { videoId: string; title: string; unavailable: boolean }
+interface PlaylistItem {
+  videoId: string;
+  title: string;
+  unavailable: boolean;
+}
 const playlistItems = ref<PlaylistItem[]>([]);
 const showPanel = computed(
-  () => !!(nowPlaying.value?.youtube_playlist_id) && activeSource.value === "youtube" && ytPlaylistMode.value,
+  () =>
+    !!nowPlaying.value?.youtube_playlist_id &&
+    activeSource.value === "youtube" &&
+    ytPlaylistMode.value,
 );
 const PANEL_WIDTH = 220;
 const displayWidth = computed(() => {
@@ -144,8 +151,14 @@ function onMoveMove(e: MouseEvent) {
   if (!playerRef.value) return;
   const w = playerRef.value.offsetWidth;
   const h = playerRef.value.offsetHeight;
-  const left = Math.max(0, Math.min(window.innerWidth - w, e.clientX - moveOffsetX));
-  const top = Math.max(0, Math.min(window.innerHeight - h, e.clientY - moveOffsetY));
+  const left = Math.max(
+    0,
+    Math.min(window.innerWidth - w, e.clientX - moveOffsetX),
+  );
+  const top = Math.max(
+    0,
+    Math.min(window.innerHeight - h, e.clientY - moveOffsetY),
+  );
   dragPos.value = {
     right: window.innerWidth - left - w,
     bottom: window.innerHeight - top - h,
@@ -163,11 +176,11 @@ function onMoveEnd() {
 function clampToViewport() {
   if (!playerRef.value) return;
   const rect = playerRef.value.getBoundingClientRect();
-  const overLeft = rect.left;   // negative means off left edge
-  const overTop  = rect.top;    // negative means off top edge
+  const overLeft = rect.left; // negative means off left edge
+  const overTop = rect.top; // negative means off top edge
   if (overLeft >= 0 && overTop >= 0) return;
   dragPos.value = {
-    right:  Math.max(0, (dragPos.value?.right  ?? 0) + Math.min(0, overLeft)),
+    right: Math.max(0, (dragPos.value?.right ?? 0) + Math.min(0, overLeft)),
     bottom: Math.max(0, (dragPos.value?.bottom ?? 0) + Math.min(0, overTop)),
   };
 }
@@ -238,7 +251,12 @@ const {
   ytPlaylistMode,
   setYtPlaylistMode,
   ytFallbackNeeded,
-} = usePlayerControls(nowPlaying, activeSource, ytContainerRef, spotifyEmbedRef);
+} = usePlayerControls(
+  nowPlaying,
+  activeSource,
+  ytContainerRef,
+  spotifyEmbedRef,
+);
 
 // ── Fallback when YT video/playlist is unavailable ─────────────────────────
 const fallbackNotice = ref("");
@@ -260,7 +278,9 @@ watch(ytFallbackNeeded, (failed) => {
   }
 
   if (noticeDismissTimer) clearTimeout(noticeDismissTimer);
-  noticeDismissTimer = setTimeout(() => { fallbackNotice.value = ""; }, 4000);
+  noticeDismissTimer = setTimeout(() => {
+    fallbackNotice.value = "";
+  }, 4000);
 });
 
 const canToggleYtMode = computed(
@@ -302,7 +322,9 @@ watch(
     const proxyUrl = import.meta.env.VITE_YOUTUBE_PROXY_URL;
     if (!proxyUrl) return;
     try {
-      const res = await fetch(`${proxyUrl}/playlist/${track.youtube_playlist_id}`);
+      const res = await fetch(
+        `${proxyUrl}/playlist/${track.youtube_playlist_id}`,
+      );
       if (!res.ok) return;
       playlistItems.value = await res.json();
     } catch {}
@@ -365,14 +387,15 @@ function onContextMenuKey(e: KeyboardEvent) {
 }
 
 function goToSoundtrackPage() {
-  if (nowPlaying.value) router.push(`/soundtrack/${nowPlaying.value.slug ?? nowPlaying.value.id}`);
+  if (nowPlaying.value)
+    router.push(`/soundtrack/${nowPlaying.value.slug ?? nowPlaying.value.id}`);
   hideContextMenu();
 }
 
 async function copyLink() {
   if (!nowPlaying.value) return;
   await navigator.clipboard.writeText(
-    `${window.location.origin}/soundtrack/${nowPlaying.value.slug ?? nowPlaying.value.id}`
+    `${window.location.origin}/soundtrack/${nowPlaying.value.slug ?? nowPlaying.value.id}`,
   );
   linkCopied.value = true;
   setTimeout(() => (linkCopied.value = false), 2000);
@@ -403,7 +426,9 @@ function ctxSwitchSource(src: "youtube" | "spotify") {
     :class="{ minimized }"
     :style="{
       width: displayWidth + 'px',
-      ...(dragPos ? { right: dragPos.right + 'px', bottom: dragPos.bottom + 'px' } : {}),
+      ...(dragPos
+        ? { right: dragPos.right + 'px', bottom: dragPos.bottom + 'px' }
+        : {}),
     }"
     @contextmenu.prevent="showContextMenu"
   >
@@ -438,7 +463,9 @@ function ctxSwitchSource(src: "youtube" | "spotify") {
     <div class="player-header" @mousedown="onMoveStart">
       <div class="player-title-group">
         <span class="player-game">{{ nowPlaying.game_title }}</span>
-        <span class="player-composer">{{ nowPlaying.composers?.join(', ') || nowPlaying.studio }}</span>
+        <span class="player-composer">{{
+          nowPlaying.composers?.join(", ") || nowPlaying.studio
+        }}</span>
       </div>
       <div v-if="minimized && hasSource" class="center-controls">
         <button
@@ -494,8 +521,19 @@ function ctxSwitchSource(src: "youtube" | "spotify") {
           :aria-label="nowPlaying && isLiked(nowPlaying.id) ? 'Unlike' : 'Like'"
           @click="toggleLike"
         >
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+          <svg
+            width="18"
+            height="18"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path
+              d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"
+            />
           </svg>
         </button>
         <div v-if="activeSource === 'youtube'" class="volume-control">
@@ -590,12 +628,7 @@ function ctxSwitchSource(src: "youtube" | "spotify") {
         :class="{ active: activeSource === 'youtube' }"
         @click="switchSource('youtube')"
       >
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
-          <path
-            d="M23.5 6.19a3.02 3.02 0 0 0-2.12-2.14C19.54 3.5 12 3.5 12 3.5s-7.54 0-9.38.55A3.02 3.02 0 0 0 .5 6.19C0 8.04 0 12 0 12s0 3.96.5 5.81a3.02 3.02 0 0 0 2.12 2.14C4.46 20.5 12 20.5 12 20.5s7.54 0 9.38-.55a3.02 3.02 0 0 0 2.12-2.14C24 15.96 24 12 24 12s0-3.96-.5-5.81zM9.75 15.5v-7l6.5 3.5-6.5 3.5z"
-          />
-        </svg>
-        YouTube
+        <img src="/ytLogo.png" alt="YouTube" class="yt-logo-img" />
       </button>
       <button
         class="source-btn"
@@ -625,7 +658,10 @@ function ctxSwitchSource(src: "youtube" | "spotify") {
             v-for="(item, i) in playlistItems"
             :key="item.videoId"
             class="playlist-track"
-            :class="{ active: playerVideoIds[currentTrackIndex] === item.videoId, unavailable: item.unavailable }"
+            :class="{
+              active: playerVideoIds[currentTrackIndex] === item.videoId,
+              unavailable: item.unavailable,
+            }"
             :disabled="item.unavailable"
             @click="!item.unavailable && playVideoById(item.videoId)"
           >
@@ -659,7 +695,9 @@ function ctxSwitchSource(src: "youtube" | "spotify") {
       </div>
 
       <div
-        v-if="nowPlaying.source_type === 'playlist' && hasSource && ytPlaylistMode"
+        v-if="
+          nowPlaying.source_type === 'playlist' && hasSource && ytPlaylistMode
+        "
         class="playlist-nav"
       >
         <button
@@ -687,8 +725,19 @@ function ctxSwitchSource(src: "youtube" | "spotify") {
       <!-- Fallback notice -->
       <Transition name="notice">
         <div v-if="fallbackNotice" class="fallback-notice">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+          <svg
+            width="13"
+            height="13"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <circle cx="12" cy="12" r="10" />
+            <line x1="12" y1="8" x2="12" y2="12" />
+            <line x1="12" y1="16" x2="12.01" y2="16" />
           </svg>
           {{ fallbackNotice }}
         </div>
@@ -774,17 +823,30 @@ function ctxSwitchSource(src: "youtube" | "spotify") {
         <button
           v-if="canToggleYtMode"
           class="yt-mode-btn"
-          :title="ytPlaylistMode ? 'Switch to single video' : 'Switch to full playlist'"
+          :title="
+            ytPlaylistMode
+              ? 'Switch to single video'
+              : 'Switch to full playlist'
+          "
           @click="setYtPlaylistMode(!ytPlaylistMode)"
         >
           <template v-if="ytPlaylistMode">
             <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M8 5v14l11-7z"/>
+              <path d="M8 5v14l11-7z" />
             </svg>
             Single video
           </template>
           <template v-else>
-            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <svg
+              width="11"
+              height="11"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2.5"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
               <line x1="8" y1="6" x2="21" y2="6" />
               <line x1="8" y1="12" x2="21" y2="12" />
               <line x1="8" y1="18" x2="21" y2="18" />
@@ -808,14 +870,32 @@ function ctxSwitchSource(src: "youtube" | "spotify") {
       @click.stop
     >
       <button class="ctx-item" @click="ctxMinimize">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <svg
+          width="14"
+          height="14"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
           <path v-if="minimized" d="M18 15l-6-6-6 6" />
           <path v-else d="M6 9l6 6 6-6" />
         </svg>
-        {{ minimized ? 'Expand' : 'Minimize' }}
+        {{ minimized ? "Expand" : "Minimize" }}
       </button>
       <button class="ctx-item" @click="ctxClose">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <svg
+          width="14"
+          height="14"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
           <path d="M18 6 6 18M6 6l12 12" />
         </svg>
         Close player
@@ -824,7 +904,16 @@ function ctxSwitchSource(src: "youtube" | "spotify") {
       <div class="ctx-sep" />
 
       <button class="ctx-item" @click="goToSoundtrackPage">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <svg
+          width="14"
+          height="14"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
           <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
           <polyline points="15 3 21 3 21 9" />
           <line x1="10" y1="14" x2="21" y2="3" />
@@ -832,14 +921,23 @@ function ctxSwitchSource(src: "youtube" | "spotify") {
         Go to soundtrack page
       </button>
       <button class="ctx-item" @click="copyLink">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <svg
+          width="14"
+          height="14"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
           <path v-if="linkCopied" d="M20 6 9 17l-5-5" />
           <template v-else>
             <rect x="9" y="9" width="13" height="13" rx="2" />
             <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
           </template>
         </svg>
-        {{ linkCopied ? 'Copied!' : 'Copy link' }}
+        {{ linkCopied ? "Copied!" : "Copy link" }}
       </button>
 
       <template v-if="hasBoth">
@@ -851,7 +949,9 @@ function ctxSwitchSource(src: "youtube" | "spotify") {
           @click="ctxSwitchSource('youtube')"
         >
           <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M23.5 6.19a3.02 3.02 0 0 0-2.12-2.14C19.54 3.5 12 3.5 12 3.5s-7.54 0-9.38.55A3.02 3.02 0 0 0 .5 6.19C0 8.04 0 12 0 12s0 3.96.5 5.81a3.02 3.02 0 0 0 2.12 2.14C4.46 20.5 12 20.5 12 20.5s7.54 0 9.38-.55a3.02 3.02 0 0 0 2.12-2.14C24 15.96 24 12 24 12s0-3.96-.5-5.81zM9.75 15.5v-7l6.5 3.5-6.5 3.5z"/>
+            <path
+              d="M23.5 6.19a3.02 3.02 0 0 0-2.12-2.14C19.54 3.5 12 3.5 12 3.5s-7.54 0-9.38.55A3.02 3.02 0 0 0 .5 6.19C0 8.04 0 12 0 12s0 3.96.5 5.81a3.02 3.02 0 0 0 2.12 2.14C4.46 20.5 12 20.5 12 20.5s7.54 0 9.38-.55a3.02 3.02 0 0 0 2.12-2.14C24 15.96 24 12 24 12s0-3.96-.5-5.81zM9.75 15.5v-7l6.5 3.5-6.5 3.5z"
+            />
           </svg>
           Switch to YouTube
         </button>
@@ -862,7 +962,9 @@ function ctxSwitchSource(src: "youtube" | "spotify") {
           @click="ctxSwitchSource('spotify')"
         >
           <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"/>
+            <path
+              d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"
+            />
           </svg>
           Switch to Spotify
         </button>
@@ -982,7 +1084,9 @@ function ctxSwitchSource(src: "youtube" | "spotify") {
 }
 
 .like-btn svg {
-  transition: fill 0.15s, stroke 0.15s;
+  transition:
+    fill 0.15s,
+    stroke 0.15s;
 }
 
 .like-btn.liked {
@@ -1033,6 +1137,12 @@ function ctxSwitchSource(src: "youtube" | "spotify") {
 .source-btn:last-child.active {
   border-bottom-color: #1db954;
   color: #1db954;
+}
+
+.yt-logo-img {
+  height: 24px;
+  width: auto;
+  display: block;
 }
 
 .player-body {
@@ -1153,8 +1263,19 @@ function ctxSwitchSource(src: "youtube" | "spotify") {
   color: rgba(251, 191, 36, 0.85);
 }
 
-.notice-enter-active, .notice-leave-active { transition: opacity 0.3s, max-height 0.3s; max-height: 40px; overflow: hidden; }
-.notice-enter-from, .notice-leave-to { opacity: 0; max-height: 0; }
+.notice-enter-active,
+.notice-leave-active {
+  transition:
+    opacity 0.3s,
+    max-height 0.3s;
+  max-height: 40px;
+  overflow: hidden;
+}
+.notice-enter-from,
+.notice-leave-to {
+  opacity: 0;
+  max-height: 0;
+}
 
 .spotify-hint {
   display: flex;
@@ -1243,7 +1364,10 @@ function ctxSwitchSource(src: "youtube" | "spotify") {
   color: rgba(255, 255, 255, 0.3);
   font-size: 0.65rem;
   cursor: pointer;
-  transition: color 0.15s, border-color 0.15s, background 0.15s;
+  transition:
+    color 0.15s,
+    border-color 0.15s,
+    background 0.15s;
 }
 
 .yt-mode-btn:hover {
@@ -1433,8 +1557,14 @@ function ctxSwitchSource(src: "youtube" | "spotify") {
 }
 
 @keyframes ctx-in {
-  from { opacity: 0; transform: scale(0.96) translateY(-4px); }
-  to   { opacity: 1; transform: scale(1)    translateY(0); }
+  from {
+    opacity: 0;
+    transform: scale(0.96) translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
 }
 
 .ctx-item {
@@ -1451,7 +1581,9 @@ function ctxSwitchSource(src: "youtube" | "spotify") {
   font-family: inherit;
   text-align: left;
   cursor: pointer;
-  transition: background 0.1s, color 0.1s;
+  transition:
+    background 0.1s,
+    color 0.1s;
 }
 
 .ctx-item:hover:not(:disabled) {
@@ -1464,8 +1596,12 @@ function ctxSwitchSource(src: "youtube" | "spotify") {
   cursor: default;
 }
 
-.ctx-item--active-yt { color: #ff3333; }
-.ctx-item--active-sp { color: #1db954; }
+.ctx-item--active-yt {
+  color: #ff3333;
+}
+.ctx-item--active-sp {
+  color: #1db954;
+}
 
 .ctx-sep {
   height: 1px;
@@ -1473,4 +1609,3 @@ function ctxSwitchSource(src: "youtube" | "spotify") {
   margin: 3px 0;
 }
 </style>
-

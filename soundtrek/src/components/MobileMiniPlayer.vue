@@ -321,10 +321,7 @@ function goToPage() {
           <!-- Source tabs -->
           <div v-if="hasBoth" class="source-bar">
             <button class="source-btn" :class="{ active: activeSource === 'youtube' }" @click="activeSource = 'youtube'">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M23.5 6.19a3.02 3.02 0 0 0-2.12-2.14C19.54 3.5 12 3.5 12 3.5s-7.54 0-9.38.55A3.02 3.02 0 0 0 .5 6.19C0 8.04 0 12 0 12s0 3.96.5 5.81a3.02 3.02 0 0 0 2.12 2.14C4.46 20.5 12 20.5 12 20.5s7.54 0 9.38-.55a3.02 3.02 0 0 0 2.12-2.14C24 15.96 24 12 24 12s0-3.96-.5-5.81zM9.75 15.5v-7l6.5 3.5-6.5 3.5z" />
-              </svg>
-              YouTube
+              <img src="/ytLogo.png" alt="YouTube" class="yt-logo-img" />
             </button>
             <button class="source-btn" :class="{ active: activeSource === 'spotify' }" @click="activeSource = 'spotify'">
               <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
@@ -692,6 +689,12 @@ function goToPage() {
 .source-btn.active:last-child {
   border-bottom-color: #1db954;
   color: #1db954;
+}
+
+.yt-logo-img {
+  height: 20px;
+  width: auto;
+  display: block;
 }
 
 /* ── Fallback notice ──────────────────────────────────────────────────────── */

@@ -50,7 +50,9 @@ onMounted(() => {
       :key="slot.soundtrack.id"
       class="hero-cover"
       :style="slot.style"
-      @click="router.push(`/soundtrack/${slot.soundtrack.slug ?? slot.soundtrack.id}`)"
+      @click="
+        router.push(`/soundtrack/${slot.soundtrack.slug ?? slot.soundtrack.id}`)
+      "
     >
       <img
         :src="
@@ -110,7 +112,7 @@ onMounted(() => {
 .hero-cover:hover {
   animation-play-state: paused;
   rotate: 0deg;
-  scale: 1.2;
+  scale: 1.15;
   z-index: 20 !important;
   box-shadow: 0 0 18px color-mix(in srgb, white 14%, transparent);
   cursor: pointer;

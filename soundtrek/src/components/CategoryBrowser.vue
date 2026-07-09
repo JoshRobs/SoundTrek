@@ -9,20 +9,24 @@ const router = useRouter();
 const { allSoundtracks } = storeToRefs(useSoundtrackStore());
 
 const CATEGORIES = [
-  { label: "Relaxing", tags: ["relaxing"] },
-  { label: "Sci-Fi", tags: ["sci-fi", "science fiction", "sci fi"] },
-  { label: "Fantasy", tags: ["fantasy"] },
-  { label: "Indie", tags: ["indie"] },
-  { label: "Adventure", tags: ["adventurous", "adventure"] },
-];
+  { label: "historical", type: "theme", tags: ["historical"] },
+  {
+    label: "Sci-Fi",
+    type: "theme",
+    slug: "science-fiction",
+    tags: ["sci-fi", "science fiction", "sci fi"],
+  },
+  { label: "Fantasy", type: "theme", tags: ["fantasy"] },
+  { label: "Indie", type: "genre", tags: ["indie"] },
+  { label: "Adventure", type: "genre", tags: ["adventurous", "adventure"] },
+] as const;
 
 const cards = computed(() =>
   CATEGORIES.map((cat) => {
     const matches = allSoundtracks.value.filter((s) => {
-      const all = [
-        ...(s.genre_tags ?? []),
-        ...(s.theme_tags ?? []),
-      ].map((t) => t.toLowerCase());
+      const all = [...(s.genre_tags ?? []), ...(s.theme_tags ?? [])].map((t) =>
+        t.toLowerCase(),
+      );
       return cat.tags.some((tag) => all.includes(tag));
     });
     const withCover = matches.filter((s) => s.cover_image_url);
@@ -30,14 +34,15 @@ const cards = computed(() =>
       withCover[Math.floor(Math.random() * withCover.length)] ?? null;
     return {
       label: cat.label,
-      slug: toSlug(cat.label),
+      type: cat.type,
+      slug: "slug" in cat ? cat.slug : toSlug(cat.label),
       cover: pick?.cover_image_url ?? null,
     };
   }),
 );
 
-function navigate(slug: string) {
-  router.push(`/category/genre/${slug}`);
+function navigate(type: string, slug: string) {
+  router.push(`/category/${type}/${slug}`);
 }
 </script>
 
@@ -47,7 +52,7 @@ function navigate(slug: string) {
       v-for="card in cards"
       :key="card.slug"
       class="cat-card"
-      @click="navigate(card.slug)"
+      @click="navigate(card.type, card.slug)"
     >
       <img
         v-if="card.cover"

@@ -699,6 +699,7 @@ onUnmounted(() => {
   position: relative;
   min-height: 90vh;
   background: var(--bg);
+  padding-left: 80px;
 }
 
 /* ── Blurred backdrop ─────────────────────────────────────────────────────── */
@@ -1146,8 +1147,8 @@ onUnmounted(() => {
 .amazon-disclosure {
   position: relative;
   max-width: 1100px;
-  margin: 0 auto;
-  padding: 0 1rem 0.5rem;
+  margin: auto;
+  padding: 0 3rem 0.5rem;
   font-size: 0.72rem;
   color: var(--text-muted);
   opacity: 0.6;
@@ -1354,6 +1355,9 @@ onUnmounted(() => {
 
 /* ── Mobile ───────────────────────────────────────────────────────────────── */
 @media (max-width: 768px) {
+  .soundtrack-page {
+    padding-left: 0px;
+  }
   .back-btn {
     top: 1rem;
     left: 1rem;
@@ -1403,6 +1407,10 @@ onUnmounted(() => {
   .share-btn {
     padding: 0.6rem 0.85rem;
     font-size: 0.82rem;
+  }
+
+  .amazon-disclosure {
+    padding: 0 1rem 0.5rem;
   }
 
   .links-section {
