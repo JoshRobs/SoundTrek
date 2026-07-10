@@ -68,6 +68,13 @@ const store = useSoundtrackStore();
 function scrollToTop() {
   document.getElementById("app-main")?.scrollTo({ top: 0, behavior: "smooth" });
 }
+
+function onSearchSelect(
+  result: { type: "soundtrack"; id: string } | { type: "composer"; slug: string },
+) {
+  if (result.type === "composer") router.push(`/composer/${result.slug}`);
+  else router.push(`/soundtrack/${result.id}`);
+}
 const { allSoundtracks } = storeToRefs(store);
 
 function randomSoundtrack() {
@@ -147,7 +154,7 @@ onMounted(async () => {
           >
         </p>
         <p class="tagline">Discover video game soundtracks</p>
-        <GameSearchBox @select="(id) => router.push(`/soundtrack/${id}`)" />
+        <GameSearchBox @select="onSearchSelect" />
 
         <div v-if="displayCount > 0" class="track-counter">
           <span class="counter-number">{{

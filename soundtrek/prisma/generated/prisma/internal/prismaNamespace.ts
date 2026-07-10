@@ -387,7 +387,9 @@ export const ModelName = {
   Composer: 'Composer',
   ContactMessage: 'ContactMessage',
   Submission: 'Submission',
-  Soundtrack: 'Soundtrack'
+  Soundtrack: 'Soundtrack',
+  UserLike: 'UserLike',
+  UserSave: 'UserSave'
 } as const
 
 export type ModelName = (typeof ModelName)[keyof typeof ModelName]
@@ -403,7 +405,7 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
     omit: GlobalOmitOptions
   }
   meta: {
-    modelProps: "composer" | "contactMessage" | "submission" | "soundtrack"
+    modelProps: "composer" | "contactMessage" | "submission" | "soundtrack" | "userLike" | "userSave"
     txIsolationLevel: TransactionIsolationLevel
   }
   model: {
@@ -703,6 +705,154 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         }
       }
     }
+    UserLike: {
+      payload: Prisma.$UserLikePayload<ExtArgs>
+      fields: Prisma.UserLikeFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.UserLikeFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$UserLikePayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.UserLikeFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$UserLikePayload>
+        }
+        findFirst: {
+          args: Prisma.UserLikeFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$UserLikePayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.UserLikeFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$UserLikePayload>
+        }
+        findMany: {
+          args: Prisma.UserLikeFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$UserLikePayload>[]
+        }
+        create: {
+          args: Prisma.UserLikeCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$UserLikePayload>
+        }
+        createMany: {
+          args: Prisma.UserLikeCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.UserLikeCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$UserLikePayload>[]
+        }
+        delete: {
+          args: Prisma.UserLikeDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$UserLikePayload>
+        }
+        update: {
+          args: Prisma.UserLikeUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$UserLikePayload>
+        }
+        deleteMany: {
+          args: Prisma.UserLikeDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.UserLikeUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.UserLikeUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$UserLikePayload>[]
+        }
+        upsert: {
+          args: Prisma.UserLikeUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$UserLikePayload>
+        }
+        aggregate: {
+          args: Prisma.UserLikeAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateUserLike>
+        }
+        groupBy: {
+          args: Prisma.UserLikeGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.UserLikeGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.UserLikeCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.UserLikeCountAggregateOutputType> | number
+        }
+      }
+    }
+    UserSave: {
+      payload: Prisma.$UserSavePayload<ExtArgs>
+      fields: Prisma.UserSaveFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.UserSaveFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$UserSavePayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.UserSaveFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$UserSavePayload>
+        }
+        findFirst: {
+          args: Prisma.UserSaveFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$UserSavePayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.UserSaveFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$UserSavePayload>
+        }
+        findMany: {
+          args: Prisma.UserSaveFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$UserSavePayload>[]
+        }
+        create: {
+          args: Prisma.UserSaveCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$UserSavePayload>
+        }
+        createMany: {
+          args: Prisma.UserSaveCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.UserSaveCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$UserSavePayload>[]
+        }
+        delete: {
+          args: Prisma.UserSaveDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$UserSavePayload>
+        }
+        update: {
+          args: Prisma.UserSaveUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$UserSavePayload>
+        }
+        deleteMany: {
+          args: Prisma.UserSaveDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.UserSaveUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.UserSaveUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$UserSavePayload>[]
+        }
+        upsert: {
+          args: Prisma.UserSaveUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$UserSavePayload>
+        }
+        aggregate: {
+          args: Prisma.UserSaveAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateUserSave>
+        }
+        groupBy: {
+          args: Prisma.UserSaveGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.UserSaveGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.UserSaveCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.UserSaveCountAggregateOutputType> | number
+        }
+      }
+    }
   }
 } & {
   other: {
@@ -745,7 +895,9 @@ export type TransactionIsolationLevel = (typeof TransactionIsolationLevel)[keyof
 export const ComposerScalarFieldEnum = {
   slug: 'slug',
   name: 'name',
+  bio: 'bio',
   support_url: 'support_url',
+  image_url: 'image_url',
   created_at: 'created_at'
 } as const
 
@@ -777,24 +929,52 @@ export type SubmissionScalarFieldEnum = (typeof SubmissionScalarFieldEnum)[keyof
 export const SoundtrackScalarFieldEnum = {
   id: 'id',
   game_title: 'game_title',
-  composer: 'composer',
+  studio: 'studio',
+  composers: 'composers',
   console: 'console',
   release_year: 'release_year',
   cover_image_url: 'cover_image_url',
+  cover_image_url_hd: 'cover_image_url_hd',
   youtube_playlist_id: 'youtube_playlist_id',
   youtube_video_id: 'youtube_video_id',
   source_type: 'source_type',
   spotify_id: 'spotify_id',
   spotify_type: 'spotify_type',
   streaming_links: 'streaming_links',
-  mood_tags: 'mood_tags',
   genre_tags: 'genre_tags',
   theme_tags: 'theme_tags',
+  keyword_tags: 'keyword_tags',
   likes: 'likes',
+  total_likes: 'total_likes',
+  rating: 'rating',
+  rating_count: 'rating_count',
+  popularity: 'popularity',
+  slug: 'slug',
+  amazon_url: 'amazon_url',
+  amazon_image_url: 'amazon_image_url',
+  description: 'description',
   created_at: 'created_at'
 } as const
 
 export type SoundtrackScalarFieldEnum = (typeof SoundtrackScalarFieldEnum)[keyof typeof SoundtrackScalarFieldEnum]
+
+
+export const UserLikeScalarFieldEnum = {
+  user_id: 'user_id',
+  soundtrack_id: 'soundtrack_id',
+  created_at: 'created_at'
+} as const
+
+export type UserLikeScalarFieldEnum = (typeof UserLikeScalarFieldEnum)[keyof typeof UserLikeScalarFieldEnum]
+
+
+export const UserSaveScalarFieldEnum = {
+  user_id: 'user_id',
+  soundtrack_id: 'soundtrack_id',
+  created_at: 'created_at'
+} as const
+
+export type UserSaveScalarFieldEnum = (typeof UserSaveScalarFieldEnum)[keyof typeof UserSaveScalarFieldEnum]
 
 
 export const SortOrder = {
@@ -1026,6 +1206,8 @@ export type GlobalOmitConfig = {
   contactMessage?: Prisma.ContactMessageOmit
   submission?: Prisma.SubmissionOmit
   soundtrack?: Prisma.SoundtrackOmit
+  userLike?: Prisma.UserLikeOmit
+  userSave?: Prisma.UserSaveOmit
 }
 
 /* Types for Logging */

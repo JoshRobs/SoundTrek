@@ -38,7 +38,7 @@ const { loading, exhausted } = useInfiniteScroll(sentinelEl, async () => {
   const { data, error: err } = await supabase
     .from("soundtracks")
     .select("*")
-    .order("likes", { ascending: false })
+    .order("total_likes", { ascending: false })
     .order("created_at", { ascending: true })
     .range(from, from + PAGE_SIZE - 1);
 

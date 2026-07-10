@@ -12,6 +12,7 @@ model Composer {
   name        String
   bio         String?
   support_url String?
+  image_url   String?
   created_at  DateTime @default(now()) @db.Timestamptz(6)
 
   @@map("composers")
@@ -45,17 +46,46 @@ model Soundtrack {
   console             String
   release_year        Int
   cover_image_url     String?
+  cover_image_url_hd  String?
   youtube_playlist_id String?
   youtube_video_id    String?
   source_type         String
   spotify_id          String?
   spotify_type        String?
   streaming_links     Json     @default("[]")
-  mood_tags           String[]
   genre_tags          String[]
   theme_tags          String[]
+  keyword_tags        String[]
   likes               Int      @default(0)
+  total_likes         Int?
+  rating              Float?
+  rating_count        Int?
+  popularity          Float?
+  slug                String?  @unique
+  amazon_url          String?
+  amazon_image_url    String?
+  description         String?
   created_at          DateTime @default(now()) @db.Timestamptz(6)
 
   @@map("soundtracks")
+}
+
+// user_id references auth.users(id), managed by Supabase Auth — not modeled
+// here since this app's Prisma schema only tracks the public schema.
+model UserLike {
+  user_id       String    @db.Uuid
+  soundtrack_id String
+  created_at    DateTime? @default(now()) @db.Timestamptz(6)
+
+  @@id([user_id, soundtrack_id])
+  @@map("user_likes")
+}
+
+model UserSave {
+  user_id       String    @db.Uuid
+  soundtrack_id String
+  created_at    DateTime? @default(now()) @db.Timestamptz(6)
+
+  @@id([user_id, soundtrack_id])
+  @@map("user_saves")
 }

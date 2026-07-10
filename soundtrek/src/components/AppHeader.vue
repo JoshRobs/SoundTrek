@@ -17,8 +17,11 @@ const { user, signOut } = useAuth();
 const drawerOpen = ref(false);
 const menuOpen = ref(false);
 
-function onSearchSelect(id: string) {
-  router.push(`/soundtrack/${id}`);
+function onSearchSelect(
+  result: { type: "soundtrack"; id: string } | { type: "composer"; slug: string },
+) {
+  if (result.type === "composer") router.push(`/composer/${result.slug}`);
+  else router.push(`/soundtrack/${result.id}`);
 }
 
 function randomPick() {

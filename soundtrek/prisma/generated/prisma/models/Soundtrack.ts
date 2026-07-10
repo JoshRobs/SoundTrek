@@ -29,62 +29,98 @@ export type AggregateSoundtrack = {
 export type SoundtrackAvgAggregateOutputType = {
   release_year: number | null
   likes: number | null
+  total_likes: number | null
+  rating: number | null
+  rating_count: number | null
+  popularity: number | null
 }
 
 export type SoundtrackSumAggregateOutputType = {
   release_year: number | null
   likes: number | null
+  total_likes: number | null
+  rating: number | null
+  rating_count: number | null
+  popularity: number | null
 }
 
 export type SoundtrackMinAggregateOutputType = {
   id: string | null
   game_title: string | null
-  composer: string | null
+  studio: string | null
   console: string | null
   release_year: number | null
   cover_image_url: string | null
+  cover_image_url_hd: string | null
   youtube_playlist_id: string | null
   youtube_video_id: string | null
   source_type: string | null
   spotify_id: string | null
   spotify_type: string | null
   likes: number | null
+  total_likes: number | null
+  rating: number | null
+  rating_count: number | null
+  popularity: number | null
+  slug: string | null
+  amazon_url: string | null
+  amazon_image_url: string | null
+  description: string | null
   created_at: Date | null
 }
 
 export type SoundtrackMaxAggregateOutputType = {
   id: string | null
   game_title: string | null
-  composer: string | null
+  studio: string | null
   console: string | null
   release_year: number | null
   cover_image_url: string | null
+  cover_image_url_hd: string | null
   youtube_playlist_id: string | null
   youtube_video_id: string | null
   source_type: string | null
   spotify_id: string | null
   spotify_type: string | null
   likes: number | null
+  total_likes: number | null
+  rating: number | null
+  rating_count: number | null
+  popularity: number | null
+  slug: string | null
+  amazon_url: string | null
+  amazon_image_url: string | null
+  description: string | null
   created_at: Date | null
 }
 
 export type SoundtrackCountAggregateOutputType = {
   id: number
   game_title: number
-  composer: number
+  studio: number
+  composers: number
   console: number
   release_year: number
   cover_image_url: number
+  cover_image_url_hd: number
   youtube_playlist_id: number
   youtube_video_id: number
   source_type: number
   spotify_id: number
   spotify_type: number
   streaming_links: number
-  mood_tags: number
   genre_tags: number
   theme_tags: number
+  keyword_tags: number
   likes: number
+  total_likes: number
+  rating: number
+  rating_count: number
+  popularity: number
+  slug: number
+  amazon_url: number
+  amazon_image_url: number
+  description: number
   created_at: number
   _all: number
 }
@@ -93,62 +129,98 @@ export type SoundtrackCountAggregateOutputType = {
 export type SoundtrackAvgAggregateInputType = {
   release_year?: true
   likes?: true
+  total_likes?: true
+  rating?: true
+  rating_count?: true
+  popularity?: true
 }
 
 export type SoundtrackSumAggregateInputType = {
   release_year?: true
   likes?: true
+  total_likes?: true
+  rating?: true
+  rating_count?: true
+  popularity?: true
 }
 
 export type SoundtrackMinAggregateInputType = {
   id?: true
   game_title?: true
-  composer?: true
+  studio?: true
   console?: true
   release_year?: true
   cover_image_url?: true
+  cover_image_url_hd?: true
   youtube_playlist_id?: true
   youtube_video_id?: true
   source_type?: true
   spotify_id?: true
   spotify_type?: true
   likes?: true
+  total_likes?: true
+  rating?: true
+  rating_count?: true
+  popularity?: true
+  slug?: true
+  amazon_url?: true
+  amazon_image_url?: true
+  description?: true
   created_at?: true
 }
 
 export type SoundtrackMaxAggregateInputType = {
   id?: true
   game_title?: true
-  composer?: true
+  studio?: true
   console?: true
   release_year?: true
   cover_image_url?: true
+  cover_image_url_hd?: true
   youtube_playlist_id?: true
   youtube_video_id?: true
   source_type?: true
   spotify_id?: true
   spotify_type?: true
   likes?: true
+  total_likes?: true
+  rating?: true
+  rating_count?: true
+  popularity?: true
+  slug?: true
+  amazon_url?: true
+  amazon_image_url?: true
+  description?: true
   created_at?: true
 }
 
 export type SoundtrackCountAggregateInputType = {
   id?: true
   game_title?: true
-  composer?: true
+  studio?: true
+  composers?: true
   console?: true
   release_year?: true
   cover_image_url?: true
+  cover_image_url_hd?: true
   youtube_playlist_id?: true
   youtube_video_id?: true
   source_type?: true
   spotify_id?: true
   spotify_type?: true
   streaming_links?: true
-  mood_tags?: true
   genre_tags?: true
   theme_tags?: true
+  keyword_tags?: true
   likes?: true
+  total_likes?: true
+  rating?: true
+  rating_count?: true
+  popularity?: true
+  slug?: true
+  amazon_url?: true
+  amazon_image_url?: true
+  description?: true
   created_at?: true
   _all?: true
 }
@@ -242,20 +314,30 @@ export type SoundtrackGroupByArgs<ExtArgs extends runtime.Types.Extensions.Inter
 export type SoundtrackGroupByOutputType = {
   id: string
   game_title: string
-  composer: string
+  studio: string
+  composers: string[]
   console: string
   release_year: number
   cover_image_url: string | null
+  cover_image_url_hd: string | null
   youtube_playlist_id: string | null
   youtube_video_id: string | null
   source_type: string
   spotify_id: string | null
   spotify_type: string | null
   streaming_links: runtime.JsonValue
-  mood_tags: string[]
   genre_tags: string[]
   theme_tags: string[]
+  keyword_tags: string[]
   likes: number
+  total_likes: number | null
+  rating: number | null
+  rating_count: number | null
+  popularity: number | null
+  slug: string | null
+  amazon_url: string | null
+  amazon_image_url: string | null
+  description: string | null
   created_at: Date
   _count: SoundtrackCountAggregateOutputType | null
   _avg: SoundtrackAvgAggregateOutputType | null
@@ -285,83 +367,123 @@ export type SoundtrackWhereInput = {
   NOT?: Prisma.SoundtrackWhereInput | Prisma.SoundtrackWhereInput[]
   id?: Prisma.UuidFilter<"Soundtrack"> | string
   game_title?: Prisma.StringFilter<"Soundtrack"> | string
-  composer?: Prisma.StringFilter<"Soundtrack"> | string
+  studio?: Prisma.StringFilter<"Soundtrack"> | string
+  composers?: Prisma.StringNullableListFilter<"Soundtrack">
   console?: Prisma.StringFilter<"Soundtrack"> | string
   release_year?: Prisma.IntFilter<"Soundtrack"> | number
   cover_image_url?: Prisma.StringNullableFilter<"Soundtrack"> | string | null
+  cover_image_url_hd?: Prisma.StringNullableFilter<"Soundtrack"> | string | null
   youtube_playlist_id?: Prisma.StringNullableFilter<"Soundtrack"> | string | null
   youtube_video_id?: Prisma.StringNullableFilter<"Soundtrack"> | string | null
   source_type?: Prisma.StringFilter<"Soundtrack"> | string
   spotify_id?: Prisma.StringNullableFilter<"Soundtrack"> | string | null
   spotify_type?: Prisma.StringNullableFilter<"Soundtrack"> | string | null
   streaming_links?: Prisma.JsonFilter<"Soundtrack">
-  mood_tags?: Prisma.StringNullableListFilter<"Soundtrack">
   genre_tags?: Prisma.StringNullableListFilter<"Soundtrack">
   theme_tags?: Prisma.StringNullableListFilter<"Soundtrack">
+  keyword_tags?: Prisma.StringNullableListFilter<"Soundtrack">
   likes?: Prisma.IntFilter<"Soundtrack"> | number
+  total_likes?: Prisma.IntNullableFilter<"Soundtrack"> | number | null
+  rating?: Prisma.FloatNullableFilter<"Soundtrack"> | number | null
+  rating_count?: Prisma.IntNullableFilter<"Soundtrack"> | number | null
+  popularity?: Prisma.FloatNullableFilter<"Soundtrack"> | number | null
+  slug?: Prisma.StringNullableFilter<"Soundtrack"> | string | null
+  amazon_url?: Prisma.StringNullableFilter<"Soundtrack"> | string | null
+  amazon_image_url?: Prisma.StringNullableFilter<"Soundtrack"> | string | null
+  description?: Prisma.StringNullableFilter<"Soundtrack"> | string | null
   created_at?: Prisma.DateTimeFilter<"Soundtrack"> | Date | string
 }
 
 export type SoundtrackOrderByWithRelationInput = {
   id?: Prisma.SortOrder
   game_title?: Prisma.SortOrder
-  composer?: Prisma.SortOrder
+  studio?: Prisma.SortOrder
+  composers?: Prisma.SortOrder
   console?: Prisma.SortOrder
   release_year?: Prisma.SortOrder
   cover_image_url?: Prisma.SortOrderInput | Prisma.SortOrder
+  cover_image_url_hd?: Prisma.SortOrderInput | Prisma.SortOrder
   youtube_playlist_id?: Prisma.SortOrderInput | Prisma.SortOrder
   youtube_video_id?: Prisma.SortOrderInput | Prisma.SortOrder
   source_type?: Prisma.SortOrder
   spotify_id?: Prisma.SortOrderInput | Prisma.SortOrder
   spotify_type?: Prisma.SortOrderInput | Prisma.SortOrder
   streaming_links?: Prisma.SortOrder
-  mood_tags?: Prisma.SortOrder
   genre_tags?: Prisma.SortOrder
   theme_tags?: Prisma.SortOrder
+  keyword_tags?: Prisma.SortOrder
   likes?: Prisma.SortOrder
+  total_likes?: Prisma.SortOrderInput | Prisma.SortOrder
+  rating?: Prisma.SortOrderInput | Prisma.SortOrder
+  rating_count?: Prisma.SortOrderInput | Prisma.SortOrder
+  popularity?: Prisma.SortOrderInput | Prisma.SortOrder
+  slug?: Prisma.SortOrderInput | Prisma.SortOrder
+  amazon_url?: Prisma.SortOrderInput | Prisma.SortOrder
+  amazon_image_url?: Prisma.SortOrderInput | Prisma.SortOrder
+  description?: Prisma.SortOrderInput | Prisma.SortOrder
   created_at?: Prisma.SortOrder
 }
 
 export type SoundtrackWhereUniqueInput = Prisma.AtLeast<{
   id?: string
+  slug?: string
   AND?: Prisma.SoundtrackWhereInput | Prisma.SoundtrackWhereInput[]
   OR?: Prisma.SoundtrackWhereInput[]
   NOT?: Prisma.SoundtrackWhereInput | Prisma.SoundtrackWhereInput[]
   game_title?: Prisma.StringFilter<"Soundtrack"> | string
-  composer?: Prisma.StringFilter<"Soundtrack"> | string
+  studio?: Prisma.StringFilter<"Soundtrack"> | string
+  composers?: Prisma.StringNullableListFilter<"Soundtrack">
   console?: Prisma.StringFilter<"Soundtrack"> | string
   release_year?: Prisma.IntFilter<"Soundtrack"> | number
   cover_image_url?: Prisma.StringNullableFilter<"Soundtrack"> | string | null
+  cover_image_url_hd?: Prisma.StringNullableFilter<"Soundtrack"> | string | null
   youtube_playlist_id?: Prisma.StringNullableFilter<"Soundtrack"> | string | null
   youtube_video_id?: Prisma.StringNullableFilter<"Soundtrack"> | string | null
   source_type?: Prisma.StringFilter<"Soundtrack"> | string
   spotify_id?: Prisma.StringNullableFilter<"Soundtrack"> | string | null
   spotify_type?: Prisma.StringNullableFilter<"Soundtrack"> | string | null
   streaming_links?: Prisma.JsonFilter<"Soundtrack">
-  mood_tags?: Prisma.StringNullableListFilter<"Soundtrack">
   genre_tags?: Prisma.StringNullableListFilter<"Soundtrack">
   theme_tags?: Prisma.StringNullableListFilter<"Soundtrack">
+  keyword_tags?: Prisma.StringNullableListFilter<"Soundtrack">
   likes?: Prisma.IntFilter<"Soundtrack"> | number
+  total_likes?: Prisma.IntNullableFilter<"Soundtrack"> | number | null
+  rating?: Prisma.FloatNullableFilter<"Soundtrack"> | number | null
+  rating_count?: Prisma.IntNullableFilter<"Soundtrack"> | number | null
+  popularity?: Prisma.FloatNullableFilter<"Soundtrack"> | number | null
+  amazon_url?: Prisma.StringNullableFilter<"Soundtrack"> | string | null
+  amazon_image_url?: Prisma.StringNullableFilter<"Soundtrack"> | string | null
+  description?: Prisma.StringNullableFilter<"Soundtrack"> | string | null
   created_at?: Prisma.DateTimeFilter<"Soundtrack"> | Date | string
-}, "id">
+}, "id" | "slug">
 
 export type SoundtrackOrderByWithAggregationInput = {
   id?: Prisma.SortOrder
   game_title?: Prisma.SortOrder
-  composer?: Prisma.SortOrder
+  studio?: Prisma.SortOrder
+  composers?: Prisma.SortOrder
   console?: Prisma.SortOrder
   release_year?: Prisma.SortOrder
   cover_image_url?: Prisma.SortOrderInput | Prisma.SortOrder
+  cover_image_url_hd?: Prisma.SortOrderInput | Prisma.SortOrder
   youtube_playlist_id?: Prisma.SortOrderInput | Prisma.SortOrder
   youtube_video_id?: Prisma.SortOrderInput | Prisma.SortOrder
   source_type?: Prisma.SortOrder
   spotify_id?: Prisma.SortOrderInput | Prisma.SortOrder
   spotify_type?: Prisma.SortOrderInput | Prisma.SortOrder
   streaming_links?: Prisma.SortOrder
-  mood_tags?: Prisma.SortOrder
   genre_tags?: Prisma.SortOrder
   theme_tags?: Prisma.SortOrder
+  keyword_tags?: Prisma.SortOrder
   likes?: Prisma.SortOrder
+  total_likes?: Prisma.SortOrderInput | Prisma.SortOrder
+  rating?: Prisma.SortOrderInput | Prisma.SortOrder
+  rating_count?: Prisma.SortOrderInput | Prisma.SortOrder
+  popularity?: Prisma.SortOrderInput | Prisma.SortOrder
+  slug?: Prisma.SortOrderInput | Prisma.SortOrder
+  amazon_url?: Prisma.SortOrderInput | Prisma.SortOrder
+  amazon_image_url?: Prisma.SortOrderInput | Prisma.SortOrder
+  description?: Prisma.SortOrderInput | Prisma.SortOrder
   created_at?: Prisma.SortOrder
   _count?: Prisma.SoundtrackCountOrderByAggregateInput
   _avg?: Prisma.SoundtrackAvgOrderByAggregateInput
@@ -376,160 +498,240 @@ export type SoundtrackScalarWhereWithAggregatesInput = {
   NOT?: Prisma.SoundtrackScalarWhereWithAggregatesInput | Prisma.SoundtrackScalarWhereWithAggregatesInput[]
   id?: Prisma.UuidWithAggregatesFilter<"Soundtrack"> | string
   game_title?: Prisma.StringWithAggregatesFilter<"Soundtrack"> | string
-  composer?: Prisma.StringWithAggregatesFilter<"Soundtrack"> | string
+  studio?: Prisma.StringWithAggregatesFilter<"Soundtrack"> | string
+  composers?: Prisma.StringNullableListFilter<"Soundtrack">
   console?: Prisma.StringWithAggregatesFilter<"Soundtrack"> | string
   release_year?: Prisma.IntWithAggregatesFilter<"Soundtrack"> | number
   cover_image_url?: Prisma.StringNullableWithAggregatesFilter<"Soundtrack"> | string | null
+  cover_image_url_hd?: Prisma.StringNullableWithAggregatesFilter<"Soundtrack"> | string | null
   youtube_playlist_id?: Prisma.StringNullableWithAggregatesFilter<"Soundtrack"> | string | null
   youtube_video_id?: Prisma.StringNullableWithAggregatesFilter<"Soundtrack"> | string | null
   source_type?: Prisma.StringWithAggregatesFilter<"Soundtrack"> | string
   spotify_id?: Prisma.StringNullableWithAggregatesFilter<"Soundtrack"> | string | null
   spotify_type?: Prisma.StringNullableWithAggregatesFilter<"Soundtrack"> | string | null
   streaming_links?: Prisma.JsonWithAggregatesFilter<"Soundtrack">
-  mood_tags?: Prisma.StringNullableListFilter<"Soundtrack">
   genre_tags?: Prisma.StringNullableListFilter<"Soundtrack">
   theme_tags?: Prisma.StringNullableListFilter<"Soundtrack">
+  keyword_tags?: Prisma.StringNullableListFilter<"Soundtrack">
   likes?: Prisma.IntWithAggregatesFilter<"Soundtrack"> | number
+  total_likes?: Prisma.IntNullableWithAggregatesFilter<"Soundtrack"> | number | null
+  rating?: Prisma.FloatNullableWithAggregatesFilter<"Soundtrack"> | number | null
+  rating_count?: Prisma.IntNullableWithAggregatesFilter<"Soundtrack"> | number | null
+  popularity?: Prisma.FloatNullableWithAggregatesFilter<"Soundtrack"> | number | null
+  slug?: Prisma.StringNullableWithAggregatesFilter<"Soundtrack"> | string | null
+  amazon_url?: Prisma.StringNullableWithAggregatesFilter<"Soundtrack"> | string | null
+  amazon_image_url?: Prisma.StringNullableWithAggregatesFilter<"Soundtrack"> | string | null
+  description?: Prisma.StringNullableWithAggregatesFilter<"Soundtrack"> | string | null
   created_at?: Prisma.DateTimeWithAggregatesFilter<"Soundtrack"> | Date | string
 }
 
 export type SoundtrackCreateInput = {
   id?: string
   game_title: string
-  composer: string
+  studio: string
+  composers?: Prisma.SoundtrackCreatecomposersInput | string[]
   console: string
   release_year: number
   cover_image_url?: string | null
+  cover_image_url_hd?: string | null
   youtube_playlist_id?: string | null
   youtube_video_id?: string | null
   source_type: string
   spotify_id?: string | null
   spotify_type?: string | null
   streaming_links?: Prisma.JsonNullValueInput | runtime.InputJsonValue
-  mood_tags?: Prisma.SoundtrackCreatemood_tagsInput | string[]
   genre_tags?: Prisma.SoundtrackCreategenre_tagsInput | string[]
   theme_tags?: Prisma.SoundtrackCreatetheme_tagsInput | string[]
+  keyword_tags?: Prisma.SoundtrackCreatekeyword_tagsInput | string[]
   likes?: number
+  total_likes?: number | null
+  rating?: number | null
+  rating_count?: number | null
+  popularity?: number | null
+  slug?: string | null
+  amazon_url?: string | null
+  amazon_image_url?: string | null
+  description?: string | null
   created_at?: Date | string
 }
 
 export type SoundtrackUncheckedCreateInput = {
   id?: string
   game_title: string
-  composer: string
+  studio: string
+  composers?: Prisma.SoundtrackCreatecomposersInput | string[]
   console: string
   release_year: number
   cover_image_url?: string | null
+  cover_image_url_hd?: string | null
   youtube_playlist_id?: string | null
   youtube_video_id?: string | null
   source_type: string
   spotify_id?: string | null
   spotify_type?: string | null
   streaming_links?: Prisma.JsonNullValueInput | runtime.InputJsonValue
-  mood_tags?: Prisma.SoundtrackCreatemood_tagsInput | string[]
   genre_tags?: Prisma.SoundtrackCreategenre_tagsInput | string[]
   theme_tags?: Prisma.SoundtrackCreatetheme_tagsInput | string[]
+  keyword_tags?: Prisma.SoundtrackCreatekeyword_tagsInput | string[]
   likes?: number
+  total_likes?: number | null
+  rating?: number | null
+  rating_count?: number | null
+  popularity?: number | null
+  slug?: string | null
+  amazon_url?: string | null
+  amazon_image_url?: string | null
+  description?: string | null
   created_at?: Date | string
 }
 
 export type SoundtrackUpdateInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   game_title?: Prisma.StringFieldUpdateOperationsInput | string
-  composer?: Prisma.StringFieldUpdateOperationsInput | string
+  studio?: Prisma.StringFieldUpdateOperationsInput | string
+  composers?: Prisma.SoundtrackUpdatecomposersInput | string[]
   console?: Prisma.StringFieldUpdateOperationsInput | string
   release_year?: Prisma.IntFieldUpdateOperationsInput | number
   cover_image_url?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  cover_image_url_hd?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   youtube_playlist_id?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   youtube_video_id?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   source_type?: Prisma.StringFieldUpdateOperationsInput | string
   spotify_id?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   spotify_type?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   streaming_links?: Prisma.JsonNullValueInput | runtime.InputJsonValue
-  mood_tags?: Prisma.SoundtrackUpdatemood_tagsInput | string[]
   genre_tags?: Prisma.SoundtrackUpdategenre_tagsInput | string[]
   theme_tags?: Prisma.SoundtrackUpdatetheme_tagsInput | string[]
+  keyword_tags?: Prisma.SoundtrackUpdatekeyword_tagsInput | string[]
   likes?: Prisma.IntFieldUpdateOperationsInput | number
+  total_likes?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  rating?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  rating_count?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  popularity?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  slug?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  amazon_url?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  amazon_image_url?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   created_at?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
 export type SoundtrackUncheckedUpdateInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   game_title?: Prisma.StringFieldUpdateOperationsInput | string
-  composer?: Prisma.StringFieldUpdateOperationsInput | string
+  studio?: Prisma.StringFieldUpdateOperationsInput | string
+  composers?: Prisma.SoundtrackUpdatecomposersInput | string[]
   console?: Prisma.StringFieldUpdateOperationsInput | string
   release_year?: Prisma.IntFieldUpdateOperationsInput | number
   cover_image_url?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  cover_image_url_hd?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   youtube_playlist_id?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   youtube_video_id?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   source_type?: Prisma.StringFieldUpdateOperationsInput | string
   spotify_id?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   spotify_type?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   streaming_links?: Prisma.JsonNullValueInput | runtime.InputJsonValue
-  mood_tags?: Prisma.SoundtrackUpdatemood_tagsInput | string[]
   genre_tags?: Prisma.SoundtrackUpdategenre_tagsInput | string[]
   theme_tags?: Prisma.SoundtrackUpdatetheme_tagsInput | string[]
+  keyword_tags?: Prisma.SoundtrackUpdatekeyword_tagsInput | string[]
   likes?: Prisma.IntFieldUpdateOperationsInput | number
+  total_likes?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  rating?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  rating_count?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  popularity?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  slug?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  amazon_url?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  amazon_image_url?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   created_at?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
 export type SoundtrackCreateManyInput = {
   id?: string
   game_title: string
-  composer: string
+  studio: string
+  composers?: Prisma.SoundtrackCreatecomposersInput | string[]
   console: string
   release_year: number
   cover_image_url?: string | null
+  cover_image_url_hd?: string | null
   youtube_playlist_id?: string | null
   youtube_video_id?: string | null
   source_type: string
   spotify_id?: string | null
   spotify_type?: string | null
   streaming_links?: Prisma.JsonNullValueInput | runtime.InputJsonValue
-  mood_tags?: Prisma.SoundtrackCreatemood_tagsInput | string[]
   genre_tags?: Prisma.SoundtrackCreategenre_tagsInput | string[]
   theme_tags?: Prisma.SoundtrackCreatetheme_tagsInput | string[]
+  keyword_tags?: Prisma.SoundtrackCreatekeyword_tagsInput | string[]
   likes?: number
+  total_likes?: number | null
+  rating?: number | null
+  rating_count?: number | null
+  popularity?: number | null
+  slug?: string | null
+  amazon_url?: string | null
+  amazon_image_url?: string | null
+  description?: string | null
   created_at?: Date | string
 }
 
 export type SoundtrackUpdateManyMutationInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   game_title?: Prisma.StringFieldUpdateOperationsInput | string
-  composer?: Prisma.StringFieldUpdateOperationsInput | string
+  studio?: Prisma.StringFieldUpdateOperationsInput | string
+  composers?: Prisma.SoundtrackUpdatecomposersInput | string[]
   console?: Prisma.StringFieldUpdateOperationsInput | string
   release_year?: Prisma.IntFieldUpdateOperationsInput | number
   cover_image_url?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  cover_image_url_hd?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   youtube_playlist_id?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   youtube_video_id?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   source_type?: Prisma.StringFieldUpdateOperationsInput | string
   spotify_id?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   spotify_type?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   streaming_links?: Prisma.JsonNullValueInput | runtime.InputJsonValue
-  mood_tags?: Prisma.SoundtrackUpdatemood_tagsInput | string[]
   genre_tags?: Prisma.SoundtrackUpdategenre_tagsInput | string[]
   theme_tags?: Prisma.SoundtrackUpdatetheme_tagsInput | string[]
+  keyword_tags?: Prisma.SoundtrackUpdatekeyword_tagsInput | string[]
   likes?: Prisma.IntFieldUpdateOperationsInput | number
+  total_likes?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  rating?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  rating_count?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  popularity?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  slug?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  amazon_url?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  amazon_image_url?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   created_at?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
 export type SoundtrackUncheckedUpdateManyInput = {
   id?: Prisma.StringFieldUpdateOperationsInput | string
   game_title?: Prisma.StringFieldUpdateOperationsInput | string
-  composer?: Prisma.StringFieldUpdateOperationsInput | string
+  studio?: Prisma.StringFieldUpdateOperationsInput | string
+  composers?: Prisma.SoundtrackUpdatecomposersInput | string[]
   console?: Prisma.StringFieldUpdateOperationsInput | string
   release_year?: Prisma.IntFieldUpdateOperationsInput | number
   cover_image_url?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  cover_image_url_hd?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   youtube_playlist_id?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   youtube_video_id?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   source_type?: Prisma.StringFieldUpdateOperationsInput | string
   spotify_id?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   spotify_type?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   streaming_links?: Prisma.JsonNullValueInput | runtime.InputJsonValue
-  mood_tags?: Prisma.SoundtrackUpdatemood_tagsInput | string[]
   genre_tags?: Prisma.SoundtrackUpdategenre_tagsInput | string[]
   theme_tags?: Prisma.SoundtrackUpdatetheme_tagsInput | string[]
+  keyword_tags?: Prisma.SoundtrackUpdatekeyword_tagsInput | string[]
   likes?: Prisma.IntFieldUpdateOperationsInput | number
+  total_likes?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  rating?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  rating_count?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  popularity?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  slug?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  amazon_url?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  amazon_image_url?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   created_at?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
@@ -544,66 +746,102 @@ export type StringNullableListFilter<$PrismaModel = never> = {
 export type SoundtrackCountOrderByAggregateInput = {
   id?: Prisma.SortOrder
   game_title?: Prisma.SortOrder
-  composer?: Prisma.SortOrder
+  studio?: Prisma.SortOrder
+  composers?: Prisma.SortOrder
   console?: Prisma.SortOrder
   release_year?: Prisma.SortOrder
   cover_image_url?: Prisma.SortOrder
+  cover_image_url_hd?: Prisma.SortOrder
   youtube_playlist_id?: Prisma.SortOrder
   youtube_video_id?: Prisma.SortOrder
   source_type?: Prisma.SortOrder
   spotify_id?: Prisma.SortOrder
   spotify_type?: Prisma.SortOrder
   streaming_links?: Prisma.SortOrder
-  mood_tags?: Prisma.SortOrder
   genre_tags?: Prisma.SortOrder
   theme_tags?: Prisma.SortOrder
+  keyword_tags?: Prisma.SortOrder
   likes?: Prisma.SortOrder
+  total_likes?: Prisma.SortOrder
+  rating?: Prisma.SortOrder
+  rating_count?: Prisma.SortOrder
+  popularity?: Prisma.SortOrder
+  slug?: Prisma.SortOrder
+  amazon_url?: Prisma.SortOrder
+  amazon_image_url?: Prisma.SortOrder
+  description?: Prisma.SortOrder
   created_at?: Prisma.SortOrder
 }
 
 export type SoundtrackAvgOrderByAggregateInput = {
   release_year?: Prisma.SortOrder
   likes?: Prisma.SortOrder
+  total_likes?: Prisma.SortOrder
+  rating?: Prisma.SortOrder
+  rating_count?: Prisma.SortOrder
+  popularity?: Prisma.SortOrder
 }
 
 export type SoundtrackMaxOrderByAggregateInput = {
   id?: Prisma.SortOrder
   game_title?: Prisma.SortOrder
-  composer?: Prisma.SortOrder
+  studio?: Prisma.SortOrder
   console?: Prisma.SortOrder
   release_year?: Prisma.SortOrder
   cover_image_url?: Prisma.SortOrder
+  cover_image_url_hd?: Prisma.SortOrder
   youtube_playlist_id?: Prisma.SortOrder
   youtube_video_id?: Prisma.SortOrder
   source_type?: Prisma.SortOrder
   spotify_id?: Prisma.SortOrder
   spotify_type?: Prisma.SortOrder
   likes?: Prisma.SortOrder
+  total_likes?: Prisma.SortOrder
+  rating?: Prisma.SortOrder
+  rating_count?: Prisma.SortOrder
+  popularity?: Prisma.SortOrder
+  slug?: Prisma.SortOrder
+  amazon_url?: Prisma.SortOrder
+  amazon_image_url?: Prisma.SortOrder
+  description?: Prisma.SortOrder
   created_at?: Prisma.SortOrder
 }
 
 export type SoundtrackMinOrderByAggregateInput = {
   id?: Prisma.SortOrder
   game_title?: Prisma.SortOrder
-  composer?: Prisma.SortOrder
+  studio?: Prisma.SortOrder
   console?: Prisma.SortOrder
   release_year?: Prisma.SortOrder
   cover_image_url?: Prisma.SortOrder
+  cover_image_url_hd?: Prisma.SortOrder
   youtube_playlist_id?: Prisma.SortOrder
   youtube_video_id?: Prisma.SortOrder
   source_type?: Prisma.SortOrder
   spotify_id?: Prisma.SortOrder
   spotify_type?: Prisma.SortOrder
   likes?: Prisma.SortOrder
+  total_likes?: Prisma.SortOrder
+  rating?: Prisma.SortOrder
+  rating_count?: Prisma.SortOrder
+  popularity?: Prisma.SortOrder
+  slug?: Prisma.SortOrder
+  amazon_url?: Prisma.SortOrder
+  amazon_image_url?: Prisma.SortOrder
+  description?: Prisma.SortOrder
   created_at?: Prisma.SortOrder
 }
 
 export type SoundtrackSumOrderByAggregateInput = {
   release_year?: Prisma.SortOrder
   likes?: Prisma.SortOrder
+  total_likes?: Prisma.SortOrder
+  rating?: Prisma.SortOrder
+  rating_count?: Prisma.SortOrder
+  popularity?: Prisma.SortOrder
 }
 
-export type SoundtrackCreatemood_tagsInput = {
+export type SoundtrackCreatecomposersInput = {
   set: string[]
 }
 
@@ -615,17 +853,21 @@ export type SoundtrackCreatetheme_tagsInput = {
   set: string[]
 }
 
+export type SoundtrackCreatekeyword_tagsInput = {
+  set: string[]
+}
+
+export type SoundtrackUpdatecomposersInput = {
+  set?: string[]
+  push?: string | string[]
+}
+
 export type IntFieldUpdateOperationsInput = {
   set?: number
   increment?: number
   decrement?: number
   multiply?: number
   divide?: number
-}
-
-export type SoundtrackUpdatemood_tagsInput = {
-  set?: string[]
-  push?: string | string[]
 }
 
 export type SoundtrackUpdategenre_tagsInput = {
@@ -638,89 +880,150 @@ export type SoundtrackUpdatetheme_tagsInput = {
   push?: string | string[]
 }
 
+export type SoundtrackUpdatekeyword_tagsInput = {
+  set?: string[]
+  push?: string | string[]
+}
+
+export type NullableIntFieldUpdateOperationsInput = {
+  set?: number | null
+  increment?: number
+  decrement?: number
+  multiply?: number
+  divide?: number
+}
+
+export type NullableFloatFieldUpdateOperationsInput = {
+  set?: number | null
+  increment?: number
+  decrement?: number
+  multiply?: number
+  divide?: number
+}
+
 
 
 export type SoundtrackSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
   game_title?: boolean
-  composer?: boolean
+  studio?: boolean
+  composers?: boolean
   console?: boolean
   release_year?: boolean
   cover_image_url?: boolean
+  cover_image_url_hd?: boolean
   youtube_playlist_id?: boolean
   youtube_video_id?: boolean
   source_type?: boolean
   spotify_id?: boolean
   spotify_type?: boolean
   streaming_links?: boolean
-  mood_tags?: boolean
   genre_tags?: boolean
   theme_tags?: boolean
+  keyword_tags?: boolean
   likes?: boolean
+  total_likes?: boolean
+  rating?: boolean
+  rating_count?: boolean
+  popularity?: boolean
+  slug?: boolean
+  amazon_url?: boolean
+  amazon_image_url?: boolean
+  description?: boolean
   created_at?: boolean
 }, ExtArgs["result"]["soundtrack"]>
 
 export type SoundtrackSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
   game_title?: boolean
-  composer?: boolean
+  studio?: boolean
+  composers?: boolean
   console?: boolean
   release_year?: boolean
   cover_image_url?: boolean
+  cover_image_url_hd?: boolean
   youtube_playlist_id?: boolean
   youtube_video_id?: boolean
   source_type?: boolean
   spotify_id?: boolean
   spotify_type?: boolean
   streaming_links?: boolean
-  mood_tags?: boolean
   genre_tags?: boolean
   theme_tags?: boolean
+  keyword_tags?: boolean
   likes?: boolean
+  total_likes?: boolean
+  rating?: boolean
+  rating_count?: boolean
+  popularity?: boolean
+  slug?: boolean
+  amazon_url?: boolean
+  amazon_image_url?: boolean
+  description?: boolean
   created_at?: boolean
 }, ExtArgs["result"]["soundtrack"]>
 
 export type SoundtrackSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
   game_title?: boolean
-  composer?: boolean
+  studio?: boolean
+  composers?: boolean
   console?: boolean
   release_year?: boolean
   cover_image_url?: boolean
+  cover_image_url_hd?: boolean
   youtube_playlist_id?: boolean
   youtube_video_id?: boolean
   source_type?: boolean
   spotify_id?: boolean
   spotify_type?: boolean
   streaming_links?: boolean
-  mood_tags?: boolean
   genre_tags?: boolean
   theme_tags?: boolean
+  keyword_tags?: boolean
   likes?: boolean
+  total_likes?: boolean
+  rating?: boolean
+  rating_count?: boolean
+  popularity?: boolean
+  slug?: boolean
+  amazon_url?: boolean
+  amazon_image_url?: boolean
+  description?: boolean
   created_at?: boolean
 }, ExtArgs["result"]["soundtrack"]>
 
 export type SoundtrackSelectScalar = {
   id?: boolean
   game_title?: boolean
-  composer?: boolean
+  studio?: boolean
+  composers?: boolean
   console?: boolean
   release_year?: boolean
   cover_image_url?: boolean
+  cover_image_url_hd?: boolean
   youtube_playlist_id?: boolean
   youtube_video_id?: boolean
   source_type?: boolean
   spotify_id?: boolean
   spotify_type?: boolean
   streaming_links?: boolean
-  mood_tags?: boolean
   genre_tags?: boolean
   theme_tags?: boolean
+  keyword_tags?: boolean
   likes?: boolean
+  total_likes?: boolean
+  rating?: boolean
+  rating_count?: boolean
+  popularity?: boolean
+  slug?: boolean
+  amazon_url?: boolean
+  amazon_image_url?: boolean
+  description?: boolean
   created_at?: boolean
 }
 
-export type SoundtrackOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "game_title" | "composer" | "console" | "release_year" | "cover_image_url" | "youtube_playlist_id" | "youtube_video_id" | "source_type" | "spotify_id" | "spotify_type" | "streaming_links" | "mood_tags" | "genre_tags" | "theme_tags" | "likes" | "created_at", ExtArgs["result"]["soundtrack"]>
+export type SoundtrackOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "game_title" | "studio" | "composers" | "console" | "release_year" | "cover_image_url" | "cover_image_url_hd" | "youtube_playlist_id" | "youtube_video_id" | "source_type" | "spotify_id" | "spotify_type" | "streaming_links" | "genre_tags" | "theme_tags" | "keyword_tags" | "likes" | "total_likes" | "rating" | "rating_count" | "popularity" | "slug" | "amazon_url" | "amazon_image_url" | "description" | "created_at", ExtArgs["result"]["soundtrack"]>
 
 export type $SoundtrackPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   name: "Soundtrack"
@@ -728,20 +1031,30 @@ export type $SoundtrackPayload<ExtArgs extends runtime.Types.Extensions.Internal
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: string
     game_title: string
-    composer: string
+    studio: string
+    composers: string[]
     console: string
     release_year: number
     cover_image_url: string | null
+    cover_image_url_hd: string | null
     youtube_playlist_id: string | null
     youtube_video_id: string | null
     source_type: string
     spotify_id: string | null
     spotify_type: string | null
     streaming_links: runtime.JsonValue
-    mood_tags: string[]
     genre_tags: string[]
     theme_tags: string[]
+    keyword_tags: string[]
     likes: number
+    total_likes: number | null
+    rating: number | null
+    rating_count: number | null
+    popularity: number | null
+    slug: string | null
+    amazon_url: string | null
+    amazon_image_url: string | null
+    description: string | null
     created_at: Date
   }, ExtArgs["result"]["soundtrack"]>
   composites: {}
@@ -1168,20 +1481,30 @@ export interface Prisma__SoundtrackClient<T, Null = never, ExtArgs extends runti
 export interface SoundtrackFieldRefs {
   readonly id: Prisma.FieldRef<"Soundtrack", 'String'>
   readonly game_title: Prisma.FieldRef<"Soundtrack", 'String'>
-  readonly composer: Prisma.FieldRef<"Soundtrack", 'String'>
+  readonly studio: Prisma.FieldRef<"Soundtrack", 'String'>
+  readonly composers: Prisma.FieldRef<"Soundtrack", 'String[]'>
   readonly console: Prisma.FieldRef<"Soundtrack", 'String'>
   readonly release_year: Prisma.FieldRef<"Soundtrack", 'Int'>
   readonly cover_image_url: Prisma.FieldRef<"Soundtrack", 'String'>
+  readonly cover_image_url_hd: Prisma.FieldRef<"Soundtrack", 'String'>
   readonly youtube_playlist_id: Prisma.FieldRef<"Soundtrack", 'String'>
   readonly youtube_video_id: Prisma.FieldRef<"Soundtrack", 'String'>
   readonly source_type: Prisma.FieldRef<"Soundtrack", 'String'>
   readonly spotify_id: Prisma.FieldRef<"Soundtrack", 'String'>
   readonly spotify_type: Prisma.FieldRef<"Soundtrack", 'String'>
   readonly streaming_links: Prisma.FieldRef<"Soundtrack", 'Json'>
-  readonly mood_tags: Prisma.FieldRef<"Soundtrack", 'String[]'>
   readonly genre_tags: Prisma.FieldRef<"Soundtrack", 'String[]'>
   readonly theme_tags: Prisma.FieldRef<"Soundtrack", 'String[]'>
+  readonly keyword_tags: Prisma.FieldRef<"Soundtrack", 'String[]'>
   readonly likes: Prisma.FieldRef<"Soundtrack", 'Int'>
+  readonly total_likes: Prisma.FieldRef<"Soundtrack", 'Int'>
+  readonly rating: Prisma.FieldRef<"Soundtrack", 'Float'>
+  readonly rating_count: Prisma.FieldRef<"Soundtrack", 'Int'>
+  readonly popularity: Prisma.FieldRef<"Soundtrack", 'Float'>
+  readonly slug: Prisma.FieldRef<"Soundtrack", 'String'>
+  readonly amazon_url: Prisma.FieldRef<"Soundtrack", 'String'>
+  readonly amazon_image_url: Prisma.FieldRef<"Soundtrack", 'String'>
+  readonly description: Prisma.FieldRef<"Soundtrack", 'String'>
   readonly created_at: Prisma.FieldRef<"Soundtrack", 'DateTime'>
 }
     

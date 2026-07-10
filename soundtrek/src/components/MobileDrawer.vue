@@ -23,8 +23,11 @@ function randomPick() {
   navigate("/discover");
 }
 
-function onSearchSelect(id: string) {
-  navigate(`/soundtrack/${id}`);
+function onSearchSelect(
+  result: { type: "soundtrack"; id: string } | { type: "composer"; slug: string },
+) {
+  if (result.type === "composer") navigate(`/composer/${result.slug}`);
+  else navigate(`/soundtrack/${result.id}`);
 }
 
 async function handleSignOut() {

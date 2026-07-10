@@ -27,21 +27,27 @@ export type AggregateComposer = {
 export type ComposerMinAggregateOutputType = {
   slug: string | null
   name: string | null
+  bio: string | null
   support_url: string | null
+  image_url: string | null
   created_at: Date | null
 }
 
 export type ComposerMaxAggregateOutputType = {
   slug: string | null
   name: string | null
+  bio: string | null
   support_url: string | null
+  image_url: string | null
   created_at: Date | null
 }
 
 export type ComposerCountAggregateOutputType = {
   slug: number
   name: number
+  bio: number
   support_url: number
+  image_url: number
   created_at: number
   _all: number
 }
@@ -50,21 +56,27 @@ export type ComposerCountAggregateOutputType = {
 export type ComposerMinAggregateInputType = {
   slug?: true
   name?: true
+  bio?: true
   support_url?: true
+  image_url?: true
   created_at?: true
 }
 
 export type ComposerMaxAggregateInputType = {
   slug?: true
   name?: true
+  bio?: true
   support_url?: true
+  image_url?: true
   created_at?: true
 }
 
 export type ComposerCountAggregateInputType = {
   slug?: true
   name?: true
+  bio?: true
   support_url?: true
+  image_url?: true
   created_at?: true
   _all?: true
 }
@@ -144,7 +156,9 @@ export type ComposerGroupByArgs<ExtArgs extends runtime.Types.Extensions.Interna
 export type ComposerGroupByOutputType = {
   slug: string
   name: string
+  bio: string | null
   support_url: string | null
+  image_url: string | null
   created_at: Date
   _count: ComposerCountAggregateOutputType | null
   _min: ComposerMinAggregateOutputType | null
@@ -172,14 +186,18 @@ export type ComposerWhereInput = {
   NOT?: Prisma.ComposerWhereInput | Prisma.ComposerWhereInput[]
   slug?: Prisma.StringFilter<"Composer"> | string
   name?: Prisma.StringFilter<"Composer"> | string
+  bio?: Prisma.StringNullableFilter<"Composer"> | string | null
   support_url?: Prisma.StringNullableFilter<"Composer"> | string | null
+  image_url?: Prisma.StringNullableFilter<"Composer"> | string | null
   created_at?: Prisma.DateTimeFilter<"Composer"> | Date | string
 }
 
 export type ComposerOrderByWithRelationInput = {
   slug?: Prisma.SortOrder
   name?: Prisma.SortOrder
+  bio?: Prisma.SortOrderInput | Prisma.SortOrder
   support_url?: Prisma.SortOrderInput | Prisma.SortOrder
+  image_url?: Prisma.SortOrderInput | Prisma.SortOrder
   created_at?: Prisma.SortOrder
 }
 
@@ -189,14 +207,18 @@ export type ComposerWhereUniqueInput = Prisma.AtLeast<{
   OR?: Prisma.ComposerWhereInput[]
   NOT?: Prisma.ComposerWhereInput | Prisma.ComposerWhereInput[]
   name?: Prisma.StringFilter<"Composer"> | string
+  bio?: Prisma.StringNullableFilter<"Composer"> | string | null
   support_url?: Prisma.StringNullableFilter<"Composer"> | string | null
+  image_url?: Prisma.StringNullableFilter<"Composer"> | string | null
   created_at?: Prisma.DateTimeFilter<"Composer"> | Date | string
 }, "slug">
 
 export type ComposerOrderByWithAggregationInput = {
   slug?: Prisma.SortOrder
   name?: Prisma.SortOrder
+  bio?: Prisma.SortOrderInput | Prisma.SortOrder
   support_url?: Prisma.SortOrderInput | Prisma.SortOrder
+  image_url?: Prisma.SortOrderInput | Prisma.SortOrder
   created_at?: Prisma.SortOrder
   _count?: Prisma.ComposerCountOrderByAggregateInput
   _max?: Prisma.ComposerMaxOrderByAggregateInput
@@ -209,77 +231,99 @@ export type ComposerScalarWhereWithAggregatesInput = {
   NOT?: Prisma.ComposerScalarWhereWithAggregatesInput | Prisma.ComposerScalarWhereWithAggregatesInput[]
   slug?: Prisma.StringWithAggregatesFilter<"Composer"> | string
   name?: Prisma.StringWithAggregatesFilter<"Composer"> | string
+  bio?: Prisma.StringNullableWithAggregatesFilter<"Composer"> | string | null
   support_url?: Prisma.StringNullableWithAggregatesFilter<"Composer"> | string | null
+  image_url?: Prisma.StringNullableWithAggregatesFilter<"Composer"> | string | null
   created_at?: Prisma.DateTimeWithAggregatesFilter<"Composer"> | Date | string
 }
 
 export type ComposerCreateInput = {
   slug: string
   name: string
+  bio?: string | null
   support_url?: string | null
+  image_url?: string | null
   created_at?: Date | string
 }
 
 export type ComposerUncheckedCreateInput = {
   slug: string
   name: string
+  bio?: string | null
   support_url?: string | null
+  image_url?: string | null
   created_at?: Date | string
 }
 
 export type ComposerUpdateInput = {
   slug?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
+  bio?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   support_url?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  image_url?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   created_at?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
 export type ComposerUncheckedUpdateInput = {
   slug?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
+  bio?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   support_url?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  image_url?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   created_at?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
 export type ComposerCreateManyInput = {
   slug: string
   name: string
+  bio?: string | null
   support_url?: string | null
+  image_url?: string | null
   created_at?: Date | string
 }
 
 export type ComposerUpdateManyMutationInput = {
   slug?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
+  bio?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   support_url?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  image_url?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   created_at?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
 export type ComposerUncheckedUpdateManyInput = {
   slug?: Prisma.StringFieldUpdateOperationsInput | string
   name?: Prisma.StringFieldUpdateOperationsInput | string
+  bio?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   support_url?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  image_url?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   created_at?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
 }
 
 export type ComposerCountOrderByAggregateInput = {
   slug?: Prisma.SortOrder
   name?: Prisma.SortOrder
+  bio?: Prisma.SortOrder
   support_url?: Prisma.SortOrder
+  image_url?: Prisma.SortOrder
   created_at?: Prisma.SortOrder
 }
 
 export type ComposerMaxOrderByAggregateInput = {
   slug?: Prisma.SortOrder
   name?: Prisma.SortOrder
+  bio?: Prisma.SortOrder
   support_url?: Prisma.SortOrder
+  image_url?: Prisma.SortOrder
   created_at?: Prisma.SortOrder
 }
 
 export type ComposerMinOrderByAggregateInput = {
   slug?: Prisma.SortOrder
   name?: Prisma.SortOrder
+  bio?: Prisma.SortOrder
   support_url?: Prisma.SortOrder
+  image_url?: Prisma.SortOrder
   created_at?: Prisma.SortOrder
 }
 
@@ -300,32 +344,40 @@ export type DateTimeFieldUpdateOperationsInput = {
 export type ComposerSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   slug?: boolean
   name?: boolean
+  bio?: boolean
   support_url?: boolean
+  image_url?: boolean
   created_at?: boolean
 }, ExtArgs["result"]["composer"]>
 
 export type ComposerSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   slug?: boolean
   name?: boolean
+  bio?: boolean
   support_url?: boolean
+  image_url?: boolean
   created_at?: boolean
 }, ExtArgs["result"]["composer"]>
 
 export type ComposerSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   slug?: boolean
   name?: boolean
+  bio?: boolean
   support_url?: boolean
+  image_url?: boolean
   created_at?: boolean
 }, ExtArgs["result"]["composer"]>
 
 export type ComposerSelectScalar = {
   slug?: boolean
   name?: boolean
+  bio?: boolean
   support_url?: boolean
+  image_url?: boolean
   created_at?: boolean
 }
 
-export type ComposerOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"slug" | "name" | "support_url" | "created_at", ExtArgs["result"]["composer"]>
+export type ComposerOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"slug" | "name" | "bio" | "support_url" | "image_url" | "created_at", ExtArgs["result"]["composer"]>
 
 export type $ComposerPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   name: "Composer"
@@ -333,7 +385,9 @@ export type $ComposerPayload<ExtArgs extends runtime.Types.Extensions.InternalAr
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     slug: string
     name: string
+    bio: string | null
     support_url: string | null
+    image_url: string | null
     created_at: Date
   }, ExtArgs["result"]["composer"]>
   composites: {}
@@ -760,7 +814,9 @@ export interface Prisma__ComposerClient<T, Null = never, ExtArgs extends runtime
 export interface ComposerFieldRefs {
   readonly slug: Prisma.FieldRef<"Composer", 'String'>
   readonly name: Prisma.FieldRef<"Composer", 'String'>
+  readonly bio: Prisma.FieldRef<"Composer", 'String'>
   readonly support_url: Prisma.FieldRef<"Composer", 'String'>
+  readonly image_url: Prisma.FieldRef<"Composer", 'String'>
   readonly created_at: Prisma.FieldRef<"Composer", 'DateTime'>
 }
     

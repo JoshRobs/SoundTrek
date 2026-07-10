@@ -79,43 +79,12 @@ interface Progress {
   offset: number
 }
 
-// ── IGDB genre → mood_tags heuristic ─────────────────────────────────────────
-// These are rough starting points — refine in the DB later
-
-const GENRE_MOOD_MAP: Record<string, string[]> = {
-  'Role-playing (RPG)': ['epic', 'emotional'],
-  'Adventure':          ['adventurous', 'epic'],
-  'Platform':           ['upbeat', 'energetic'],
-  'Shooter':            ['intense', 'adrenaline'],
-  "Hack and slash/Beat 'em up": ['intense', 'upbeat'],
-  'Fighting':           ['intense', 'upbeat'],
-  'Strategy':           ['ambient', 'epic'],
-  'Turn-based strategy':['ambient', 'nostalgic'],
-  'Puzzle':             ['relaxing', 'quirky'],
-  'Racing':             ['upbeat', 'energetic'],
-  'Sport':              ['upbeat', 'energetic'],
-  'Horror':             ['dark', 'intense', 'ambient'],
-  'Simulator':          ['relaxing', 'ambient'],
-  'Arcade':             ['upbeat', 'nostalgic'],
-  'Music':              ['upbeat', 'energetic'],
-  'Visual Novel':       ['emotional', 'ambient'],
-}
-
 // Bayesian weighted rating: pulls low-vote games toward the mean (C=70, m=500)
 function computePopularity(rating: number | undefined, ratingCount: number | undefined): number | null {
   if (!rating || !ratingCount) return null
   const C = 70   // assumed mean IGDB rating
   const m = 500  // minimum votes before a rating is fully trusted
   return (ratingCount / (ratingCount + m)) * rating + (m / (ratingCount + m)) * C
-}
-
-function deriveMoodTags(game: IGDBGame): string[] {
-  const tags = new Set<string>()
-  for (const genre of game.genres ?? []) {
-    const moods = GENRE_MOOD_MAP[genre.name] ?? []
-    moods.forEach(m => tags.add(m))
-  }
-  return [...tags]
 }
 
 // ── IGDB ──────────────────────────────────────────────────────────────────────
@@ -340,7 +309,6 @@ async function main() {
       source_type:         yt?.source_type ?? 'video',
       youtube_playlist_id: yt?.youtube_playlist_id ?? null,
       genre_tags:          game.genres?.map(g => g.name.toLowerCase()) ?? [],
-      mood_tags:           deriveMoodTags(game),
       rating:              game.rating ?? null,
       rating_count:        game.rating_count ?? null,
       popularity:          computePopularity(game.rating, game.rating_count),

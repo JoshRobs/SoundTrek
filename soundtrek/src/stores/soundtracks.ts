@@ -224,12 +224,16 @@ export const useSoundtrackStore = defineStore("soundtracks", () => {
   async function likeSoundtrack(id: string, delta: 1 | -1) {
     const track = allSoundtracks.value.find((s) => s.id === id);
     if (!track) return;
-    track.likes += delta;
+    track.likes += delta; // optimistic
     if (!USE_MOCK) {
-      await supabase
-        .from("soundtracks")
-        .update({ likes: track.likes })
-        .eq("id", id);
+      const { data, error } = await supabase.rpc("toggle_soundtrack_like", {
+        p_soundtrack_id: id,
+        p_delta: delta,
+      });
+      // Reconcile with the authoritative server value — the RPC dedupes
+      // repeat likes/unlikes server-side, so it can differ from the
+      // optimistic guess above (e.g. a stale double-click no-ops there).
+      if (!error && typeof data === "number") track.likes = data;
     }
   }
 

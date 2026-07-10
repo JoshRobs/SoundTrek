@@ -124,7 +124,7 @@ onUnmounted(() => {
         <ul class="track-list">
           <li v-for="s in tracks" :key="s.id" class="track-item">
             <RouterLink :to="`/soundtrack/${s.slug ?? s.id}`" class="track-link">
-              {{ s.game_title }}
+              <span class="track-title">{{ s.game_title }}</span>
               <span class="track-meta"
                 >{{ s.composers.join(", ") || s.studio }} ·
                 {{ s.release_year }}</span
@@ -290,12 +290,17 @@ onUnmounted(() => {
   color: var(--accent-light);
 }
 
+.track-title {
+  flex-shrink: 0;
+}
+
 .track-meta {
   font-size: 0.75rem;
   color: var(--text-muted);
-  white-space: nowrap;
   font-weight: 400;
-  flex-shrink: 0;
+  min-width: 0;
+  flex: 1 1 auto;
+  text-align: right;
 }
 
 @media (max-width: 768px) {
@@ -307,7 +312,7 @@ onUnmounted(() => {
   }
 
   .track-meta {
-    white-space: normal;
+    text-align: left;
   }
 }
 

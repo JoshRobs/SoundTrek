@@ -2,6 +2,9 @@
 import { ref, computed, watch, onMounted, onUnmounted } from "vue";
 import { storeToRefs } from "pinia";
 import { useSoundtrackStore } from "@/stores/soundtracks";
+import { useComposerStore } from "@/stores/composers";
+import { toSlug } from "@/utils/slug";
+import type { Soundtrack } from "@/types/soundtrack";
 
 const props = withDefaults(
   defineProps<{ autofocus?: boolean; compact?: boolean }>(),
@@ -10,10 +13,18 @@ const props = withDefaults(
     compact: false,
   },
 );
-const emit = defineEmits<{ select: [id: string] }>();
+const emit = defineEmits<{
+  select: [
+    result:
+      | { type: "soundtrack"; id: string }
+      | { type: "composer"; slug: string },
+  ];
+}>();
 
 const store = useSoundtrackStore();
 const { allSoundtracks } = storeToRefs(store);
+const composerStore = useComposerStore();
+const { cache: composerCache } = storeToRefs(composerStore);
 
 const query = ref("");
 const focused = ref(false);   // controls focus-ring styling only
@@ -26,16 +37,42 @@ function normalize(s: string) {
   return s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
 }
 
-const results = computed(() => {
+type SearchResult =
+  | { kind: "soundtrack"; s: Soundtrack }
+  | { kind: "composer"; name: string; slug: string; count: number };
+
+const results = computed<SearchResult[]>(() => {
   const q = normalize(query.value.trim());
   if (!q) return [];
-  const titleMatches: { s: typeof allSoundtracks.value[0]; by: 'title' | 'composer' }[] = [];
-  const composerMatches: { s: typeof allSoundtracks.value[0]; by: 'title' | 'composer' }[] = [];
+
+  const titleMatches: SearchResult[] = [];
+  const composerGameMatches: SearchResult[] = [];
+  const composerEntities = new Map<string, { name: string; count: number }>();
+
   for (const s of allSoundtracks.value) {
-    if (normalize(s.game_title).includes(q)) titleMatches.push({ s, by: 'title' });
-    else if ((s.composers ?? []).some((c) => normalize(c).includes(q)) || normalize(s.studio).includes(q)) composerMatches.push({ s, by: 'composer' });
+    if (normalize(s.game_title).includes(q)) {
+      titleMatches.push({ kind: "soundtrack", s });
+    } else if (
+      (s.composers ?? []).some((c) => normalize(c).includes(q)) ||
+      normalize(s.studio).includes(q)
+    ) {
+      composerGameMatches.push({ kind: "soundtrack", s });
+    }
+
+    for (const c of s.composers ?? []) {
+      if (!normalize(c).includes(q)) continue;
+      const slug = toSlug(c);
+      const existing = composerEntities.get(slug);
+      if (existing) existing.count++;
+      else composerEntities.set(slug, { name: c, count: 1 });
+    }
   }
-  return [...titleMatches, ...composerMatches].slice(0, 8);
+
+  const composerResults: SearchResult[] = [...composerEntities.entries()].map(
+    ([slug, { name, count }]) => ({ kind: "composer", name, slug, count }),
+  );
+
+  return [...titleMatches, ...composerResults, ...composerGameMatches].slice(0, 8);
 });
 
 const showDropdown = computed(() => dropdownOpen.value && results.value.length > 0);
@@ -44,10 +81,22 @@ watch(query, () => {
   activeIdx.value = -1;
 });
 
-function select(id: string) {
+// Fetch profile images for composer results as they appear in the dropdown
+watch(
+  results,
+  (list) => {
+    for (const r of list) {
+      if (r.kind === "composer") composerStore.fetchComposer(r.slug);
+    }
+  },
+  { immediate: true },
+);
+
+function select(r: SearchResult) {
   query.value = "";
   dropdownOpen.value = false;
-  emit("select", id);
+  if (r.kind === "composer") emit("select", { type: "composer", slug: r.slug });
+  else emit("select", { type: "soundtrack", id: r.s.slug ?? r.s.id });
 }
 
 function onKeydown(e: KeyboardEvent) {
@@ -60,7 +109,7 @@ function onKeydown(e: KeyboardEvent) {
     activeIdx.value = Math.max(activeIdx.value - 1, -1);
   } else if (e.key === "Enter" && activeIdx.value >= 0) {
     e.preventDefault();
-    select(results.value[activeIdx.value].s.slug ?? results.value[activeIdx.value].s.id);
+    select(results.value[activeIdx.value]);
   } else if (e.key === "Escape") {
     dropdownOpen.value = false;
     activeIdx.value = -1;
@@ -151,25 +200,52 @@ onUnmounted(() => {
       <ul v-if="showDropdown" class="dropdown" role="listbox">
         <li
           v-for="(r, i) in results"
-          :key="r.s.id"
+          :key="r.kind === 'composer' ? `composer-${r.slug}` : r.s.id"
           class="dropdown-item"
           :class="{ active: i === activeIdx }"
           role="option"
           @mousedown.prevent
-          @click="select(r.s.slug ?? r.s.id)"
+          @click="select(r)"
         >
-          <div class="item-thumb">
-            <img
-              v-if="r.s.cover_image_url"
-              :src="r.s.cover_image_url"
-              :alt="r.s.game_title"
-            />
-            <span v-else class="thumb-fallback">🎮</span>
-          </div>
-          <div class="item-info">
-            <span class="item-title">{{ r.s.game_title }}</span>
-            <span class="item-meta">{{ r.s.composers.join(', ') || r.s.studio }} · {{ r.s.release_year }}</span>
-          </div>
+          <template v-if="r.kind === 'composer'">
+            <div class="item-thumb item-thumb--composer">
+              <img
+                v-if="composerCache.get(r.slug)?.image_url"
+                :src="composerCache.get(r.slug)!.image_url!"
+                :alt="r.name"
+              />
+              <svg
+                v-else
+                class="thumb-fallback thumb-fallback--composer"
+                width="24"
+                height="24"
+                viewBox="0 0 24 24"
+                fill="currentColor"
+              >
+                <path
+                  d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"
+                />
+              </svg>
+            </div>
+            <div class="item-info">
+              <span class="item-title">{{ r.name }}</span>
+              <span class="item-meta">Composer · {{ r.count }} {{ r.count === 1 ? 'soundtrack' : 'soundtracks' }}</span>
+            </div>
+          </template>
+          <template v-else>
+            <div class="item-thumb">
+              <img
+                v-if="r.s.cover_image_url"
+                :src="r.s.cover_image_url"
+                :alt="r.s.game_title"
+              />
+              <span v-else class="thumb-fallback">🎮</span>
+            </div>
+            <div class="item-info">
+              <span class="item-title">{{ r.s.game_title }}</span>
+              <span class="item-meta">{{ r.s.composers.join(', ') || r.s.studio }} · {{ r.s.release_year }}</span>
+            </div>
+          </template>
         </li>
       </ul>
     </Transition>
@@ -291,6 +367,14 @@ onUnmounted(() => {
 }
 .thumb-fallback {
   font-size: 1.1rem;
+}
+
+.item-thumb--composer {
+  border-radius: 50%;
+}
+
+.thumb-fallback--composer {
+  color: var(--text-muted);
 }
 
 .item-info {

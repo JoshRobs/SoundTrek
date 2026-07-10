@@ -9,6 +9,7 @@ import type { StreamingLink } from "@/types/soundtrack";
 import { toSlug } from "@/utils/slug";
 import { useLikes } from "@/composables/useLikes";
 import { useSaves } from "@/composables/useSaves";
+import { displayLikes } from "@/utils/likes";
 
 const route = useRoute();
 const router = useRouter();
@@ -433,7 +434,7 @@ onUnmounted(() => {
                   d="M19.5 12.572l-7.5 7.428-7.5-7.428a5 5 0 1 1 7.5-6.566 5 5 0 1 1 7.5 6.572"
                 />
               </svg>
-              {{ track.likes }}
+              {{ displayLikes(track) }}
             </button>
 
             <button

@@ -54,7 +54,9 @@ export const ModelName = {
   Composer: 'Composer',
   ContactMessage: 'ContactMessage',
   Submission: 'Submission',
-  Soundtrack: 'Soundtrack'
+  Soundtrack: 'Soundtrack',
+  UserLike: 'UserLike',
+  UserSave: 'UserSave'
 } as const
 
 export type ModelName = (typeof ModelName)[keyof typeof ModelName]
@@ -76,7 +78,9 @@ export type TransactionIsolationLevel = (typeof TransactionIsolationLevel)[keyof
 export const ComposerScalarFieldEnum = {
   slug: 'slug',
   name: 'name',
+  bio: 'bio',
   support_url: 'support_url',
+  image_url: 'image_url',
   created_at: 'created_at'
 } as const
 
@@ -108,24 +112,52 @@ export type SubmissionScalarFieldEnum = (typeof SubmissionScalarFieldEnum)[keyof
 export const SoundtrackScalarFieldEnum = {
   id: 'id',
   game_title: 'game_title',
-  composer: 'composer',
+  studio: 'studio',
+  composers: 'composers',
   console: 'console',
   release_year: 'release_year',
   cover_image_url: 'cover_image_url',
+  cover_image_url_hd: 'cover_image_url_hd',
   youtube_playlist_id: 'youtube_playlist_id',
   youtube_video_id: 'youtube_video_id',
   source_type: 'source_type',
   spotify_id: 'spotify_id',
   spotify_type: 'spotify_type',
   streaming_links: 'streaming_links',
-  mood_tags: 'mood_tags',
   genre_tags: 'genre_tags',
   theme_tags: 'theme_tags',
+  keyword_tags: 'keyword_tags',
   likes: 'likes',
+  total_likes: 'total_likes',
+  rating: 'rating',
+  rating_count: 'rating_count',
+  popularity: 'popularity',
+  slug: 'slug',
+  amazon_url: 'amazon_url',
+  amazon_image_url: 'amazon_image_url',
+  description: 'description',
   created_at: 'created_at'
 } as const
 
 export type SoundtrackScalarFieldEnum = (typeof SoundtrackScalarFieldEnum)[keyof typeof SoundtrackScalarFieldEnum]
+
+
+export const UserLikeScalarFieldEnum = {
+  user_id: 'user_id',
+  soundtrack_id: 'soundtrack_id',
+  created_at: 'created_at'
+} as const
+
+export type UserLikeScalarFieldEnum = (typeof UserLikeScalarFieldEnum)[keyof typeof UserLikeScalarFieldEnum]
+
+
+export const UserSaveScalarFieldEnum = {
+  user_id: 'user_id',
+  soundtrack_id: 'soundtrack_id',
+  created_at: 'created_at'
+} as const
+
+export type UserSaveScalarFieldEnum = (typeof UserSaveScalarFieldEnum)[keyof typeof UserSaveScalarFieldEnum]
 
 
 export const SortOrder = {

@@ -7,6 +7,7 @@ import { toSlug } from "@/utils/slug";
 import { useSoundtrackStore } from "@/stores/soundtracks";
 import { useLikes } from "@/composables/useLikes";
 import { useSaves } from "@/composables/useSaves";
+import { displayLikes } from "@/utils/likes";
 
 const props = defineProps<{ soundtrack: Soundtrack }>();
 defineEmits<{ next: [] }>();
@@ -183,7 +184,7 @@ const consoleSticker = computed(() =>
             />
           </svg>
           <span class="like-tooltip"
-            >{{ soundtrack.likes }} others liked this OST</span
+            >{{ displayLikes(soundtrack) }} others liked this OST</span
           >
         </button>
       </div>

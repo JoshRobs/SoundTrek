@@ -3,6 +3,7 @@ import { computed, onMounted } from 'vue'
 import { useHead } from '@unhead/vue'
 import { storeToRefs } from 'pinia'
 import { useSoundtrackStore } from '@/stores/soundtracks'
+import { displayLikes } from '@/utils/likes'
 import PageHero from '@/components/PageHero.vue'
 import TopComposerRow from '@/components/TopComposerRow.vue'
 
@@ -25,7 +26,7 @@ const composers = computed(() => {
     for (const c of s.composers ?? []) {
       const entry = map.get(c) ?? { trackCount: 0, totalLikes: 0 }
       entry.trackCount++
-      entry.totalLikes += s.likes
+      entry.totalLikes += displayLikes(s)
       map.set(c, entry)
     }
   }

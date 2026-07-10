@@ -5,6 +5,7 @@ import { useRoute } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import { useSoundtrackStore } from '@/stores/soundtracks'
 import { toSlug } from '@/utils/slug'
+import { displayLikes } from '@/utils/likes'
 import PageHero from '@/components/PageHero.vue'
 import SortBar from '@/components/SortBar.vue'
 import CategoryGridCard from '@/components/CategoryGridCard.vue'
@@ -62,7 +63,7 @@ const sortedItems = computed(() => {
     : [...baseItems.value]
 
   switch (sort.value) {
-    case 'popular': return [...items].sort((a, b) => b.likes - a.likes)
+    case 'popular': return [...items].sort((a, b) => displayLikes(b) - displayLikes(a))
     case 'newest':  return [...items].sort((a, b) => b.release_year - a.release_year)
     case 'oldest':  return [...items].sort((a, b) => a.release_year - b.release_year)
     case 'az':      return [...items].sort((a, b) => a.game_title.localeCompare(b.game_title))

@@ -33,6 +33,8 @@ export interface Soundtrack {
   theme_tags: string[]
   keyword_tags: string[]
   likes: number
+  rating_count: number | null
+  total_likes: number | null
   created_at: string
   description: string | null
   amazon_url: string | null
@@ -44,6 +46,7 @@ export interface Composer {
   name: string
   bio: string | null
   support_url: string | null
+  image_url: string | null
   created_at: string
 }
 
