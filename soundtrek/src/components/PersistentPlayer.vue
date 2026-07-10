@@ -621,17 +621,19 @@ function ctxSwitchSource(src: "youtube" | "spotify") {
       </div>
     </div>
 
-    <!-- Source switcher — only when both are available -->
-    <div v-if="hasBoth && !minimized" class="source-bar">
+    <!-- Source switcher — visible whenever at least one source exists -->
+    <div v-if="(hasYoutube || hasSpotify) && !minimized" class="source-bar">
       <button
-        class="source-btn"
+        v-if="hasYoutube"
+        class="source-btn source-btn--youtube"
         :class="{ active: activeSource === 'youtube' }"
         @click="switchSource('youtube')"
       >
         <img src="/ytLogo.png" alt="YouTube" class="yt-logo-img" />
       </button>
       <button
-        class="source-btn"
+        v-if="hasSpotify"
+        class="source-btn source-btn--spotify"
         :class="{ active: activeSource === 'spotify' }"
         @click="switchSource('spotify')"
       >
@@ -1129,12 +1131,12 @@ function ctxSwitchSource(src: "youtube" | "spotify") {
   background: rgba(255, 255, 255, 0.04);
 }
 
-.source-btn:first-child.active {
+.source-btn--youtube.active {
   border-bottom-color: #ff3333;
   color: #ff3333;
 }
 
-.source-btn:last-child.active {
+.source-btn--spotify.active {
   border-bottom-color: #1db954;
   color: #1db954;
 }
