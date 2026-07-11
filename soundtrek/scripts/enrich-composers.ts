@@ -210,7 +210,6 @@ async function fetchMBComposers(gameTitle: string): Promise<string[]> {
   const result = await Promise.race([lookupMBCandidates(gameTitle), mbTimeout()])
 
   if (result === null) {
-    // Timeout — go straight to manual
     console.log(' timed out.')
     const manual = await promptLine('  Composer(s) (or leave blank to skip): ')
     return manual.split(',').map(s => s.trim()).filter(Boolean)

@@ -41,6 +41,7 @@ const hasSpotify = computed(
   () => !!(nowPlaying.value?.spotify_id && nowPlaying.value?.spotify_type),
 );
 const hasBoth = computed(() => hasYoutube.value && hasSpotify.value);
+const hasAnySources = computed(() => hasYoutube.value || hasSpotify.value);
 
 // ── Playlist side panel ─────────────────────────────────────────────────────
 interface PlaylistItem {
@@ -692,7 +693,9 @@ function ctxSwitchSource(src: "youtube" | "spotify") {
         </div>
       </div>
       <div v-else class="no-source">
-        <p class="no-source-text">No embeddable source available.</p>
+        <p class="no-source-text">
+          {{ hasAnySources ? 'No embeddable source available.' : 'No soundtrack found for this game.' }}
+        </p>
         <StreamingLinks :links="nowPlaying.streaming_links ?? []" />
       </div>
 

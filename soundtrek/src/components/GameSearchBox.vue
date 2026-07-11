@@ -41,17 +41,29 @@ type SearchResult =
   | { kind: "soundtrack"; s: Soundtrack }
   | { kind: "composer"; name: string; slug: string; count: number };
 
+function titleScore(title: string, q: string): number {
+  const t = normalize(title);
+  if (t === q) return 4;                                   // exact match
+  if (t.startsWith(q + ' ') || t === q) return 3;         // starts with query
+  if (t.split(' ').some((w) => w === q)) return 2;        // a word is exact match
+  if (t.startsWith(q)) return 1;                          // title starts with query (no space boundary)
+  return 0;                                                // just contains
+}
+
 const results = computed<SearchResult[]>(() => {
   const q = normalize(query.value.trim());
   if (!q) return [];
 
-  const titleMatches: SearchResult[] = [];
+  const titleMatches: { result: SearchResult; score: number }[] = [];
   const composerGameMatches: SearchResult[] = [];
   const composerEntities = new Map<string, { name: string; count: number }>();
 
   for (const s of allSoundtracks.value) {
     if (normalize(s.game_title).includes(q)) {
-      titleMatches.push({ kind: "soundtrack", s });
+      titleMatches.push({
+        result: { kind: "soundtrack", s },
+        score: titleScore(s.game_title, q),
+      });
     } else if (
       (s.composers ?? []).some((c) => normalize(c).includes(q)) ||
       normalize(s.studio).includes(q)
@@ -68,11 +80,15 @@ const results = computed<SearchResult[]>(() => {
     }
   }
 
+  const sortedTitleMatches = titleMatches
+    .sort((a, b) => b.score - a.score)
+    .map((m) => m.result);
+
   const composerResults: SearchResult[] = [...composerEntities.entries()].map(
     ([slug, { name, count }]) => ({ kind: "composer", name, slug, count }),
   );
 
-  return [...titleMatches, ...composerResults, ...composerGameMatches].slice(0, 8);
+  return [...sortedTitleMatches, ...composerResults, ...composerGameMatches].slice(0, 8);
 });
 
 const showDropdown = computed(() => dropdownOpen.value && results.value.length > 0);
