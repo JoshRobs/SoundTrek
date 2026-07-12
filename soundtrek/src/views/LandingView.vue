@@ -11,6 +11,7 @@ import type { Soundtrack } from "@/types/soundtrack";
 import { animate, stagger } from "animejs";
 import { useNotePlayer } from "@/composables/useNotePlayer";
 import CategoryBrowser from "@/components/CategoryBrowser.vue";
+import CoverCard from "@/components/CoverCard.vue";
 
 const text = "SOUNDTREK".split("");
 const { playNote } = useNotePlayer();
@@ -178,36 +179,13 @@ onMounted(async () => {
         </div>
         <div class="section-content">
           <div class="cover-row">
-            <button
+            <CoverCard
               v-for="s in nowListeningItems"
               :key="s.id"
-              class="cover-card"
+              :soundtrack="s"
               @click="play(s)"
-            >
-              <img
-                v-if="s.cover_image_url"
-                :src="s.cover_image_url"
-                :alt="s.game_title"
-                class="cover-img"
-              />
-              <div v-else class="cover-fallback">🎮</div>
-              <div class="cover-overlay">
-                <button
-                  class="overlay-play"
-                  @click.stop="store.setNowPlaying(s)"
-                >
-                  <svg
-                    width="22"
-                    height="22"
-                    viewBox="0 0 24 24"
-                    fill="currentColor"
-                  >
-                    <path d="M8 5v14l11-7z" />
-                  </svg>
-                </button>
-                <span class="cover-title">{{ s.game_title }}</span>
-              </div>
-            </button>
+              @play="store.setNowPlaying(s)"
+            />
           </div>
         </div>
       </section>
@@ -220,36 +198,13 @@ onMounted(async () => {
         </div>
         <div class="section-content">
           <div class="cover-grid">
-            <button
+            <CoverCard
               v-for="s in featuredItems"
               :key="s.id"
-              class="cover-card"
+              :soundtrack="s"
               @click="play(s)"
-            >
-              <img
-                v-if="s.cover_image_url"
-                :src="s.cover_image_url"
-                :alt="s.game_title"
-                class="cover-img"
-              />
-              <div v-else class="cover-fallback">🎮</div>
-              <div class="cover-overlay">
-                <button
-                  class="overlay-play"
-                  @click.stop="store.setNowPlaying(s)"
-                >
-                  <svg
-                    width="22"
-                    height="22"
-                    viewBox="0 0 24 24"
-                    fill="currentColor"
-                  >
-                    <path d="M8 5v14l11-7z" />
-                  </svg>
-                </button>
-                <span class="cover-title">{{ s.game_title }}</span>
-              </div>
-            </button>
+              @play="store.setNowPlaying(s)"
+            />
           </div>
         </div>
       </section>
@@ -262,36 +217,13 @@ onMounted(async () => {
         </div>
         <div class="section-content">
           <div class="cover-row">
-            <button
+            <CoverCard
               v-for="s in recentItems"
               :key="s.id"
-              class="cover-card"
+              :soundtrack="s"
               @click="play(s)"
-            >
-              <img
-                v-if="s.cover_image_url"
-                :src="s.cover_image_url"
-                :alt="s.game_title"
-                class="cover-img"
-              />
-              <div v-else class="cover-fallback">🎮</div>
-              <div class="cover-overlay">
-                <button
-                  class="overlay-play"
-                  @click.stop="store.setNowPlaying(s)"
-                >
-                  <svg
-                    width="22"
-                    height="22"
-                    viewBox="0 0 24 24"
-                    fill="currentColor"
-                  >
-                    <path d="M8 5v14l11-7z" />
-                  </svg>
-                </button>
-                <span class="cover-title">{{ s.game_title }}</span>
-              </div>
-            </button>
+              @play="store.setNowPlaying(s)"
+            />
           </div>
         </div>
       </section>
@@ -324,6 +256,11 @@ onMounted(async () => {
             >
           </div>
           <div class="footer-col">
+            <p class="footer-col-heading">Library</p>
+            <RouterLink to="/collections" class="footer-link">My Collections</RouterLink>
+            <RouterLink to="/saved" class="footer-link">Saved</RouterLink>
+          </div>
+          <div class="footer-col">
             <p class="footer-col-heading">Contribute</p>
             <RouterLink to="/submit" class="footer-link"
               >Submit a Soundtrack</RouterLink
@@ -349,6 +286,9 @@ onMounted(async () => {
           <p class="footer-disclaimer">
             SoundTrek is a fan project. All game titles and soundtracks are
             property of their respective owners.
+          </p>
+          <p class="footer-disclaimer">
+            Game data powered by <a href="https://www.igdb.com" target="_blank" rel="noopener" class="footer-rss">IGDB</a>.
           </p>
           <p class="footer-disclaimer">
             Icon made by <a href="https://www.freepik.com" target="_blank" rel="noopener" class="footer-rss">Freepik</a> from <a href="https://www.flaticon.com" target="_blank" rel="noopener" class="footer-rss">www.flaticon.com</a>.
@@ -542,90 +482,6 @@ onMounted(async () => {
 .section-content {
   flex: 1;
   min-width: 0;
-}
-
-/* ── Cover card (shared) ──────────────────────────────────────────────── */
-.cover-card {
-  position: relative;
-  border: none;
-  border-radius: 10px;
-  overflow: hidden;
-  background: var(--surface-2);
-  cursor: pointer;
-  padding: 0;
-  display: block;
-  transition:
-    transform 0.18s,
-    box-shadow 0.18s;
-}
-
-.cover-card:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.5);
-}
-
-.cover-card:hover .cover-overlay {
-  opacity: 1;
-}
-
-.cover-img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
-}
-
-.cover-fallback {
-  width: 100%;
-  height: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 3rem;
-}
-
-.cover-overlay {
-  position: absolute;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.55);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 0.75rem;
-  padding: 1rem;
-  opacity: 0;
-  transition: opacity 0.18s;
-}
-
-.cover-title {
-  font-size: 1.1rem;
-  font-weight: 600;
-  color: #fff;
-  line-height: 1.2;
-  text-align: center;
-}
-
-.overlay-play {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 48px;
-  height: 48px;
-  border-radius: 50%;
-  border: 2px solid rgba(255, 255, 255, 0.9);
-  background: rgba(0, 0, 0, 0.4);
-  color: #fff;
-  cursor: pointer;
-  padding-left: 3px;
-  transition:
-    background 0.15s,
-    transform 0.15s;
-}
-
-.overlay-play:hover {
-  background: rgba(255, 255, 255, 0.2);
-  transform: scale(1.1);
 }
 
 /* ── Section 1: Now Listening row ─────────────────────────────────────── */

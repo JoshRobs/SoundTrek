@@ -424,7 +424,12 @@ function goToPage() {
 
             <!-- Playback controls -->
             <div class="sheet-controls">
-              <button v-if="isPlaylist" class="ctrl-btn" aria-label="Previous track" @click="prevTrack">
+              <button
+                v-if="isPlaylist"
+                class="ctrl-btn"
+                aria-label="Previous track"
+                @click="prevTrack"
+              >
                 <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor">
                   <path d="M6 6h2v12H6zm3.5 6 8.5 6V6z" />
                 </svg>
@@ -437,7 +442,12 @@ function goToPage() {
                   <path d="M8 5v14l11-7z" />
                 </svg>
               </button>
-              <button v-if="isPlaylist" class="ctrl-btn" aria-label="Next track" @click="nextTrack">
+              <button
+                v-if="isPlaylist"
+                class="ctrl-btn"
+                aria-label="Next track"
+                @click="nextTrack"
+              >
                 <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor">
                   <path d="M6 18l8.5-6L6 6v12zM16 6h2v12h-2z" />
                 </svg>

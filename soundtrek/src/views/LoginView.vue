@@ -18,7 +18,7 @@ const loading = ref(false);
 const signUpDone = ref(false);
 const forgotSent = ref(false);
 
-const redirect = (route.query.redirect as string) || "/discover";
+const redirect = (route.query.redirect as string) || "/";
 
 onMounted(() => {
   const urlError = route.query.error_description as string | undefined

@@ -22,6 +22,10 @@ export function useAuth() {
     () => (user.value?.user_metadata?.display_name as string | undefined) ?? null,
   );
 
+  const isAdmin = computed(
+    () => (user.value?.app_metadata?.role as string | undefined) === "admin",
+  );
+
   async function signIn(email: string, password: string) {
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) throw error;
@@ -78,6 +82,7 @@ export function useAuth() {
     user,
     authLoading,
     displayName,
+    isAdmin,
     signIn,
     signUp,
     signInWithGoogle,

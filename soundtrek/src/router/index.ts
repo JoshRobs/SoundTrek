@@ -19,12 +19,20 @@ import SoundtrackView from "@/views/SoundtrackView.vue";
 import CatalogView from "@/views/CatalogView.vue";
 import SubmitView from "@/views/SubmitView.vue";
 import ContactView from "@/views/ContactView.vue";
+import CollectionsView from "@/views/CollectionsView.vue";
+import CollectionView from "@/views/CollectionView.vue";
 import PrivacyView from "@/views/PrivacyView.vue";
 import TermsView from "@/views/TermsView.vue";
+import SearchView from "@/views/SearchView.vue";
 import LoginView from "@/views/LoginView.vue";
 import SavedView from "@/views/SavedView.vue";
 import AccountView from "@/views/AccountView.vue";
 import ResetPasswordView from "@/views/ResetPasswordView.vue";
+import AdminLayout from "@/views/admin/AdminLayout.vue";
+import AdminDashboard from "@/views/admin/AdminDashboard.vue";
+import AdminAddSoundtrack from "@/views/admin/AdminAddSoundtrack.vue";
+import AdminEditSoundtrack from "@/views/admin/AdminEditSoundtrack.vue";
+import AdminComposers from "@/views/admin/AdminComposers.vue";
 import NotFoundView from "@/views/NotFoundView.vue";
 
 export const routes: RouteRecordRaw[] = [
@@ -41,12 +49,26 @@ export const routes: RouteRecordRaw[] = [
   { path: "/catalog", component: CatalogView },
   { path: "/submit", component: SubmitView },
   { path: "/contact", component: ContactView },
+  { path: "/collections", component: CollectionsView, meta: { requiresAuth: true } },
+  { path: "/collection/:id", component: CollectionView },
   { path: "/privacy-policy", component: PrivacyView },
   { path: "/terms-of-service", component: TermsView },
+  { path: "/search", component: SearchView },
   { path: "/login", component: LoginView },
   { path: "/saved", component: SavedView },
   { path: "/account", component: AccountView },
   { path: "/reset-password", component: ResetPasswordView },
+  {
+    path: "/admin",
+    component: AdminLayout,
+    meta: { requiresAdmin: true },
+    children: [
+      { path: "", component: AdminDashboard },
+      { path: "add-soundtrack",  component: AdminAddSoundtrack },
+      { path: "edit-soundtrack", component: AdminEditSoundtrack },
+      { path: "composers",       component: AdminComposers },
+    ],
+  },
   { path: "/:pathMatch(.*)*", component: NotFoundView },
 ];
 
@@ -67,10 +89,13 @@ export function setupScrollGuards(router: Router) {
     const el = document.getElementById("app-main");
     if (el) scrollPositions.set(from.fullPath, el.scrollTop);
 
-    if (to.meta.requiresAuth) {
+    if (to.meta.requiresAuth || to.meta.requiresAdmin) {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
         return { path: "/login", query: { redirect: to.fullPath } };
+      }
+      if (to.meta.requiresAdmin && session.user.app_metadata?.role !== "admin") {
+        return { path: "/" };
       }
     }
   });

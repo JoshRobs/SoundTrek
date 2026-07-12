@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onUnmounted } from "vue";
+import { useRouter } from "vue-router";
 import { storeToRefs } from "pinia";
 import { useSoundtrackStore } from "@/stores/soundtracks";
 import { useComposerStore } from "@/stores/composers";
@@ -21,6 +22,7 @@ const emit = defineEmits<{
   ];
 }>();
 
+const router = useRouter();
 const store = useSoundtrackStore();
 const { allSoundtracks } = storeToRefs(store);
 const composerStore = useComposerStore();
@@ -123,13 +125,26 @@ function onKeydown(e: KeyboardEvent) {
   } else if (e.key === "ArrowUp") {
     e.preventDefault();
     activeIdx.value = Math.max(activeIdx.value - 1, -1);
-  } else if (e.key === "Enter" && activeIdx.value >= 0) {
+  } else if (e.key === "Enter") {
     e.preventDefault();
-    select(results.value[activeIdx.value]);
+    if (activeIdx.value >= 0) {
+      select(results.value[activeIdx.value]);
+    } else if (query.value.trim()) {
+      dropdownOpen.value = false;
+      router.push(`/search?q=${encodeURIComponent(query.value.trim())}`);
+      query.value = "";
+    }
   } else if (e.key === "Escape") {
     dropdownOpen.value = false;
     activeIdx.value = -1;
   }
+}
+
+function goToSearch() {
+  if (!query.value.trim()) return;
+  dropdownOpen.value = false;
+  router.push(`/search?q=${encodeURIComponent(query.value.trim())}`);
+  query.value = "";
 }
 
 function onBlur() {
@@ -162,20 +177,21 @@ onUnmounted(() => {
 <template>
   <div ref="searchWrapEl" class="search-wrap">
     <div class="search-box" :class="{ focused, compact }">
-      <svg
-        class="search-icon"
-        width="18"
-        height="18"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        stroke-width="2"
-        stroke-linecap="round"
-        stroke-linejoin="round"
-      >
-        <circle cx="11" cy="11" r="8" />
-        <path d="m21 21-4.35-4.35" />
-      </svg>
+      <button class="search-icon-btn" aria-label="Search" @mousedown.prevent @click="goToSearch">
+        <svg
+          width="18"
+          height="18"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <circle cx="11" cy="11" r="8" />
+          <path d="m21 21-4.35-4.35" />
+        </svg>
+      </button>
       <input
         ref="inputEl"
         v-model="query"
@@ -293,9 +309,21 @@ onUnmounted(() => {
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 20%, transparent);
 }
 
-.search-icon {
+.search-icon-btn {
   flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: none;
+  background: transparent;
   color: var(--text-muted);
+  cursor: pointer;
+  transition: color 0.15s;
+}
+
+.search-icon-btn:hover {
+  color: var(--text-primary);
 }
 
 .search-input {

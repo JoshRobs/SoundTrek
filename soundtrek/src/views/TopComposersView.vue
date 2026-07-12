@@ -1,47 +1,67 @@
 <script setup lang="ts">
-import { computed, onMounted } from 'vue'
-import { useHead } from '@unhead/vue'
-import { storeToRefs } from 'pinia'
-import { useSoundtrackStore } from '@/stores/soundtracks'
-import { displayLikes } from '@/utils/likes'
-import PageHero from '@/components/PageHero.vue'
-import TopComposerRow from '@/components/TopComposerRow.vue'
+import { ref, computed, onMounted } from "vue";
+import { useHead } from "@unhead/vue";
+import { storeToRefs } from "pinia";
+import { useSoundtrackStore } from "@/stores/soundtracks";
+import { useComposerStore } from "@/stores/composers";
+import { displayLikes } from "@/utils/likes";
+import PageHero from "@/components/PageHero.vue";
+import TopComposerRow from "@/components/TopComposerRow.vue";
 
-const store = useSoundtrackStore()
-const { allSoundtracks, loading, error } = storeToRefs(store)
+const store = useSoundtrackStore();
+const composerStore = useComposerStore();
+const { allSoundtracks, loading, error } = storeToRefs(store);
+
+const imageMap = ref(new Map<string, string | null>());
 
 useHead({
-  title: 'Top Composers | SoundTrek',
+  title: "Top Composers | SoundTrek",
   meta: [
-    { name: 'description', content: 'The most celebrated video game composers on SoundTrek, ranked by popularity.' },
-    { property: 'og:title', content: 'Top Composers | SoundTrek' },
-    { property: 'og:description', content: 'The most celebrated video game composers on SoundTrek, ranked by popularity.' },
-    { property: 'og:url', content: 'https://soundtrek.app/top-composers' },
+    {
+      name: "description",
+      content:
+        "The most celebrated video game composers on SoundTrek, ranked by popularity.",
+    },
+    { property: "og:title", content: "Top Composers | SoundTrek" },
+    {
+      property: "og:description",
+      content:
+        "The most celebrated video game composers on SoundTrek, ranked by popularity.",
+    },
+    { property: "og:url", content: "https://soundtrek.app/top-composers" },
   ],
-})
+});
 
 const composers = computed(() => {
-  const map = new Map<string, { trackCount: number; totalLikes: number }>()
+  const map = new Map<string, { trackCount: number; totalLikes: number }>();
   for (const s of allSoundtracks.value) {
     for (const c of s.composers ?? []) {
-      const entry = map.get(c) ?? { trackCount: 0, totalLikes: 0 }
-      entry.trackCount++
-      entry.totalLikes += displayLikes(s)
-      map.set(c, entry)
+      const entry = map.get(c) ?? { trackCount: 0, totalLikes: 0 };
+      entry.trackCount++;
+      entry.totalLikes += displayLikes(s);
+      map.set(c, entry);
     }
   }
   return [...map.entries()]
     .map(([name, data]) => ({ name, ...data }))
-    .sort((a, b) => b.totalLikes - a.totalLikes)
-})
+    .sort((a, b) => b.totalLikes - a.totalLikes);
+});
 
-onMounted(() => store.loadAll())
+onMounted(async () => {
+  await store.loadAll();
+  const all = await composerStore.fetchAll();
+  for (const c of all) imageMap.value.set(c.name, c.image_url ?? null);
+});
 </script>
 
 <template>
   <div class="page">
     <div class="page-inner">
-      <PageHero label="Charts" title="Top Composers" subtitle="Ranked by total community likes" />
+      <PageHero
+        label="Charts"
+        title="Top Composers"
+        subtitle="Ranked by total community likes"
+      />
 
       <div v-if="loading" class="loading">
         <div class="spinner" />
@@ -50,7 +70,7 @@ onMounted(() => store.loadAll())
 
       <div v-else-if="error" class="error">{{ error }}</div>
 
-      <ol v-else class="composer-list">
+      <div v-else class="composer-grid">
         <TopComposerRow
           v-for="(c, i) in composers"
           :key="c.name"
@@ -58,8 +78,9 @@ onMounted(() => store.loadAll())
           :name="c.name"
           :track-count="c.trackCount"
           :total-likes="c.totalLikes"
+          :image-url="imageMap.get(c.name) ?? null"
         />
-      </ol>
+      </div>
     </div>
   </div>
 </template>
@@ -70,32 +91,39 @@ onMounted(() => store.loadAll())
 }
 
 .page-inner {
-  max-width: 760px;
+  max-width: 1250px;
   width: 100%;
   margin: 0 auto;
   padding: 0 1.5rem 4rem;
+}
+
+.composer-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-auto-rows: auto;
+  gap: 2rem;
+  align-items: stretch;
+}
+
+@media (max-width: 1024px) {
+  .composer-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 768px) {
   .page-inner {
     padding: 0 1rem 3rem;
   }
+  .composer-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
 }
 
-.composer-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-}
-
-.composer-list > li + li {
-  border-top: 1px solid var(--border);
-}
-
-.composer-list > li:hover + li {
-  border-top-color: transparent;
+@media (max-width: 480px) {
+  .composer-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 .loading {
@@ -108,7 +136,11 @@ onMounted(() => store.loadAll())
   font-size: 0.85rem;
 }
 
-.error { padding: 2rem; color: #f87171; font-size: 0.9rem; }
+.error {
+  padding: 2rem;
+  color: #f87171;
+  font-size: 0.9rem;
+}
 
 .spinner {
   --spinner-size: 20px;

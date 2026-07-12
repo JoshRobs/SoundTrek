@@ -1,146 +1,195 @@
 <script setup lang="ts">
-import { computed } from 'vue'
-import { useRouter } from 'vue-router'
-import { toSlug } from '@/utils/slug'
+import { useRouter } from "vue-router";
+import { toSlug } from "@/utils/slug";
 
 const props = defineProps<{
-  rank: number
-  name: string
-  trackCount: number
-  totalLikes: number
-}>()
+  rank: number;
+  name: string;
+  trackCount: number;
+  totalLikes: number;
+  imageUrl?: string | null;
+}>();
 
-const router = useRouter()
-
-const initials = computed(() =>
-  props.name
-    .split(' ')
-    .slice(0, 2)
-    .map((w) => w[0])
-    .join('')
-    .toUpperCase(),
-)
+const router = useRouter();
 </script>
 
 <template>
-  <li
-    class="composer-row"
-    @click="router.push(`/composer/${toSlug(name)}`)"
-  >
-    <span class="rank" :class="{ gold: rank === 1, silver: rank === 2, bronze: rank === 3 }">
-      {{ rank }}
-    </span>
-
-    <div class="avatar">{{ initials }}</div>
-
+  <div class="composer-card" @click="router.push(`/composer/${toSlug(name)}`)">
+    <div class="avatar-wrap">
+      <img v-if="imageUrl" :src="imageUrl" :alt="name" class="photo" />
+      <div v-else class="photo-fallback">
+        <svg viewBox="0 0 24 24" fill="currentColor" class="silhouette">
+          <path
+            d="M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4 7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8v2.4h19.2v-2.4c0-3.2-6.4-4.8-9.6-4.8z"
+          />
+        </svg>
+      </div>
+      <span
+        class="rank"
+        :class="{ gold: rank === 1, silver: rank === 2, bronze: rank === 3 }"
+        >{{ rank }}</span
+      >
+    </div>
     <div class="info">
-      <span class="name">{{ name }}</span>
-      <span class="sub">{{ trackCount }} {{ trackCount === 1 ? 'soundtrack' : 'soundtracks' }}</span>
+      <p class="name">{{ name }}</p>
+      <div class="meta">
+        <span
+          >{{ trackCount }}
+          {{ trackCount === 1 ? "soundtrack" : "soundtracks" }}</span
+        >
+        <span class="dot">·</span>
+        <span class="likes">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor">
+            <path
+              d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"
+            />
+          </svg>
+          {{ totalLikes.toLocaleString() }}
+        </span>
+      </div>
     </div>
-
-    <div class="likes">
-      <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
-        <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
-      </svg>
-      {{ totalLikes.toLocaleString() }}
-    </div>
-
-    <svg class="arrow" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-      <path d="M9 18l6-6-6-6"/>
-    </svg>
-  </li>
+  </div>
 </template>
 
 <style scoped>
-.composer-row {
-  display: grid;
-  grid-template-columns: 2.5rem 44px 1fr auto auto;
+.composer-card {
+  display: flex;
+  flex-direction: column;
   align-items: center;
   gap: 1rem;
-  padding: 0.65rem 0.75rem;
-  border-radius: 10px;
   cursor: pointer;
-  transition: background 0.12s;
+  text-align: center;
+  transition: transform 0.18s;
 }
 
-.composer-row:hover { background: var(--surface); }
-
-.rank {
-  font-size: 1.1rem;
-  font-weight: 700;
-  color: var(--text-muted);
-  text-align: right;
-  font-variant-numeric: tabular-nums;
-  line-height: 1;
+.composer-card:hover {
+  transform: translateY(-3px);
 }
 
-.rank.gold   { color: #f59e0b; }
-.rank.silver { color: #94a3b8; }
-.rank.bronze { color: #cd7f32; }
-
-.avatar {
-  width: 44px;
-  height: 44px;
+.avatar-wrap {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1 / 1;
   border-radius: 50%;
+  overflow: hidden;
   background: var(--surface-2);
-  border: 1px solid var(--border);
+  border: 2px solid var(--border);
+  transition:
+    border-color 0.25s,
+    box-shadow 0.25s;
+}
+
+.composer-card:hover .avatar-wrap {
+  border-color: #77777770;
+  box-shadow: 0 0 20px color-mix(in srgb, white 20%, transparent);
+}
+
+.composer-card:hover .avatar-wrap:has(.rank.gold) {
+  border-color: rgba(245, 158, 11, 0.8);
+  box-shadow: 0 0 32px color-mix(in srgb, #f59e0b 40%, transparent);
+}
+
+.composer-card:hover .avatar-wrap:has(.rank.silver) {
+  border-color: rgba(148, 163, 184, 0.8);
+  box-shadow: 0 0 32px color-mix(in srgb, #94a3b8 40%, transparent);
+}
+
+.composer-card:hover .avatar-wrap:has(.rank.bronze) {
+  border-color: rgba(205, 127, 50, 0.8);
+  box-shadow: 0 0 32px color-mix(in srgb, #cd7f32 40%, transparent);
+}
+
+.photo {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  transition: transform 0.25s ease;
+}
+
+.composer-card:hover .photo {
+  transform: scale(1.06);
+}
+
+.photo-fallback {
+  width: 100%;
+  height: 100%;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 0.8rem;
-  font-weight: 700;
-  color: var(--text-secondary);
-  flex-shrink: 0;
-  letter-spacing: 0.03em;
+}
+
+.silhouette {
+  width: 60%;
+  height: 60%;
+  color: var(--border);
+}
+
+.rank {
+  position: absolute;
+  bottom: 4%;
+  right: 4%;
+  font-size: 0.85rem;
+  font-weight: 800;
+  background: var(--surface-2);
+  color: var(--text-muted);
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.rank.gold {
+  color: #ffad20;
+}
+.rank.silver {
+  color: #94a3b8;
+}
+.rank.bronze {
+  color: #cd7f32;
 }
 
 .info {
   display: flex;
   flex-direction: column;
   gap: 0.2rem;
-  min-width: 0;
+  width: 100%;
 }
 
 .name {
-  font-size: 0.9rem;
-  font-weight: 600;
+  font-size: 1.3rem;
+  font-weight: 700;
   color: var(--text-primary);
+  margin: 0;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.sub {
-  font-size: 0.73rem;
+.meta {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.3rem;
+  font-size: 0.75rem;
   color: var(--text-muted);
+}
+
+.dot {
+  opacity: 0.4;
 }
 
 .likes {
   display: flex;
   align-items: center;
-  gap: 0.3rem;
-  font-size: 0.8rem;
-  font-weight: 500;
-  color: var(--text-muted);
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
+  gap: 0.2rem;
 }
 
-.likes svg { color: #f87171; flex-shrink: 0; }
-
-.arrow {
-  color: var(--text-muted);
-  opacity: 0;
-  transition: opacity 0.15s;
+.likes svg {
+  color: #f87171;
   flex-shrink: 0;
-}
-
-.composer-row:hover .arrow { opacity: 1; }
-
-@media (max-width: 768px) {
-  .composer-row {
-    gap: 0.75rem;
-    padding: 0.55rem 0.5rem;
-  }
 }
 </style>

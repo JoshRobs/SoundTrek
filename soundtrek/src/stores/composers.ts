@@ -32,5 +32,12 @@ export const useComposerStore = defineStore("composers", () => {
     }
   }
 
-  return { cache, fetchComposer };
+  async function fetchAll(): Promise<Composer[]> {
+    if (USE_MOCK) return [];
+    const { data } = await supabase.from("composers").select("*");
+    for (const c of data ?? []) cache.value.set(c.slug, c);
+    return data ?? [];
+  }
+
+  return { cache, fetchComposer, fetchAll };
 });

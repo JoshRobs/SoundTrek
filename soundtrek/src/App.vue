@@ -1,6 +1,7 @@
 <script setup lang="ts">
+import { computed } from "vue";
 import { storeToRefs } from "pinia";
-import { useRouter } from "vue-router";
+import { useRoute, useRouter } from "vue-router";
 import AppHeader from "@/components/AppHeader.vue";
 import PersistentPlayer from "@/components/PersistentPlayer.vue";
 import MobileMiniPlayer from "@/components/MobileMiniPlayer.vue";
@@ -11,6 +12,8 @@ import { supabase } from "@/lib/supabase";
 const { isMobile } = useIsMobile();
 const { nowPlaying } = storeToRefs(useSoundtrackStore());
 const router = useRouter();
+const route = useRoute();
+const isAdmin = computed(() => !!route.meta.requiresAdmin);
 
 supabase.auth.onAuthStateChange((event) => {
   if (event === "SIGNED_IN" && window.location.hash.includes("type=signup")) {
@@ -20,7 +23,10 @@ supabase.auth.onAuthStateChange((event) => {
 </script>
 
 <template>
-  <div class="app-shell">
+  <!-- Admin routes render their own layout via nested RouterView -->
+  <RouterView v-if="isAdmin" />
+
+  <div v-else class="app-shell">
     <AppHeader />
     <div
       id="app-main"

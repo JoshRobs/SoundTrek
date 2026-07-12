@@ -44,6 +44,7 @@ export const useSoundtrackStore = defineStore("soundtracks", () => {
 
   // ── Now playing ───────────────────────────────────────────────────────────
   const nowPlaying = ref<Soundtrack | null>(null);
+
   function setNowPlaying(s: Soundtrack | null) {
     nowPlaying.value = s;
   }

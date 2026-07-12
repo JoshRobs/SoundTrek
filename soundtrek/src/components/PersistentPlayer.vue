@@ -700,26 +700,16 @@ function ctxSwitchSource(src: "youtube" | "spotify") {
       </div>
 
       <div
-        v-if="
-          nowPlaying.source_type === 'playlist' && hasSource && ytPlaylistMode
-        "
+        v-if="nowPlaying.source_type === 'playlist' && hasSource && ytPlaylistMode"
         class="playlist-nav"
       >
-        <button
-          class="playlist-nav-btn"
-          aria-label="Previous track"
-          @click="prevTrack"
-        >
+        <button class="playlist-nav-btn" aria-label="Previous track" @click="prevTrack">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
             <path d="M6 6h2v12H6zm3.5 6 8.5 6V6z" />
           </svg>
           Prev
         </button>
-        <button
-          class="playlist-nav-btn"
-          aria-label="Next track"
-          @click="nextTrack"
-        >
+        <button class="playlist-nav-btn" aria-label="Next track" @click="nextTrack">
           Next
           <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
             <path d="M6 18l8.5-6L6 6v12zM16 6h2v12h-2z" />
@@ -1499,6 +1489,21 @@ function ctxSwitchSource(src: "youtube" | "spotify") {
 .playlist-nav-btn:hover {
   background: rgba(255, 255, 255, 0.07);
   color: rgba(255, 255, 255, 0.8);
+}
+
+.playlist-nav-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.queue-label {
+  flex: 1;
+  text-align: center;
+  font-size: 0.7rem;
+  color: rgba(255, 255, 255, 0.35);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .minimized .player-header {

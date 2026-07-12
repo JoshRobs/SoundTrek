@@ -29,7 +29,7 @@ function url(loc: string, lastmod?: string): string {
 async function main() {
   const { data: soundtracks, error } = await supabase
     .from("soundtracks")
-    .select("id, composers, created_at");
+    .select("id, slug, composers, created_at");
 
   if (error) throw error;
 
@@ -43,7 +43,7 @@ async function main() {
   ];
 
   const soundtrackUrls = (soundtracks ?? []).map((s) =>
-    url(`${BASE}/soundtrack/${s.id}`, s.created_at?.split("T")[0]),
+    url(`${BASE}/soundtrack/${s.slug ?? s.id}`, s.created_at?.split("T")[0]),
   );
 
   const composerSlugs = [

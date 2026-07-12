@@ -9,7 +9,10 @@ import type { StreamingLink } from "@/types/soundtrack";
 import { toSlug } from "@/utils/slug";
 import { useLikes } from "@/composables/useLikes";
 import { useSaves } from "@/composables/useSaves";
+import ReviewSection from "@/components/ReviewSection.vue";
 import { displayLikes } from "@/utils/likes";
+import AddToCollectionModal from "@/components/AddToCollectionModal.vue";
+import { useAuth } from "@/composables/useAuth";
 
 const route = useRoute();
 const router = useRouter();
@@ -22,6 +25,8 @@ const coverColor = ref("");
 const copied = ref(false);
 const { isLiked, toggleLike: rawToggle } = useLikes();
 const { isSaved, toggleSave } = useSaves();
+const { user } = useAuth();
+const showAddToPlaylist = ref(false);
 
 // Support both slug-based URLs (new) and UUID-based URLs (legacy bookmarks)
 const track = computed(
@@ -32,6 +37,7 @@ const track = computed(
 
 // Use the track's actual ID for likes/saves/API calls
 const id = computed(() => track.value?.id ?? param);
+
 
 useHead(
   computed(() => {
@@ -458,6 +464,18 @@ onUnmounted(() => {
               {{ isSaved(id) ? "Saved" : "Save" }}
             </button>
 
+            <button
+              v-if="user"
+              class="save-btn"
+              aria-label="Add to collection"
+              @click="showAddToPlaylist = true"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+              </svg>
+              Collection
+            </button>
+
             <button class="share-btn" @click="share">
               <svg
                 v-if="!copied"
@@ -682,6 +700,11 @@ onUnmounted(() => {
         </Transition>
       </div>
     </div>
+
+    <!-- Reviews -->
+    <div class="reviews-section">
+      <ReviewSection :soundtrack-id="track?.id ?? null" />
+    </div>
   </div>
 
   <!-- Loading skeleton -->
@@ -693,6 +716,13 @@ onUnmounted(() => {
       <div class="skeleton line-sm" />
     </div>
   </div>
+
+  <AddToCollectionModal
+    :open="showAddToPlaylist"
+    :soundtrack-id="id"
+    :soundtrack-title="track?.game_title ?? ''"
+    @close="showAddToPlaylist = false"
+  />
 </template>
 
 <style scoped>
@@ -1477,5 +1507,19 @@ onUnmounted(() => {
   background: transparent;
   color: var(--text-secondary);
   cursor: pointer;
+}
+
+/* ── Reviews ──────────────────────────────────────────────────────────────── */
+.reviews-section {
+  position: relative;
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 0 3rem 4rem;
+}
+
+@media (max-width: 768px) {
+  .reviews-section {
+    padding: 0 1rem 3rem;
+  }
 }
 </style>

@@ -41,11 +41,11 @@ export default defineConfig({
 
       const { data: soundtracks } = await supabase
         .from("soundtracks")
-        .select("id, composers, genre_tags, theme_tags, console");
+        .select("id, slug, composers, genre_tags, theme_tags, console");
 
       const rows = soundtracks ?? [];
 
-      const soundtrackPaths = rows.map((s: any) => `/soundtrack/${s.id}`);
+      const soundtrackPaths = rows.map((s: any) => `/soundtrack/${s.slug ?? s.id}`);
 
       const composerPaths = [
         ...new Set(rows.flatMap((s: any) => (s.composers ?? []).map(toSlug))),
