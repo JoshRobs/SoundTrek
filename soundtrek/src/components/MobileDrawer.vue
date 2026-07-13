@@ -74,6 +74,7 @@ async function handleSignOut() {
           <button class="nav-item" @click="navigate('/top-composers')">Top Composers</button>
           <button class="nav-item" @click="navigate('/explore')">Explore</button>
           <button class="nav-item" @click="navigate('/catalog')">Catalog</button>
+          <button class="nav-item" @click="navigate('/browse-collections')">Browse Collections</button>
           <button class="nav-item" @click="navigate('/studios')">Studios</button>
           <button class="nav-item" @click="navigate('/saved')">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">

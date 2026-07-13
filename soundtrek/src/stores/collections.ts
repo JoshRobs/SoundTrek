@@ -1,11 +1,24 @@
 import { ref } from "vue";
 import { defineStore } from "pinia";
 import { supabase } from "@/lib/supabase";
-import type { Collection, CollectionItem } from "@/types/collection";
+import type { Collection } from "@/types/collection";
 
 export const useCollectionStore = defineStore("collections", () => {
   const myCollections = ref<Collection[]>([]);
   const loading = ref(false);
+  const publicCollections = ref<Collection[]>([]);
+  const loadingPublic = ref(false);
+
+  async function fetchPublicCollections() {
+    loadingPublic.value = true;
+    const { data, error } = await supabase
+      .from("collections")
+      .select("*, collection_items(soundtrack_id, position, soundtrack:soundtracks(cover_image_url))")
+      .eq("is_public", true)
+      .order("created_at", { ascending: false });
+    loadingPublic.value = false;
+    if (!error && data) publicCollections.value = data as Collection[];
+  }
 
   async function fetchMyCollections() {
     const { data: { user } } = await supabase.auth.getUser();
@@ -114,7 +127,7 @@ export const useCollectionStore = defineStore("collections", () => {
     return !error;
   }
 
-  async function moveItem(collectionId: string, itemId: string, newPosition: number): Promise<boolean> {
+  async function moveItem(_collectionId: string, itemId: string, newPosition: number): Promise<boolean> {
     const { error } = await supabase
       .from("collection_items")
       .update({ position: newPosition })
@@ -136,6 +149,9 @@ export const useCollectionStore = defineStore("collections", () => {
   return {
     myCollections,
     loading,
+    publicCollections,
+    loadingPublic,
+    fetchPublicCollections,
     fetchMyCollections,
     fetchCollection,
     createCollection,

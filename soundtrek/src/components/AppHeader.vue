@@ -66,6 +66,9 @@ function onAvatarBlur(e: FocusEvent) {
       <div class="header-center">
         <ExploreMenu />
         <RouterLink to="/catalog" class="nav-link">Catalog</RouterLink>
+        <RouterLink to="/browse-collections" class="nav-link"
+          >Browse Collections</RouterLink
+        >
       </div>
       <div id="header-right" class="header-right">
         <div class="header-search">

@@ -1,12 +1,16 @@
 <script setup lang="ts">
 import { ref, useTemplateRef } from "vue";
 import { useHead } from "@unhead/vue";
+import { useRouter } from "vue-router";
 import { supabase } from "@/lib/supabase";
 import { useSoundtrackStore } from "@/stores/soundtracks";
 import { useInfiniteScroll } from "@/composables/useInfiniteScroll";
 import PageHero from "@/components/PageHero.vue";
-import TopTrackRow from "@/components/TopTrackRow.vue";
+import CoverCard from "@/components/CoverCard.vue";
 import type { Soundtrack } from "@/types/soundtrack";
+
+const router = useRouter();
+const { setNowPlaying } = useSoundtrackStore();
 
 const PAGE_SIZE = 20;
 const items = ref<Soundtrack[]>([]);
@@ -14,6 +18,10 @@ const error = ref<string | null>(null);
 const sentinelEl = useTemplateRef<HTMLElement>("sentinel");
 
 const { loadAll } = useSoundtrackStore();
+
+function navigate(s: Soundtrack) {
+  router.push(`/soundtrack/${s.slug ?? s.id}`);
+}
 
 useHead({
   title: "Top Soundtracks | SoundTrek",
@@ -64,14 +72,19 @@ loadAll();
 
       <div v-if="error" class="error">{{ error }}</div>
 
-      <ol class="track-list">
-        <TopTrackRow
-          v-for="(s, i) in items"
-          :key="s.id"
-          :rank="i + 1"
-          :soundtrack="s"
-        />
-      </ol>
+      <div class="track-grid">
+        <div v-for="(s, i) in items" :key="s.id" class="track-item">
+          <span class="rank" :class="{ gold: i === 0, silver: i === 1, bronze: i === 2 }">
+            {{ i + 1 }}
+          </span>
+          <CoverCard
+            :soundtrack="s"
+            show-info
+            @click="navigate(s)"
+            @play="setNowPlaying(s)"
+          />
+        </div>
+      </div>
 
       <div ref="sentinel" class="sentinel">
         <div v-if="loading" class="loading">
@@ -92,33 +105,56 @@ loadAll();
 }
 
 .page-inner {
-  max-width: 1200px;
+  max-width: 1250px;
   width: 100%;
   margin: 0 auto;
   padding: 0 1.5rem 4rem;
 }
 
-@media (max-width: 768px) {
-  .page-inner {
-    padding: 0 0.75rem 3rem;
-  }
+.track-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 2rem;
 }
 
-.track-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
+.track-item {
+  position: relative;
+}
+
+.rank {
+  position: absolute;
+  top: 0.5rem;
+  left: 0.5rem;
+  z-index: 1;
+  font-size: 0.85rem;
+  font-weight: 800;
+  background: rgba(0,0,0,0.55);
+  color: rgba(255,255,255,0.8);
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
   display: flex;
-  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-variant-numeric: tabular-nums;
+  backdrop-filter: blur(4px);
 }
 
-/* Row separators — targeting child component roots */
-.track-list > li + li {
-  border-top: 1px solid var(--border);
+.rank.gold   { color: #f59e0b; }
+.rank.silver { color: #94a3b8; }
+.rank.bronze { color: #cd7f32; }
+
+@media (max-width: 1024px) {
+  .track-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 }
 
-.track-list > li:hover + li {
-  border-top-color: transparent;
+@media (max-width: 768px) {
+  .page-inner { padding: 0 1rem 3rem; }
+  .track-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1rem; }
+}
+
+@media (max-width: 480px) {
+  .track-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
 .sentinel {

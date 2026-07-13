@@ -20,6 +20,7 @@ import CatalogView from "@/views/CatalogView.vue";
 import SubmitView from "@/views/SubmitView.vue";
 import ContactView from "@/views/ContactView.vue";
 import CollectionsView from "@/views/CollectionsView.vue";
+import BrowseCollectionsView from "@/views/BrowseCollectionsView.vue";
 import CollectionView from "@/views/CollectionView.vue";
 import PrivacyView from "@/views/PrivacyView.vue";
 import TermsView from "@/views/TermsView.vue";
@@ -50,6 +51,7 @@ export const routes: RouteRecordRaw[] = [
   { path: "/submit", component: SubmitView },
   { path: "/contact", component: ContactView },
   { path: "/collections", component: CollectionsView, meta: { requiresAuth: true } },
+  { path: "/browse-collections", component: BrowseCollectionsView },
   { path: "/collection/:id", component: CollectionView },
   { path: "/privacy-policy", component: PrivacyView },
   { path: "/terms-of-service", component: TermsView },
