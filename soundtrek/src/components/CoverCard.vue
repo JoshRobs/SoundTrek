@@ -7,20 +7,22 @@ defineEmits<{ click: []; play: [] }>();
 
 <template>
   <button class="cover-card" :class="{ 'cover-card--with-info': showInfo }" @click="$emit('click')">
-    <img
-      v-if="soundtrack.cover_image_url"
-      :src="soundtrack.cover_image_url"
-      :alt="soundtrack.game_title"
-      class="cover-img"
-    />
-    <div v-else class="cover-fallback">🎮</div>
-    <div class="cover-overlay">
-      <button class="overlay-play" @click.stop="$emit('play')">
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
-          <path d="M8 5v14l11-7z" />
-        </svg>
-      </button>
-      <span class="cover-title">{{ soundtrack.game_title }}</span>
+    <div class="cover-wrap">
+      <img
+        v-if="soundtrack.cover_image_url"
+        :src="soundtrack.cover_image_url"
+        :alt="soundtrack.game_title"
+        class="cover-img"
+      />
+      <div v-else class="cover-fallback">🎮</div>
+      <div class="cover-overlay">
+        <button class="overlay-play" @click.stop="$emit('play')">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M8 5v14l11-7z" />
+          </svg>
+        </button>
+        <span class="cover-title">{{ soundtrack.game_title }}</span>
+      </div>
     </div>
     <div v-if="showInfo" class="card-info">
       <p class="card-title">{{ soundtrack.game_title }}</p>
@@ -53,6 +55,15 @@ defineEmits<{ click: []; play: [] }>();
 
 .cover-card:hover .cover-overlay {
   opacity: 1;
+}
+
+.cover-wrap {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--surface-2);
 }
 
 .cover-img {
@@ -129,14 +140,19 @@ defineEmits<{ click: []; play: [] }>();
 
 .card-title {
   margin: 0;
-  font-size: 1.1rem;
-  font-weight: 600;
+  font-family: "Bebas Neue", sans-serif;
+  font-size: 1.5rem;
+  font-weight: 400;
+  letter-spacing: 0.03em;
   color: var(--text-primary);
-  line-height: 1.3;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
+  white-space: nowrap;
   overflow: hidden;
+  text-overflow: ellipsis;
+  transition: color 0.15s;
+}
+
+.card-title:hover {
+  color: var(--accent-light, var(--accent));
 }
 
 .card-meta {
@@ -154,5 +170,11 @@ defineEmits<{ click: []; play: [] }>();
   content: "·";
   margin-right: 0.4rem;
   opacity: 0.4;
+}
+
+@media (max-width: 768px) {
+  .card-title {
+    font-size: 1.05rem;
+  }
 }
 </style>

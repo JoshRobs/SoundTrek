@@ -24,7 +24,9 @@ function randomPick() {
 }
 
 function onSearchSelect(
-  result: { type: "soundtrack"; id: string } | { type: "composer"; slug: string },
+  result:
+    | { type: "soundtrack"; id: string }
+    | { type: "composer"; slug: string },
 ) {
   if (result.type === "composer") navigate(`/composer/${result.slug}`);
   else navigate(`/soundtrack/${result.id}`);
@@ -47,8 +49,21 @@ async function handleSignOut() {
       <div class="drawer" role="dialog" aria-modal="true">
         <div class="drawer-header">
           <span class="drawer-logo">SoundTrek</span>
-          <button class="close-btn" aria-label="Close menu" @click="emit('close')">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <button
+            class="close-btn"
+            aria-label="Close menu"
+            @click="emit('close')"
+          >
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2.5"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
               <line x1="18" y1="6" x2="6" y2="18" />
               <line x1="6" y1="6" x2="18" y2="18" />
             </svg>
@@ -56,13 +71,26 @@ async function handleSignOut() {
         </div>
 
         <div class="drawer-search">
-          <GameSearchBox :autofocus="false" :compact="true" @select="onSearchSelect" />
+          <GameSearchBox
+            :autofocus="false"
+            :compact="true"
+            @select="onSearchSelect"
+          />
         </div>
 
         <nav class="drawer-nav">
           <button class="nav-item" @click="navigate('/')">Home</button>
           <button class="nav-item" @click="randomPick">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
               <polyline points="16 3 21 3 21 8" />
               <line x1="4" y1="20" x2="21" y2="3" />
               <polyline points="21 16 21 21 16 21" />
@@ -70,20 +98,74 @@ async function handleSignOut() {
             </svg>
             Discover
           </button>
-          <button class="nav-item" @click="navigate('/top')">Top Soundtracks</button>
-          <button class="nav-item" @click="navigate('/top-composers')">Top Composers</button>
-          <button class="nav-item" @click="navigate('/explore')">Explore</button>
-          <button class="nav-item" @click="navigate('/catalog')">Catalog</button>
-          <button class="nav-item" @click="navigate('/browse-collections')">Browse Collections</button>
-          <button class="nav-item" @click="navigate('/studios')">Studios</button>
+          <button class="nav-item" @click="navigate('/browse-collections')">
+            Browse Collections
+          </button>
+          <button class="nav-item" @click="navigate('/top')">
+            Top Soundtracks
+          </button>
+          <button class="nav-item" @click="navigate('/top-composers')">
+            Top Composers
+          </button>
+          <button class="nav-item" @click="navigate('/explore')">
+            Explore
+          </button>
+          <button class="nav-item" @click="navigate('/catalog')">
+            Catalog
+          </button>
+          <button class="nav-item" @click="navigate('/studios')">
+            Studios
+          </button>
+          <button
+            v-if="user"
+            class="nav-item"
+            @click="navigate('/collections')"
+          >
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <line x1="8" y1="6" x2="21" y2="6" />
+              <line x1="8" y1="12" x2="21" y2="12" />
+              <line x1="8" y1="18" x2="21" y2="18" />
+              <line x1="3" y1="6" x2="3.01" y2="6" />
+              <line x1="3" y1="12" x2="3.01" y2="12" />
+              <line x1="3" y1="18" x2="3.01" y2="18" />
+            </svg>
+            My Collections
+          </button>
           <button class="nav-item" @click="navigate('/saved')">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
               <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
             </svg>
             Saved Soundtracks
           </button>
           <button v-if="!user" class="nav-item" @click="navigate('/login')">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
               <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4" />
               <polyline points="10 17 15 12 10 7" />
               <line x1="15" y1="12" x2="3" y2="12" />
@@ -91,7 +173,16 @@ async function handleSignOut() {
             Sign in
           </button>
           <button v-if="user" class="nav-item" @click="navigate('/account')">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
               <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
               <circle cx="12" cy="7" r="4" />
             </svg>
@@ -114,9 +205,19 @@ async function handleSignOut() {
         </div>
 
         <div class="drawer-footer">
-          <button class="footer-link" @click="navigate('/submit')">Submit a Soundtrack</button>
-          <button class="footer-link" @click="navigate('/contact')">Contact</button>
-          <button v-if="user" class="footer-link footer-link--danger" @click="handleSignOut">Sign out</button>
+          <button class="footer-link" @click="navigate('/submit')">
+            Submit a Soundtrack
+          </button>
+          <button class="footer-link" @click="navigate('/contact')">
+            Contact
+          </button>
+          <button
+            v-if="user"
+            class="footer-link footer-link--danger"
+            @click="handleSignOut"
+          >
+            Sign out
+          </button>
         </div>
       </div>
     </Transition>
@@ -160,7 +261,11 @@ async function handleSignOut() {
   font-family: "Bebas Neue", sans-serif;
   font-size: 1.4rem;
   letter-spacing: 0.06em;
-  background: linear-gradient(to right, var(--accent) 50%, var(--text-primary) 50%);
+  background: linear-gradient(
+    to right,
+    var(--accent) 50%,
+    var(--text-primary) 50%
+  );
   background-size: 200% 100%;
   background-position: left;
   -webkit-background-clip: text;
@@ -180,7 +285,9 @@ async function handleSignOut() {
   background: transparent;
   color: var(--text-muted);
   cursor: pointer;
-  transition: background 0.15s, color 0.15s;
+  transition:
+    background 0.15s,
+    color 0.15s;
 }
 
 .close-btn:hover {
@@ -215,7 +322,9 @@ async function handleSignOut() {
   font-weight: 500;
   text-align: left;
   cursor: pointer;
-  transition: background 0.12s, color 0.12s;
+  transition:
+    background 0.12s,
+    color 0.12s;
 }
 
 .nav-item:hover {
@@ -253,7 +362,10 @@ async function handleSignOut() {
   color: var(--text-secondary);
   font-size: 0.78rem;
   cursor: pointer;
-  transition: background 0.12s, border-color 0.12s, color 0.12s;
+  transition:
+    background 0.12s,
+    border-color 0.12s,
+    color 0.12s;
 }
 
 .mood-chip:hover {
@@ -279,7 +391,9 @@ async function handleSignOut() {
   font-size: 0.85rem;
   text-align: left;
   cursor: pointer;
-  transition: background 0.12s, color 0.12s;
+  transition:
+    background 0.12s,
+    color 0.12s;
 }
 
 .footer-link:hover {

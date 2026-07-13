@@ -118,6 +118,17 @@ function onUpdated() {
         </svg>
         Back
       </button>
+
+      <!-- Blurred backdrop -->
+      <div
+        class="backdrop"
+        :style="
+          tracks[0]?.cover_image_url
+            ? `background-image: url('${tracks[0].cover_image_url}')`
+            : ''
+        "
+      />
+
       <div class="hero">
         <div
           class="hero-cover"
@@ -184,6 +195,8 @@ function onUpdated() {
         </div>
       </div>
 
+      <div class="separator" />
+
       <div v-if="items.length" class="track-grid">
         <div
           v-for="(item, index) in items"
@@ -217,8 +230,26 @@ function onUpdated() {
   flex: 1;
   position: relative;
   min-height: 90vh;
-  padding-left: 80px;
   background: var(--bg);
+}
+
+/* ── Blurred backdrop ─────────────────────────────────────────────────────── */
+.backdrop {
+  position: absolute;
+  inset: 0;
+  height: 480px;
+  background-size: cover;
+  background-position: center;
+  filter: blur(80px) brightness(0.25) saturate(1.4);
+  transform: scale(1);
+  pointer-events: none;
+}
+
+.backdrop::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to bottom, transparent 50%, var(--bg) 100%);
 }
 .back-btn {
   position: absolute;
@@ -258,6 +289,7 @@ function onUpdated() {
 
 /* Hero */
 .hero {
+  position: relative;
   padding: 4rem 3rem 3rem;
   max-width: 1100px;
   margin: 0 auto;
@@ -322,10 +354,12 @@ function onUpdated() {
   margin: 0;
 }
 .hero-title {
-  font-size: 2.5rem;
-  font-weight: 800;
+  font-family: "Bebas Neue", sans-serif;
+  font-size: clamp(2.75rem, 5vw, 4rem);
+  font-weight: 400;
+  letter-spacing: 0.03em;
   margin: 0;
-  line-height: 1.1;
+  line-height: 1;
 }
 .hero-desc {
   font-size: 0.875rem;
@@ -378,8 +412,24 @@ function onUpdated() {
   color: #f87171;
 }
 
+/* Separator */
+.separator {
+  position: relative;
+  max-width: 1100px;
+  margin: 0 auto 2.5rem;
+  padding: 0 3rem;
+}
+
+.separator::after {
+  content: "";
+  display: block;
+  height: 1px;
+  background: var(--border);
+}
+
 /* Track grid */
 .track-grid {
+  position: relative;
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
   gap: 1.25rem;
@@ -399,25 +449,38 @@ function onUpdated() {
 }
 
 @media (max-width: 768px) {
-  .page {
-    padding-left: 0;
+  .back-btn {
+    top: 1rem;
+    left: 1rem;
+    font-size: 0.9rem;
   }
   .hero {
-    padding: 1.5rem 1rem 2rem;
+    flex-direction: column;
+    align-items: flex-start;
+    padding: 4rem 1rem 1.5rem;
     gap: 1.25rem;
-  }
-  .track-grid {
-    padding: 0 1rem 4rem;
+    margin-bottom: 2rem;
   }
   .hero-cover {
-    width: 160px;
+    width: min(220px, 60vw);
+    align-self: center;
+  }
+  .hero-info {
+    width: 100%;
+    min-width: 0;
   }
   .hero-title {
-    font-size: 1.6rem;
+    font-size: 2.2rem;
+    overflow-wrap: anywhere;
+  }
+  .separator {
+    padding: 0 1rem;
+    margin-bottom: 2rem;
   }
   .track-grid {
-    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 0.75rem;
+    padding: 0 1rem 5rem;
   }
 }
 </style>
