@@ -15,6 +15,7 @@ const navItems = [
   { label: "Add Soundtrack",  path: "/admin/add-soundtrack" },
   { label: "Edit Soundtrack", path: "/admin/edit-soundtrack" },
   { label: "Composers",       path: "/admin/composers" },
+  { label: "Fix Links",       path: "/admin/links" },
 ];
 
 const currentLabel = computed(

@@ -13,6 +13,10 @@ var src_default = {
       return new Response(null, { headers: CORS_HEADERS });
     }
     const url = new URL(request.url);
+    const infoMatch = url.pathname.match(/^\/playlist-info\/([A-Za-z0-9_-]+)$/);
+    if (infoMatch) {
+      return playlistInfo(infoMatch[1], env);
+    }
     const match = url.pathname.match(/^\/playlist\/([A-Za-z0-9_-]+)$/);
     if (!match) {
       return new Response("Not found", { status: 404, headers: CORS_HEADERS });
@@ -66,6 +70,44 @@ var src_default = {
     });
   }
 };
+async function playlistInfo(playlistId, env) {
+  const cacheKey = `playlist-info:${playlistId}`;
+  const cached = await env.YOUTUBE_CACHE.get(cacheKey);
+  if (cached) {
+    return new Response(cached, {
+      headers: { ...CORS_HEADERS, "Content-Type": "application/json" }
+    });
+  }
+  const apiUrl = new URL("https://www.googleapis.com/youtube/v3/playlists");
+  apiUrl.searchParams.set("part", "snippet,contentDetails");
+  apiUrl.searchParams.set("id", playlistId);
+  apiUrl.searchParams.set("key", env.YOUTUBE_API_KEY);
+  const ytRes = await fetch(apiUrl.toString());
+  if (!ytRes.ok) {
+    return new Response("Upstream error", {
+      status: ytRes.status,
+      headers: CORS_HEADERS
+    });
+  }
+  const data = await ytRes.json();
+  const item = data.items?.[0];
+  if (!item) {
+    return new Response(JSON.stringify({ error: "not_found" }), {
+      status: 404,
+      headers: { ...CORS_HEADERS, "Content-Type": "application/json" }
+    });
+  }
+  const body = JSON.stringify({
+    title: item.snippet.title,
+    channel: item.snippet.channelTitle,
+    itemCount: item.contentDetails?.itemCount
+  });
+  await env.YOUTUBE_CACHE.put(cacheKey, body, { expirationTtl: 3600 });
+  return new Response(body, {
+    headers: { ...CORS_HEADERS, "Content-Type": "application/json" }
+  });
+}
+__name(playlistInfo, "playlistInfo");
 
 // ../../../../../Users/jdrjo/AppData/Roaming/fnm/node-versions/v23.11.0/installation/node_modules/wrangler/templates/middleware/middleware-ensure-req-body-drained.ts
 var drainBody = /* @__PURE__ */ __name(async (request, env, _ctx, middlewareCtx) => {
@@ -108,7 +150,7 @@ var jsonError = /* @__PURE__ */ __name(async (request, env, _ctx, middlewareCtx)
 }, "jsonError");
 var middleware_miniflare3_json_error_default = jsonError;
 
-// .wrangler/tmp/bundle-22nfdJ/middleware-insertion-facade.js
+// .wrangler/tmp/bundle-y8lUyK/middleware-insertion-facade.js
 var __INTERNAL_WRANGLER_MIDDLEWARE__ = [
   middleware_ensure_req_body_drained_default,
   middleware_miniflare3_json_error_default
@@ -140,7 +182,7 @@ function __facade_invoke__(request, env, ctx, dispatch, finalMiddleware) {
 }
 __name(__facade_invoke__, "__facade_invoke__");
 
-// .wrangler/tmp/bundle-22nfdJ/middleware-loader.entry.ts
+// .wrangler/tmp/bundle-y8lUyK/middleware-loader.entry.ts
 var __Facade_ScheduledController__ = class ___Facade_ScheduledController__ {
   constructor(scheduledTime, cron, noRetry) {
     this.scheduledTime = scheduledTime;

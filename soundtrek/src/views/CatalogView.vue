@@ -18,7 +18,10 @@ const grouped = computed(() => {
     }),
   );
   for (const s of sorted) {
-    const letter = s.game_title[0].toUpperCase();
+    const letter = s.game_title
+      .normalize("NFD")
+      .replace(/\p{M}/gu, "")[0]
+      .toUpperCase();
     const key = /[A-Z]/.test(letter) ? letter : "#";
     if (!map.has(key)) map.set(key, []);
     map.get(key)!.push(s);
