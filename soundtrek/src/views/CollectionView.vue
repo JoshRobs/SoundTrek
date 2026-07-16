@@ -77,7 +77,7 @@ async function removeItem(item: CollectionItem) {
     collection.value.id,
     item.soundtrack_id,
   );
-  if (ok) {
+  if (ok && collection?.value?.collection_items !== undefined) {
     collection.value.collection_items =
       collection.value.collection_items.filter((i) => i.id !== item.id);
   }
