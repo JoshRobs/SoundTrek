@@ -6,7 +6,7 @@ import { useCollectionStore } from "@/stores/collections";
 import { useSoundtrackStore } from "@/stores/soundtracks";
 import { useAuth } from "@/composables/useAuth";
 import CreateCollectionModal from "@/components/CreateCollectionModal.vue";
-import CoverCard from "@/components/CoverCard.vue";
+import CollectionTrackCard from "@/components/CollectionTrackCard.vue";
 import type { Collection, CollectionItem } from "@/types/collection";
 
 const route = useRoute();
@@ -20,6 +20,7 @@ const loading = ref(true);
 const notFound = ref(false);
 const copied = ref(false);
 const showEdit = ref(false);
+const editMode = ref(false);
 
 useHead(
   computed(() => ({
@@ -68,6 +69,18 @@ function navigate(item: CollectionItem) {
 
 function play(item: CollectionItem) {
   if (item.soundtrack) sStore.setNowPlaying(item.soundtrack);
+}
+
+async function removeItem(item: CollectionItem) {
+  if (!collection.value) return;
+  const ok = await cStore.removeFromCollection(
+    collection.value.id,
+    item.soundtrack_id,
+  );
+  if (ok) {
+    collection.value.collection_items =
+      collection.value.collection_items.filter((i) => i.id !== item.id);
+  }
 }
 
 async function copyLink() {
@@ -172,23 +185,25 @@ function onUpdated() {
           </div>
 
           <div class="hero-actions">
-            <button
-              class="btn-icon"
-              :title="copied ? 'Copied!' : 'Copy link'"
-              @click="copyLink"
-            >
-              {{ copied ? "✓" : "🔗" }}
+            <button class="btn-action" @click="copyLink">
+              {{ copied ? "Copied!" : "Copy Link" }}
             </button>
             <template v-if="isOwner">
-              <button class="btn-icon" title="Edit" @click="showEdit = true">
-                ✎
+              <button class="btn-action" @click="showEdit = true">
+                Edit Details
               </button>
               <button
-                class="btn-icon btn-icon--danger"
-                title="Delete"
+                class="btn-action"
+                :class="{ 'btn-action--active': editMode }"
+                @click="editMode = !editMode"
+              >
+                {{ editMode ? "Done Editing" : "Edit Tracks" }}
+              </button>
+              <button
+                class="btn-action btn-action--danger"
                 @click="deleteCollection"
               >
-                🗑
+                Delete
               </button>
             </template>
           </div>
@@ -204,12 +219,13 @@ function onUpdated() {
           class="track-card"
           :class="{ active: activeIndex === index }"
         >
-          <CoverCard
+          <CollectionTrackCard
             v-if="item.soundtrack"
             :soundtrack="item.soundtrack"
-            show-info
+            :edit-mode="editMode"
             @click="navigate(item)"
             @play="play(item)"
+            @remove="removeItem(item)"
           />
         </div>
       </div>
@@ -386,28 +402,32 @@ function onUpdated() {
 .hero-actions {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 0.6rem;
   margin-top: 0.5rem;
 }
-.btn-icon {
-  width: 38px;
-  height: 38px;
-  border-radius: 50%;
+.btn-action {
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
   border: 1px solid var(--border);
   background: none;
-  color: var(--text-muted);
-  font-size: 1rem;
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  font-weight: 600;
   cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  white-space: nowrap;
   transition: all 0.12s;
 }
-.btn-icon:hover {
+.btn-action:hover {
   border-color: var(--text-muted);
   color: var(--text-primary);
 }
-.btn-icon--danger:hover {
+.btn-action--active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+.btn-action--danger:hover {
   border-color: #f87171;
   color: #f87171;
 }

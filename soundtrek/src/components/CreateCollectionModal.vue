@@ -23,6 +23,18 @@ const tagInput = ref("");
 const tags = ref<string[]>([]);
 const saving = ref(false);
 const error = ref<string | null>(null);
+const backdropMouseDown = ref(false);
+
+function onBackdropMouseDown(e: MouseEvent) {
+  backdropMouseDown.value = e.target === e.currentTarget;
+}
+
+function onBackdropClick(e: MouseEvent) {
+  if (backdropMouseDown.value && e.target === e.currentTarget) {
+    emit("close");
+  }
+  backdropMouseDown.value = false;
+}
 
 watch(
   () => props.open,
@@ -96,7 +108,12 @@ async function submit() {
 
 <template>
   <Teleport to="body">
-    <div v-if="open" class="backdrop" @click.self="emit('close')">
+    <div
+      v-if="open"
+      class="backdrop"
+      @mousedown="onBackdropMouseDown"
+      @click="onBackdropClick"
+    >
       <div class="modal">
         <div class="modal-header">
           <h2>{{ editing ? "Edit Collection" : "New Collection" }}</h2>

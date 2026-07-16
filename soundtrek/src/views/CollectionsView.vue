@@ -105,7 +105,7 @@ async function deleteCollection(c: Collection) {
                     showCreate = true;
                   "
                 >
-                  Edit
+                  Quick Edit
                 </button>
                 <button
                   class="overlay-btn overlay-btn--danger"
@@ -115,9 +115,12 @@ async function deleteCollection(c: Collection) {
                 </button>
               </div>
             </div>
+
+            <div class="card-title-center">
+              <p class="card-name">{{ c.name }}</p>
+            </div>
           </div>
           <div class="card-info">
-            <p class="card-name">{{ c.name }}</p>
             <p class="card-meta">
               {{ itemCount(c) }} track{{ itemCount(c) !== 1 ? "s" : "" }} ·
               {{ c.is_public ? "Public" : "Private" }}
@@ -196,7 +199,7 @@ async function deleteCollection(c: Collection) {
 }
 .grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
   gap: 1.25rem;
 }
 
@@ -218,14 +221,33 @@ async function deleteCollection(c: Collection) {
 .card-info {
   padding: 0 0.1rem;
 }
+.card-title-center {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  text-align: center;
+  pointer-events: none;
+}
 .card-name {
-  font-size: 1.4rem;
+  font-size: 1.7rem;
   font-weight: 700;
-  color: var(--text-primary);
+  color: #fff;
   margin: 0;
-  white-space: nowrap;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  line-height: 1.25;
+  text-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.9),
+    0 1px 2px rgba(0, 0, 0, 0.9);
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  -webkit-box-orient: vertical;
   overflow: hidden;
-  text-overflow: ellipsis;
 }
 .card-meta {
   font-size: 1rem;
@@ -239,6 +261,18 @@ async function deleteCollection(c: Collection) {
   background: var(--surface-2);
   overflow: hidden;
   border-radius: 12px;
+}
+.card-cover::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background: radial-gradient(
+    ellipse at center,
+    rgba(0, 0, 0, 0.45) 0%,
+    rgba(0, 0, 0, 0.55) 100%
+  );
+  pointer-events: none;
 }
 
 .cover-grid {
@@ -272,6 +306,7 @@ async function deleteCollection(c: Collection) {
 .card-overlay {
   position: absolute;
   inset: 0;
+  z-index: 3;
   background: linear-gradient(
     to top,
     rgba(0, 0, 0, 0.85) 0%,
