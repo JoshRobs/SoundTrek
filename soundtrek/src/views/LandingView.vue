@@ -2,10 +2,10 @@
 import { ref, onMounted } from "vue";
 import { useRouter } from "vue-router";
 import { useHead } from "@unhead/vue";
-import { storeToRefs } from "pinia";
 import GameSearchBox from "@/components/GameSearchBox.vue";
 import RandomizeButton from "@/components/RandomizeButton.vue";
 import HeroCovers from "@/components/HeroCovers.vue";
+import { supabase } from "@/lib/supabase";
 import { useSoundtrackStore } from "@/stores/soundtracks";
 import type { Soundtrack } from "@/types/soundtrack";
 import { animate, stagger } from "animejs";
@@ -76,7 +76,6 @@ function onSearchSelect(
   if (result.type === "composer") router.push(`/composer/${result.slug}`);
   else router.push(`/soundtrack/${result.id}`);
 }
-const { allSoundtracks } = storeToRefs(store);
 
 function randomSoundtrack() {
   store.currentSoundtrack = null;
@@ -93,27 +92,54 @@ const recentItems = ref<Soundtrack[]>([]);
 const heroCovers = ref<Soundtrack[]>([]);
 const displayCount = ref(0);
 
-function buildSections(all: Soundtrack[]) {
-  if (!all.length || nowListeningItems.value.length > 0) return;
-  const shuffled = [...all].sort(() => Math.random() - 0.5);
+async function buildSections() {
+  const { count } = await supabase
+    .from("soundtracks")
+    .select("*", { count: "exact", head: true });
+  const total = count ?? 0;
+
+  // A random-offset page stands in for a shuffle of the whole catalog —
+  // "random-ish" is enough for hero/now-listening/featured, and it avoids
+  // pulling every row just to pick a handful.
+  const batchSize = Math.min(60, total);
+  const offset =
+    total > batchSize ? Math.floor(Math.random() * (total - batchSize)) : 0;
+
+  const [{ data: batch }, { data: recent }] = await Promise.all([
+    batchSize > 0
+      ? supabase
+          .from("soundtracks")
+          .select("*")
+          .range(offset, offset + batchSize - 1)
+      : Promise.resolve({ data: [] as Soundtrack[] }),
+    supabase
+      .from("soundtracks")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .limit(5),
+  ]);
+
+  const shuffled = [...(batch ?? [])].sort(() => Math.random() - 0.5);
   heroCovers.value = shuffled.filter((s) => s.cover_image_url).slice(0, 35);
   nowListeningItems.value = shuffled.slice(0, 4);
   featuredItems.value = shuffled.slice(3, 9);
-  recentItems.value = [...all]
-    .sort(
-      (a, b) =>
-        new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
-    )
-    .slice(0, 5);
+  recentItems.value = recent ?? [];
+
+  if (total > 0) {
+    const counter = { n: 0 };
+    animate(counter, {
+      n: total,
+      duration: 2200,
+      ease: "out(3)",
+      onUpdate: () => {
+        displayCount.value = Math.round(counter.n);
+      },
+    });
+  }
 }
 
-// Build immediately if store already has data (returning from another page),
-// so the page renders at full height before the router restores scroll position
-buildSections(allSoundtracks.value);
-
-onMounted(async () => {
-  await store.loadAll();
-  buildSections(allSoundtracks.value);
+onMounted(() => {
+  buildSections();
 
   animate(".letter", {
     y: [{ to: ["-40", "0"] }, { to: "0%", delay: 1000, ease: "in(3)" }],
@@ -122,19 +148,6 @@ onMounted(async () => {
     delay: stagger(40),
     fill: "forwards",
   });
-
-  const target = allSoundtracks.value.length;
-  if (target > 0) {
-    const counter = { n: 0 };
-    animate(counter, {
-      n: target,
-      duration: 2200,
-      ease: "out(3)",
-      onUpdate: () => {
-        displayCount.value = Math.round(counter.n);
-      },
-    });
-  }
 });
 </script>
 

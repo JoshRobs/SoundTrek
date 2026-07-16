@@ -1,9 +1,8 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { useHead } from '@unhead/vue'
 import { useRoute } from 'vue-router'
-import { storeToRefs } from 'pinia'
-import { useSoundtrackStore } from '@/stores/soundtracks'
+import { supabase } from '@/lib/supabase'
 import { toSlug } from '@/utils/slug'
 import { displayLikes } from '@/utils/likes'
 import PageHero from '@/components/PageHero.vue'
@@ -12,12 +11,10 @@ import CategoryGridCard from '@/components/CategoryGridCard.vue'
 import type { Soundtrack } from '@/types/soundtrack'
 
 const route = useRoute()
-const store = useSoundtrackStore()
-const { allSoundtracks, loading } = storeToRefs(store)
-store.loadAll()
 
 const sort  = ref<'popular' | 'newest' | 'oldest' | 'az'>('popular')
 const indie = ref(false)
+const loading = ref(true)
 
 const type = computed(() => route.params.type as string)
 const slug = computed(() => route.params.slug as string)
@@ -29,14 +26,45 @@ function getTags(s: Soundtrack, t: string): string[] {
   return []
 }
 
-const categoryName = computed(() => {
-  for (const s of allSoundtracks.value) {
-    for (const tag of getTags(s, type.value)) {
-      if (toSlug(tag) === slug.value) return tag
+// Column that holds the tag being browsed — only that narrow column is
+// fetched across the table to resolve the slug to its display name,
+// instead of loading every full soundtrack row.
+const tagColumn = computed(() =>
+  type.value === 'genre' ? 'genre_tags' : type.value === 'theme' ? 'theme_tags' : 'console',
+)
+
+const categoryName = ref('')
+const baseItems = ref<Soundtrack[]>([])
+
+watch(
+  [type, slug],
+  async () => {
+    loading.value = true
+
+    const { data: tagRows } = await supabase
+      .from('soundtracks')
+      .select(tagColumn.value)
+      .returns<Pick<Soundtrack, 'genre_tags' | 'theme_tags' | 'console'>[]>()
+
+    let name = slug.value
+    outer: for (const row of tagRows ?? []) {
+      for (const tag of getTags(row as Soundtrack, type.value)) {
+        if (toSlug(tag) === slug.value) { name = tag; break outer }
+      }
     }
-  }
-  return slug.value
-})
+    categoryName.value = name
+
+    const query = supabase.from('soundtracks').select('*')
+    if (type.value === 'genre') query.contains('genre_tags', [name])
+    else if (type.value === 'theme') query.contains('theme_tags', [name])
+    else query.eq('console', name)
+
+    const { data } = await query
+    baseItems.value = data ?? []
+    loading.value = false
+  },
+  { immediate: true },
+)
 
 useHead(computed(() => ({
   title: `${categoryName.value} Soundtracks | SoundTrek`,
@@ -52,10 +80,6 @@ const typeLabel = computed(() => {
   const map: Record<string, string> = { genre: 'Genre', theme: 'Theme', console: 'Console' }
   return map[type.value] ?? type.value
 })
-
-const baseItems = computed(() =>
-  allSoundtracks.value.filter(s => getTags(s, type.value).includes(categoryName.value)),
-)
 
 const sortedItems = computed(() => {
   let items = indie.value

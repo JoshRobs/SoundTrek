@@ -1,14 +1,12 @@
 <script setup lang="ts">
-import { computed, onMounted } from "vue";
+import { ref, computed, watch } from "vue";
 import { useRoute, RouterLink } from "vue-router";
-import { storeToRefs } from "pinia";
 import { useHead } from "@unhead/vue";
-import { useSoundtrackStore } from "@/stores/soundtracks";
+import { supabase } from "@/lib/supabase";
+import type { Soundtrack } from "@/types/soundtrack";
 import PageHero from "@/components/PageHero.vue";
 
 const route = useRoute();
-const store = useSoundtrackStore();
-const { allSoundtracks, loading, error } = storeToRefs(store);
 
 const q = computed(() => (route.query.q as string | undefined)?.trim() ?? "");
 
@@ -29,24 +27,41 @@ function titleScore(title: string, query: string): number {
   return 0;
 }
 
-const results = computed(() => {
-  const query = normalize(q.value);
-  if (!query) return [];
+const results = ref<Soundtrack[]>([]);
+const loading = ref(false);
+const error = ref<string | null>(null);
 
-  return allSoundtracks.value
-    .filter((s) => normalize(s.game_title).includes(query))
-    .map((s) => ({ s, score: titleScore(s.game_title, query) }))
-    .sort((a, b) => b.score - a.score)
-    .map((r) => r.s);
-});
+async function runSearch() {
+  const query = normalize(q.value);
+  if (!query) {
+    results.value = [];
+    return;
+  }
+
+  loading.value = true;
+  error.value = null;
+  const { data, error: err } = await supabase.rpc("search_soundtracks", {
+    q: q.value,
+    p_limit: 50,
+  });
+  if (err) {
+    error.value = err.message;
+  } else {
+    results.value = (data ?? [])
+      .map((s: Soundtrack) => ({ s, score: titleScore(s.game_title, query) }))
+      .sort((a: { score: number }, b: { score: number }) => b.score - a.score)
+      .map((r: { s: Soundtrack }) => r.s);
+  }
+  loading.value = false;
+}
+
+watch(q, runSearch, { immediate: true });
 
 const subtitle = computed(() =>
   results.value.length
     ? `${results.value.length} soundtrack${results.value.length === 1 ? "" : "s"} found`
     : "",
 );
-
-onMounted(() => store.loadAll());
 </script>
 
 <template>

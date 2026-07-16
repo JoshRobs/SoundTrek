@@ -1,44 +1,82 @@
 <script setup lang="ts">
-import { computed, onMounted } from "vue";
+import { ref, computed, watch } from "vue";
 import { useHead } from "@unhead/vue";
 import { useRoute } from "vue-router";
-import { storeToRefs } from "pinia";
-import { useSoundtrackStore } from "@/stores/soundtracks";
+import { supabase } from "@/lib/supabase";
 import { useComposerStore } from "@/stores/composers";
 import { toSlug } from "@/utils/slug";
 import PageHero from "@/components/PageHero.vue";
 import SupportButton from "@/components/SupportButton.vue";
+import type { Soundtrack } from "@/types/soundtrack";
 
 const route = useRoute();
-const store = useSoundtrackStore();
 const composerStore = useComposerStore();
-const { allSoundtracks, loading, error } = storeToRefs(store);
 
 const slug = computed(() => route.params.slug as string);
 
 const profile = computed(() => composerStore.cache.get(slug.value) ?? null);
 
-const composerSoundtracks = computed(() =>
-  allSoundtracks.value.filter((s) =>
-    (s.composers ?? []).some((c) => toSlug(c) === slug.value),
-  ),
+const composerSoundtracks = ref<Soundtrack[]>([]);
+const composerNameFallback = ref("");
+const loading = ref(true);
+const error = ref<string | null>(null);
+
+watch(
+  slug,
+  async (currentSlug) => {
+    loading.value = true;
+    error.value = null;
+
+    const profileResult = await composerStore.fetchComposer(currentSlug);
+
+    let name = profileResult?.name ?? null;
+    if (!name) {
+      // No composer profile row — fall back to resolving the slug against
+      // just the `composers` column across the table (still far smaller
+      // than a full soundtrack row per track).
+      const { data: composerRows, error: err } = await supabase
+        .from("soundtracks")
+        .select("composers")
+        .returns<Pick<Soundtrack, "composers">[]>();
+      if (err) {
+        error.value = err.message;
+        loading.value = false;
+        return;
+      }
+      for (const row of composerRows ?? []) {
+        const match = (row.composers ?? []).find((c: string) => toSlug(c) === currentSlug);
+        if (match) { name = match; break; }
+      }
+    }
+    composerNameFallback.value = name ?? currentSlug.replace(/-/g, " ");
+
+    if (!name) {
+      composerSoundtracks.value = [];
+      loading.value = false;
+      return;
+    }
+
+    const { data, error: err2 } = await supabase
+      .from("soundtracks")
+      .select("*")
+      .contains("composers", [name])
+      .order("total_likes", { ascending: false });
+    if (err2) {
+      error.value = err2.message;
+    } else {
+      composerSoundtracks.value = data ?? [];
+    }
+    loading.value = false;
+  },
+  { immediate: true },
 );
 
-const composerName = computed(
-  () =>
-    profile.value?.name ??
-    composerSoundtracks.value[0]?.composers?.find((c) => toSlug(c) === slug.value) ??
-    slug.value.replace(/-/g, " "),
-);
+const composerName = computed(() => profile.value?.name ?? composerNameFallback.value);
 
 const subtitle = computed(
   () =>
     `${composerSoundtracks.value.length} ${composerSoundtracks.value.length === 1 ? "soundtrack" : "soundtracks"} in SoundTrek`,
 );
-
-onMounted(async () => {
-  await Promise.all([store.loadAll(), composerStore.fetchComposer(slug.value)]);
-});
 
 useHead(computed(() => ({
   title: `${composerName.value} | SoundTrek`,

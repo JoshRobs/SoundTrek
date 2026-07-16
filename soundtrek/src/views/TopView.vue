@@ -17,8 +17,6 @@ const items = ref<Soundtrack[]>([]);
 const error = ref<string | null>(null);
 const sentinelEl = useTemplateRef<HTMLElement>("sentinel");
 
-const { loadAll } = useSoundtrackStore();
-
 function navigate(s: Soundtrack) {
   router.push(`/soundtrack/${s.slug ?? s.id}`);
 }
@@ -57,8 +55,6 @@ const { loading, exhausted } = useInfiniteScroll(sentinelEl, async () => {
   items.value.push(...(data ?? []));
   return (data?.length ?? 0) >= PAGE_SIZE;
 });
-
-loadAll();
 </script>
 
 <template>

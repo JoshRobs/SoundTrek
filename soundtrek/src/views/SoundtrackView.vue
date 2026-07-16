@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from "vue";
 import { useRoute, useRouter } from "vue-router";
-import { storeToRefs } from "pinia";
 import { useHead } from "@unhead/vue";
+import { supabase } from "@/lib/supabase";
 import { useSoundtrackStore } from "@/stores/soundtracks";
 import StreamingLinks from "@/components/StreamingLinks.vue";
-import type { StreamingLink } from "@/types/soundtrack";
+import type { Soundtrack, StreamingLink } from "@/types/soundtrack";
 import { toSlug } from "@/utils/slug";
 import { useLikes } from "@/composables/useLikes";
 import { useSaves } from "@/composables/useSaves";
@@ -14,10 +14,11 @@ import { displayLikes } from "@/utils/likes";
 import AddToCollectionModal from "@/components/AddToCollectionModal.vue";
 import { useAuth } from "@/composables/useAuth";
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 const route = useRoute();
 const router = useRouter();
 const store = useSoundtrackStore();
-const { allSoundtracks } = storeToRefs(store);
 
 const param = route.params.slug as string;
 const notFound = ref(false);
@@ -29,11 +30,83 @@ const { user } = useAuth();
 const showAddToPlaylist = ref(false);
 
 // Support both slug-based URLs (new) and UUID-based URLs (legacy bookmarks)
-const track = computed(
-  () =>
-    allSoundtracks.value.find((s) => s.slug === param || s.id === param) ??
-    null,
-);
+const track = ref<Soundtrack | null>(null);
+const moreFromStudio = ref<Soundtrack[]>([]);
+const similarSoundtracks = ref<Soundtrack[]>([]);
+
+async function loadTrack() {
+  const { data } = await supabase
+    .from("soundtracks")
+    .select("*")
+    .eq("slug", param)
+    .maybeSingle();
+
+  if (data) {
+    track.value = data;
+  } else if (UUID_RE.test(param)) {
+    const { data: byId } = await supabase
+      .from("soundtracks")
+      .select("*")
+      .eq("id", param)
+      .maybeSingle();
+    track.value = byId ?? null;
+  }
+
+  if (!track.value) {
+    notFound.value = true;
+    return;
+  }
+
+  const t = track.value;
+
+  const [studioResult, genreResult, themeResult] = await Promise.all([
+    supabase
+      .from("soundtracks")
+      .select("*")
+      .eq("studio", t.studio)
+      .neq("id", t.id)
+      .order("total_likes", { ascending: false })
+      .limit(12),
+    (t.genre_tags ?? []).length
+      ? supabase
+          .from("soundtracks")
+          .select("*")
+          .overlaps("genre_tags", t.genre_tags ?? [])
+          .neq("id", t.id)
+          .neq("studio", t.studio)
+          .limit(30)
+      : Promise.resolve({ data: [] as Soundtrack[] }),
+    (t.theme_tags ?? []).length
+      ? supabase
+          .from("soundtracks")
+          .select("*")
+          .overlaps("theme_tags", t.theme_tags ?? [])
+          .neq("id", t.id)
+          .neq("studio", t.studio)
+          .limit(30)
+      : Promise.resolve({ data: [] as Soundtrack[] }),
+  ]);
+
+  moreFromStudio.value = studioResult.data ?? [];
+
+  const genres = new Set(t.genre_tags ?? []);
+  const themes = new Set(t.theme_tags ?? []);
+  const candidates = new Map<string, Soundtrack>();
+  for (const s of [...(genreResult.data ?? []), ...(themeResult.data ?? [])]) {
+    candidates.set(s.id, s);
+  }
+  similarSoundtracks.value = [...candidates.values()]
+    .map((s) => ({
+      s,
+      score:
+        (s.genre_tags ?? []).filter((g) => genres.has(g)).length * 2 +
+        (s.theme_tags ?? []).filter((th) => themes.has(th)).length,
+    }))
+    .filter(({ score }) => score > 0)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 12)
+    .map(({ s }) => s);
+}
 
 // Use the track's actual ID for likes/saves/API calls
 const id = computed(() => track.value?.id ?? param);
@@ -117,31 +190,6 @@ const listenOnLinks = computed((): StreamingLink[] => {
   }
 
   return links;
-});
-
-const moreFromStudio = computed(() => {
-  if (!track.value) return [];
-  return allSoundtracks.value
-    .filter((s) => s.studio === track.value!.studio && s.id !== id.value)
-    .slice(0, 12);
-});
-
-const similarSoundtracks = computed(() => {
-  if (!track.value) return [];
-  const genres = new Set(track.value.genre_tags ?? []);
-  const themes = new Set(track.value.theme_tags ?? []);
-  return allSoundtracks.value
-    .filter((s) => s.id !== id.value && s.studio !== track.value!.studio)
-    .map((s) => ({
-      s,
-      score:
-        (s.genre_tags ?? []).filter((t) => genres.has(t)).length * 2 +
-        (s.theme_tags ?? []).filter((t) => themes.has(t)).length,
-    }))
-    .filter(({ score }) => score > 0)
-    .sort((a, b) => b.score - a.score)
-    .slice(0, 12)
-    .map(({ s }) => s);
 });
 
 // ── Scroll nav ────────────────────────────────────────────────────────────────
@@ -289,8 +337,7 @@ function execCommandCopy(url: string) {
 }
 
 onMounted(async () => {
-  await store.loadAll();
-  if (!track.value) notFound.value = true;
+  await loadTrack();
   composerRow.attach();
   similarRow.attach();
 });

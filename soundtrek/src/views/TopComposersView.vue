@@ -1,17 +1,16 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from "vue";
+import { ref, useTemplateRef } from "vue";
 import { useHead } from "@unhead/vue";
-import { storeToRefs } from "pinia";
-import { useSoundtrackStore } from "@/stores/soundtracks";
+import { supabase } from "@/lib/supabase";
 import { useComposerStore } from "@/stores/composers";
-import { displayLikes } from "@/utils/likes";
+import { useInfiniteScroll } from "@/composables/useInfiniteScroll";
+import { toSlug } from "@/utils/slug";
 import PageHero from "@/components/PageHero.vue";
 import TopComposerRow from "@/components/TopComposerRow.vue";
 
-const store = useSoundtrackStore();
-const composerStore = useComposerStore();
-const { allSoundtracks, loading, error } = storeToRefs(store);
+type ComposerStat = { name: string; track_count: number; total_likes: number };
 
+const composerStore = useComposerStore();
 const imageMap = ref(new Map<string, string | null>());
 
 useHead({
@@ -32,25 +31,36 @@ useHead({
   ],
 });
 
-const composers = computed(() => {
-  const map = new Map<string, { trackCount: number; totalLikes: number }>();
-  for (const s of allSoundtracks.value) {
-    for (const c of s.composers ?? []) {
-      const entry = map.get(c) ?? { trackCount: 0, totalLikes: 0 };
-      entry.trackCount++;
-      entry.totalLikes += displayLikes(s);
-      map.set(c, entry);
-    }
-  }
-  return [...map.entries()]
-    .map(([name, data]) => ({ name, ...data }))
-    .sort((a, b) => b.totalLikes - a.totalLikes);
-});
+const PAGE_SIZE = 20;
+const composers = ref<ComposerStat[]>([]);
+const error = ref<string | null>(null);
+const sentinelEl = useTemplateRef<HTMLElement>("sentinel");
 
-onMounted(async () => {
-  await store.loadAll();
-  const all = await composerStore.fetchAll();
-  for (const c of all) imageMap.value.set(c.name, c.image_url ?? null);
+async function loadImages(page: ComposerStat[]) {
+  const slugByName = new Map(page.map((c) => [toSlug(c.name), c.name]));
+  await composerStore.fetchMany([...slugByName.keys()]);
+  for (const [slug, name] of slugByName) {
+    imageMap.value.set(name, composerStore.cache.get(slug)?.image_url ?? null);
+  }
+}
+
+const { loading, exhausted } = useInfiniteScroll(sentinelEl, async () => {
+  const from = composers.value.length;
+  const { data, error: err } = await supabase
+    .from("composer_stats")
+    .select("*")
+    .order("total_likes", { ascending: false })
+    .order("name", { ascending: true })
+    .range(from, from + PAGE_SIZE - 1);
+
+  if (err) {
+    error.value = err.message;
+    return false;
+  }
+  const page = data ?? [];
+  composers.value.push(...page);
+  loadImages(page);
+  return page.length >= PAGE_SIZE;
 });
 </script>
 
@@ -63,23 +73,28 @@ onMounted(async () => {
         subtitle="Ranked by total community likes"
       />
 
-      <div v-if="loading" class="loading">
-        <div class="spinner" />
-        <span>Loading…</span>
-      </div>
+      <div v-if="error" class="error">{{ error }}</div>
 
-      <div v-else-if="error" class="error">{{ error }}</div>
-
-      <div v-else class="composer-grid">
+      <div class="composer-grid">
         <TopComposerRow
           v-for="(c, i) in composers"
           :key="c.name"
           :rank="i + 1"
           :name="c.name"
-          :track-count="c.trackCount"
-          :total-likes="c.totalLikes"
+          :track-count="c.track_count"
+          :total-likes="c.total_likes"
           :image-url="imageMap.get(c.name) ?? null"
         />
+      </div>
+
+      <div ref="sentinel" class="sentinel">
+        <div v-if="loading" class="loading">
+          <div class="spinner" />
+          <span>Loading…</span>
+        </div>
+        <p v-else-if="exhausted && composers.length > 0" class="end-note">
+          You've seen all {{ composers.length }} composers
+        </p>
       </div>
     </div>
   </div>
@@ -126,14 +141,24 @@ onMounted(async () => {
   }
 }
 
+.sentinel {
+  padding: 2rem 0;
+  display: flex;
+  justify-content: center;
+}
+
 .loading {
   display: flex;
   align-items: center;
-  justify-content: center;
   gap: 0.75rem;
-  padding: 3rem 0;
   color: var(--text-muted);
   font-size: 0.85rem;
+}
+
+.end-note {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--text-muted);
 }
 
 .error {

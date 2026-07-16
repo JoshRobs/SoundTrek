@@ -2,7 +2,7 @@
 import { ref, computed, watch, onMounted, onUnmounted } from "vue";
 import { useRouter } from "vue-router";
 import { storeToRefs } from "pinia";
-import { useSoundtrackStore } from "@/stores/soundtracks";
+import { supabase } from "@/lib/supabase";
 import { useComposerStore } from "@/stores/composers";
 import { toSlug } from "@/utils/slug";
 import type { Soundtrack } from "@/types/soundtrack";
@@ -23,8 +23,6 @@ const emit = defineEmits<{
 }>();
 
 const router = useRouter();
-const store = useSoundtrackStore();
-const { allSoundtracks } = storeToRefs(store);
 const composerStore = useComposerStore();
 const { cache: composerCache } = storeToRefs(composerStore);
 
@@ -52,60 +50,60 @@ function titleScore(title: string, q: string): number {
   return 0;                                                // just contains
 }
 
-const results = computed<SearchResult[]>(() => {
-  const q = normalize(query.value.trim());
-  if (!q) return [];
+const results = ref<SearchResult[]>([]);
+const searching = ref(false);
+let searchTimer: ReturnType<typeof setTimeout> | undefined;
 
-  const titleMatches: { result: SearchResult; score: number }[] = [];
-  const composerGameMatches: SearchResult[] = [];
-  const composerEntities = new Map<string, { name: string; count: number }>();
-
-  for (const s of allSoundtracks.value) {
-    if (normalize(s.game_title).includes(q)) {
-      titleMatches.push({
-        result: { kind: "soundtrack", s },
-        score: titleScore(s.game_title, q),
-      });
-    } else if (
-      (s.composers ?? []).some((c) => normalize(c).includes(q)) ||
-      normalize(s.studio).includes(q)
-    ) {
-      composerGameMatches.push({ kind: "soundtrack", s });
-    }
-
-    for (const c of s.composers ?? []) {
-      if (!normalize(c).includes(q)) continue;
-      const slug = toSlug(c);
-      const existing = composerEntities.get(slug);
-      if (existing) existing.count++;
-      else composerEntities.set(slug, { name: c, count: 1 });
-    }
+async function runSearch(raw: string) {
+  const q = normalize(raw.trim());
+  if (!q) {
+    results.value = [];
+    searching.value = false;
+    return;
   }
 
-  const sortedTitleMatches = titleMatches
+  const [{ data: soundtracks }, { data: composers }] = await Promise.all([
+    supabase.rpc("search_soundtracks", { q: raw.trim(), p_limit: 20 }),
+    supabase.rpc("search_composers", { q: raw.trim(), p_limit: 5 }),
+  ]);
+
+  // Bail if the query changed while these requests were in flight
+  if (normalize(query.value.trim()) !== q) return;
+
+  const sortedTitleMatches: SearchResult[] = ((soundtracks as Soundtrack[]) ?? [])
+    .map((s) => ({ result: { kind: "soundtrack", s } as SearchResult, score: titleScore(s.game_title, q) }))
     .sort((a, b) => b.score - a.score)
     .map((m) => m.result);
 
-  const composerResults: SearchResult[] = [...composerEntities.entries()].map(
-    ([slug, { name, count }]) => ({ kind: "composer", name, slug, count }),
-  );
+  const composerResults: SearchResult[] = (
+    (composers as { name: string; count: number }[]) ?? []
+  ).map(({ name, count }) => ({ kind: "composer", name, slug: toSlug(name), count: Number(count) }));
 
-  return [...sortedTitleMatches, ...composerResults, ...composerGameMatches].slice(0, 8);
-});
+  results.value = [...sortedTitleMatches, ...composerResults].slice(0, 8);
+  searching.value = false;
+}
 
-const showDropdown = computed(() => dropdownOpen.value && results.value.length > 0);
+// Dropdown appears the moment there's a query, showing a loading state
+// immediately instead of waiting on the debounce + network round trip.
+const showDropdown = computed(
+  () => dropdownOpen.value && query.value.trim().length > 0,
+);
 
-watch(query, () => {
+watch(query, (q) => {
   activeIdx.value = -1;
+  clearTimeout(searchTimer);
+  searching.value = !!q.trim();
+  results.value = [];
+  searchTimer = setTimeout(() => runSearch(q), 250);
 });
 
 // Fetch profile images for composer results as they appear in the dropdown
 watch(
   results,
   (list) => {
-    for (const r of list) {
-      if (r.kind === "composer") composerStore.fetchComposer(r.slug);
-    }
+    const slugs: string[] = [];
+    for (const r of list) if (r.kind === "composer") slugs.push(r.slug);
+    if (slugs.length) composerStore.fetchMany(slugs);
   },
   { immediate: true },
 );
@@ -166,7 +164,6 @@ function onDocPointerdown(e: PointerEvent) {
 function onFocus() {
   focused.value = true;
   dropdownOpen.value = true;
-  store.loadAll(); // no-op once already loaded/hydrated — fires on first real interaction
 }
 
 onMounted(() => {
@@ -235,55 +232,64 @@ onUnmounted(() => {
 
     <Transition name="dropdown">
       <ul v-if="showDropdown" class="dropdown" role="listbox">
-        <li
-          v-for="(r, i) in results"
-          :key="r.kind === 'composer' ? `composer-${r.slug}` : r.s.id"
-          class="dropdown-item"
-          :class="{ active: i === activeIdx }"
-          role="option"
-          @mousedown.prevent
-          @click="select(r)"
-        >
-          <template v-if="r.kind === 'composer'">
-            <div class="item-thumb item-thumb--composer">
-              <img
-                v-if="composerCache.get(r.slug)?.image_url"
-                :src="composerCache.get(r.slug)!.image_url!"
-                :alt="r.name"
-              />
-              <svg
-                v-else
-                class="thumb-fallback thumb-fallback--composer"
-                width="24"
-                height="24"
-                viewBox="0 0 24 24"
-                fill="currentColor"
-              >
-                <path
-                  d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"
-                />
-              </svg>
-            </div>
-            <div class="item-info">
-              <span class="item-title">{{ r.name }}</span>
-              <span class="item-meta">Composer · {{ r.count }} {{ r.count === 1 ? 'soundtrack' : 'soundtracks' }}</span>
-            </div>
-          </template>
-          <template v-else>
-            <div class="item-thumb">
-              <img
-                v-if="r.s.cover_image_url"
-                :src="r.s.cover_image_url"
-                :alt="r.s.game_title"
-              />
-              <span v-else class="thumb-fallback">🎮</span>
-            </div>
-            <div class="item-info">
-              <span class="item-title">{{ r.s.game_title }}</span>
-              <span class="item-meta">{{ r.s.composers.join(', ') || r.s.studio }} · {{ r.s.release_year }}</span>
-            </div>
-          </template>
+        <li v-if="searching" class="dropdown-status">
+          <div class="spinner" style="--spinner-size: 16px" />
+          <span>Searching…</span>
         </li>
+        <li v-else-if="results.length === 0" class="dropdown-status">
+          No results
+        </li>
+        <template v-else>
+          <li
+            v-for="(r, i) in results"
+            :key="r.kind === 'composer' ? `composer-${r.slug}` : r.s.id"
+            class="dropdown-item"
+            :class="{ active: i === activeIdx }"
+            role="option"
+            @mousedown.prevent
+            @click="select(r)"
+          >
+            <template v-if="r.kind === 'composer'">
+              <div class="item-thumb item-thumb--composer">
+                <img
+                  v-if="composerCache.get(r.slug)?.image_url"
+                  :src="composerCache.get(r.slug)!.image_url!"
+                  :alt="r.name"
+                />
+                <svg
+                  v-else
+                  class="thumb-fallback thumb-fallback--composer"
+                  width="24"
+                  height="24"
+                  viewBox="0 0 24 24"
+                  fill="currentColor"
+                >
+                  <path
+                    d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"
+                  />
+                </svg>
+              </div>
+              <div class="item-info">
+                <span class="item-title">{{ r.name }}</span>
+                <span class="item-meta">Composer · {{ r.count }} {{ r.count === 1 ? 'soundtrack' : 'soundtracks' }}</span>
+              </div>
+            </template>
+            <template v-else>
+              <div class="item-thumb">
+                <img
+                  v-if="r.s.cover_image_url"
+                  :src="r.s.cover_image_url"
+                  :alt="r.s.game_title"
+                />
+                <span v-else class="thumb-fallback">🎮</span>
+              </div>
+              <div class="item-info">
+                <span class="item-title">{{ r.s.game_title }}</span>
+                <span class="item-meta">{{ r.s.composers.join(', ') || r.s.studio }} · {{ r.s.release_year }}</span>
+              </div>
+            </template>
+          </li>
+        </template>
       </ul>
     </Transition>
   </div>
@@ -380,6 +386,15 @@ onUnmounted(() => {
   padding: 0.3rem;
   z-index: 20;
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
+}
+
+.dropdown-status {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.75rem;
+  color: var(--text-muted);
+  font-size: 0.85rem;
 }
 
 .dropdown-item {

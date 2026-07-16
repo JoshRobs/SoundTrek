@@ -1,20 +1,55 @@
 <script setup lang="ts">
-import { computed, onMounted } from "vue";
+import { ref, computed, watch } from "vue";
 import { useHead } from "@unhead/vue";
 import { useRoute } from "vue-router";
-import { storeToRefs } from "pinia";
-import { useSoundtrackStore } from "@/stores/soundtracks";
+import { supabase } from "@/lib/supabase";
 import { toSlug } from "@/utils/slug";
 import PageHero from "@/components/PageHero.vue";
+import type { Soundtrack } from "@/types/soundtrack";
 
 const route = useRoute();
-const store = useSoundtrackStore();
-const { allSoundtracks, loading, error } = storeToRefs(store);
 
 const slug = computed(() => route.params.slug as string);
 
-const studioSoundtracks = computed(() =>
-  allSoundtracks.value.filter((s) => toSlug(s.studio) === slug.value),
+const studioSoundtracks = ref<Soundtrack[]>([]);
+const loading = ref(true);
+const error = ref<string | null>(null);
+
+watch(
+  slug,
+  async (currentSlug) => {
+    loading.value = true;
+    error.value = null;
+
+    // Only the narrow `studio` column is fetched across the table to
+    // resolve the slug to its exact display name, instead of loading every
+    // full soundtrack row.
+    const { data: studioRows, error: err } = await supabase
+      .from("soundtracks")
+      .select("studio");
+    if (err) {
+      error.value = err.message;
+      loading.value = false;
+      return;
+    }
+
+    const name = (studioRows ?? []).find(
+      (r) => toSlug(r.studio) === currentSlug,
+    )?.studio ?? currentSlug.replace(/-/g, " ");
+
+    const { data, error: err2 } = await supabase
+      .from("soundtracks")
+      .select("*")
+      .eq("studio", name)
+      .order("total_likes", { ascending: false });
+    if (err2) {
+      error.value = err2.message;
+    } else {
+      studioSoundtracks.value = data ?? [];
+    }
+    loading.value = false;
+  },
+  { immediate: true },
 );
 
 const studioName = computed(
@@ -27,8 +62,6 @@ const subtitle = computed(
   () =>
     `${studioSoundtracks.value.length} ${studioSoundtracks.value.length === 1 ? "soundtrack" : "soundtracks"} in SoundTrek`,
 );
-
-onMounted(() => store.loadAll());
 
 useHead(computed(() => ({
   title: `${studioName.value} | SoundTrek`,

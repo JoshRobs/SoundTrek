@@ -1,17 +1,39 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from "vue";
+import { ref, computed, watch } from "vue";
 import { RouterLink } from "vue-router";
-import { storeToRefs } from "pinia";
 import { useHead } from "@unhead/vue";
+import { supabase } from "@/lib/supabase";
 import { useSoundtrackStore } from "@/stores/soundtracks";
 import { useSaves } from "@/composables/useSaves";
 import { useAuth } from "@/composables/useAuth";
 import PageHero from "@/components/PageHero.vue";
+import type { Soundtrack } from "@/types/soundtrack";
 
 const store = useSoundtrackStore();
-const { allSoundtracks, loading } = storeToRefs(store);
 const { savedIds, savedOrder } = useSaves();
 const { user } = useAuth();
+
+const savedSoundtracksRaw = ref<Soundtrack[]>([]);
+const loading = ref(true);
+
+watch(
+  savedIds,
+  async (ids) => {
+    if (ids.size === 0) {
+      savedSoundtracksRaw.value = [];
+      loading.value = false;
+      return;
+    }
+    loading.value = true;
+    const { data } = await supabase
+      .from("soundtracks")
+      .select("*")
+      .in("id", Array.from(ids));
+    savedSoundtracksRaw.value = data ?? [];
+    loading.value = false;
+  },
+  { immediate: true },
+);
 
 const coverColors = ref<Record<string, string>>({});
 
@@ -74,7 +96,7 @@ function handleSortClick(value: SortKey) {
 }
 
 const savedSoundtracks = computed(() => {
-  const saved = allSoundtracks.value.filter((s) => savedIds.value.has(s.id));
+  const saved = savedSoundtracksRaw.value;
   switch (sortBy.value) {
     case "recent": {
       const idx = new Map(savedOrder.value.map((id, i) => [id, i]));
@@ -96,8 +118,6 @@ const savedSoundtracks = computed(() => {
       });
   }
 });
-
-onMounted(() => store.loadAll());
 </script>
 
 <template>

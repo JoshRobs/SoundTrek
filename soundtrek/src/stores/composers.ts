@@ -32,12 +32,24 @@ export const useComposerStore = defineStore("composers", () => {
     }
   }
 
-  async function fetchAll(): Promise<Composer[]> {
-    if (USE_MOCK) return [];
-    const { data } = await supabase.from("composers").select("*");
-    for (const c of data ?? []) cache.value.set(c.slug, c);
-    return data ?? [];
+  async function fetchMany(slugs: string[]): Promise<void> {
+    const uncached = [...new Set(slugs)].filter(
+      (s) => !cache.value.has(s) && !fetching.has(s),
+    );
+    if (uncached.length === 0 || USE_MOCK) return;
+
+    uncached.forEach((s) => fetching.add(s));
+    try {
+      const { data } = await supabase
+        .from("composers")
+        .select("*")
+        .in("slug", uncached);
+      const bySlug = new Map((data ?? []).map((c) => [c.slug, c]));
+      for (const slug of uncached) cache.value.set(slug, bySlug.get(slug) ?? null);
+    } finally {
+      uncached.forEach((s) => fetching.delete(s));
+    }
   }
 
-  return { cache, fetchComposer, fetchAll };
+  return { cache, fetchComposer, fetchMany };
 });
