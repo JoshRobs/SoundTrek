@@ -76,15 +76,16 @@ watch(
     playlistId.value = s?.youtube_playlist_id ?? "";
     videoId.value = s?.youtube_video_id ?? "";
     spotifyId.value = s?.spotify_id ?? "";
-    spotifyType.value = s?.spotify_type === "track" || s?.spotify_type === "playlist"
-      ? s.spotify_type
-      : "album";
+    spotifyType.value =
+      s?.spotify_type === "track" || s?.spotify_type === "playlist"
+        ? s.spotify_type
+        : "album";
     if (s) checkAll();
   },
   { immediate: true },
 );
 
-// ── Title resolution via oEmbed (no API keys needed) ──────────────────────────
+// ── Title resolution — oEmbed for Spotify, youtube-proxy (Data API) for YouTube ──
 
 interface Resolved {
   status: "empty" | "loading" | "ok" | "error";
@@ -92,7 +93,11 @@ interface Resolved {
   error?: string;
 }
 
-const resolved = ref<{ playlist: Resolved; video: Resolved; spotify: Resolved }>({
+const resolved = ref<{
+  playlist: Resolved;
+  video: Resolved;
+  spotify: Resolved;
+}>({
   playlist: { status: "empty" },
   video: { status: "empty" },
   spotify: { status: "empty" },
@@ -118,8 +123,52 @@ async function resolveOembed(endpoint: string): Promise<Resolved> {
   }
 }
 
-function ytOembed(url: string): string {
-  return `https://www.youtube.com/oembed?url=${encodeURIComponent(url)}&format=json`;
+// mm:ss (or h:mm:ss) from a YouTube contentDetails ISO 8601 duration like "PT4M13S"
+function formatDuration(iso: string): string {
+  const m = iso.match(/^PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?$/);
+  if (!m) return iso;
+  const h = parseInt(m[1] ?? "0", 10);
+  const min = parseInt(m[2] ?? "0", 10);
+  const s = parseInt(m[3] ?? "0", 10);
+  const parts =
+    h > 0
+      ? [h, String(min).padStart(2, "0"), String(s).padStart(2, "0")]
+      : [min, String(s).padStart(2, "0")];
+  return parts.join(":");
+}
+
+// YouTube's oEmbed doesn't include duration, so video titles go through the
+// youtube-proxy worker too, same as playlists.
+async function resolveVideo(id: string): Promise<Resolved> {
+  const proxyUrl = import.meta.env.VITE_YOUTUBE_PROXY_URL;
+  if (!proxyUrl) {
+    return { status: "error", error: "VITE_YOUTUBE_PROXY_URL not configured" };
+  }
+  try {
+    const res = await fetch(`${proxyUrl}/video-info/${id}`);
+    if (res.status === 404) {
+      return { status: "error", error: "Video not found — deleted or private" };
+    }
+    if (!res.ok) {
+      return { status: "error", error: `Proxy error (HTTP ${res.status})` };
+    }
+    const data = (await res.json()) as {
+      title: string;
+      channel: string;
+      duration?: string;
+    };
+    return {
+      status: "ok",
+      title: `${data.title}${
+        data.duration ? ` (${formatDuration(data.duration)})` : ""
+      }`,
+    };
+  } catch {
+    return {
+      status: "error",
+      error: "Proxy unreachable — is the worker running?",
+    };
+  }
 }
 
 // YouTube has no oEmbed for playlists, so playlist titles go through the
@@ -132,7 +181,10 @@ async function resolvePlaylist(id: string): Promise<Resolved> {
   try {
     const res = await fetch(`${proxyUrl}/playlist-info/${id}`);
     if (res.status === 404) {
-      return { status: "error", error: "Playlist not found — deleted or private" };
+      return {
+        status: "error",
+        error: "Playlist not found — deleted or private",
+      };
     }
     if (!res.ok) {
       return { status: "error", error: `Proxy error (HTTP ${res.status})` };
@@ -144,12 +196,15 @@ async function resolvePlaylist(id: string): Promise<Resolved> {
     };
     return {
       status: "ok",
-      title: `${data.title} — ${data.channel}${
+      title: `${data.title}${
         data.itemCount != null ? ` (${data.itemCount} videos)` : ""
       }`,
     };
   } catch {
-    return { status: "error", error: "Proxy unreachable — is the worker running?" };
+    return {
+      status: "error",
+      error: "Proxy unreachable — is the worker running?",
+    };
   }
 }
 
@@ -166,12 +221,8 @@ async function checkAll() {
   };
 
   const [plRes, vidRes, spRes] = await Promise.all([
-    pl
-      ? resolvePlaylist(pl)
-      : Promise.resolve<Resolved>({ status: "empty" }),
-    vid
-      ? resolveOembed(ytOembed(`https://www.youtube.com/watch?v=${vid}`))
-      : Promise.resolve<Resolved>({ status: "empty" }),
+    pl ? resolvePlaylist(pl) : Promise.resolve<Resolved>({ status: "empty" }),
+    vid ? resolveVideo(vid) : Promise.resolve<Resolved>({ status: "empty" }),
     sp
       ? resolveOembed(
           `https://open.spotify.com/oembed?url=${encodeURIComponent(
@@ -206,7 +257,9 @@ const spotifyUrl = computed(() =>
 // Platform searches for the current game — "sp" params are YouTube's
 // result-type filters (EgIQAw = playlists only, EgIQAQ = videos only).
 const searchQuery = computed(() =>
-  current.value ? encodeURIComponent(`${current.value.game_title} OST soundtrack`) : "",
+  current.value
+    ? encodeURIComponent(`${current.value.game_title} full soundtrack`)
+    : "",
 );
 const playlistSearchUrl = computed(() =>
   current.value
@@ -309,7 +362,11 @@ async function save() {
           <h2 class="card-title">
             {{ current.game_title }}
             <span class="meta-note">
-              {{ current.composers?.length ? current.composers.join(", ") : "No composers" }}
+              {{
+                current.composers?.length
+                  ? current.composers.join(", ")
+                  : "No composers"
+              }}
               · {{ current.release_year }}
             </span>
           </h2>
@@ -338,12 +395,23 @@ async function save() {
                 >Search ↗</a
               >
             </span>
-            <input v-model="playlistId" type="text" placeholder="PL…" spellcheck="false" />
+            <input
+              v-model="playlistId"
+              type="text"
+              placeholder="PL…"
+              spellcheck="false"
+            />
           </label>
           <p class="resolved" :class="`resolved--${resolved.playlist.status}`">
-            <template v-if="resolved.playlist.status === 'ok'">{{ resolved.playlist.title }}</template>
-            <template v-else-if="resolved.playlist.status === 'error'">{{ resolved.playlist.error }}</template>
-            <template v-else-if="resolved.playlist.status === 'loading'">Checking…</template>
+            <template v-if="resolved.playlist.status === 'ok'">{{
+              resolved.playlist.title
+            }}</template>
+            <template v-else-if="resolved.playlist.status === 'error'">{{
+              resolved.playlist.error
+            }}</template>
+            <template v-else-if="resolved.playlist.status === 'loading'"
+              >Checking…</template
+            >
             <template v-else>Not set</template>
           </p>
         </div>
@@ -370,12 +438,23 @@ async function save() {
                 >Search ↗</a
               >
             </span>
-            <input v-model="videoId" type="text" placeholder="dQw4…" spellcheck="false" />
+            <input
+              v-model="videoId"
+              type="text"
+              placeholder="dQw4…"
+              spellcheck="false"
+            />
           </label>
           <p class="resolved" :class="`resolved--${resolved.video.status}`">
-            <template v-if="resolved.video.status === 'ok'">{{ resolved.video.title }}</template>
-            <template v-else-if="resolved.video.status === 'error'">{{ resolved.video.error }}</template>
-            <template v-else-if="resolved.video.status === 'loading'">Checking…</template>
+            <template v-if="resolved.video.status === 'ok'">{{
+              resolved.video.title
+            }}</template>
+            <template v-else-if="resolved.video.status === 'error'">{{
+              resolved.video.error
+            }}</template>
+            <template v-else-if="resolved.video.status === 'loading'"
+              >Checking…</template
+            >
             <template v-else>Not set</template>
           </p>
         </div>
@@ -403,7 +482,12 @@ async function save() {
               >
             </span>
             <div class="spotify-inputs">
-              <input v-model="spotifyId" type="text" placeholder="4aawyAB…" spellcheck="false" />
+              <input
+                v-model="spotifyId"
+                type="text"
+                placeholder="4aawyAB…"
+                spellcheck="false"
+              />
               <select v-model="spotifyType">
                 <option value="album">album</option>
                 <option value="playlist">playlist</option>
@@ -412,9 +496,15 @@ async function save() {
             </div>
           </label>
           <p class="resolved" :class="`resolved--${resolved.spotify.status}`">
-            <template v-if="resolved.spotify.status === 'ok'">{{ resolved.spotify.title }}</template>
-            <template v-else-if="resolved.spotify.status === 'error'">{{ resolved.spotify.error }}</template>
-            <template v-else-if="resolved.spotify.status === 'loading'">Checking…</template>
+            <template v-if="resolved.spotify.status === 'ok'">{{
+              resolved.spotify.title
+            }}</template>
+            <template v-else-if="resolved.spotify.status === 'error'">{{
+              resolved.spotify.error
+            }}</template>
+            <template v-else-if="resolved.spotify.status === 'loading'"
+              >Checking…</template
+            >
             <template v-else>Not set</template>
           </p>
         </div>

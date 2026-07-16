@@ -22,6 +22,11 @@ export default {
       return playlistInfo(infoMatch[1], env);
     }
 
+    const videoInfoMatch = url.pathname.match(/^\/video-info\/([A-Za-z0-9_-]+)$/);
+    if (videoInfoMatch) {
+      return videoInfo(videoInfoMatch[1], env);
+    }
+
     const match = url.pathname.match(/^\/playlist\/([A-Za-z0-9_-]+)$/);
     if (!match) {
       return new Response("Not found", { status: 404, headers: CORS_HEADERS });
@@ -129,6 +134,53 @@ async function playlistInfo(playlistId: string, env: Env): Promise<Response> {
     title: item.snippet.title as string,
     channel: item.snippet.channelTitle as string,
     itemCount: item.contentDetails?.itemCount as number | undefined,
+  });
+  await env.YOUTUBE_CACHE.put(cacheKey, body, { expirationTtl: 3600 });
+
+  return new Response(body, {
+    headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
+  });
+}
+
+// Video metadata (title, channel, duration) — used by the admin link checker.
+// oEmbed can't provide duration, so this goes through the Data API instead.
+async function videoInfo(videoId: string, env: Env): Promise<Response> {
+  const cacheKey = `video-info:${videoId}`;
+
+  const cached = await env.YOUTUBE_CACHE.get(cacheKey);
+  if (cached) {
+    return new Response(cached, {
+      headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
+    });
+  }
+
+  const apiUrl = new URL("https://www.googleapis.com/youtube/v3/videos");
+  apiUrl.searchParams.set("part", "snippet,contentDetails");
+  apiUrl.searchParams.set("id", videoId);
+  apiUrl.searchParams.set("key", env.YOUTUBE_API_KEY);
+
+  const ytRes = await fetch(apiUrl.toString());
+  if (!ytRes.ok) {
+    return new Response("Upstream error", {
+      status: ytRes.status,
+      headers: CORS_HEADERS,
+    });
+  }
+
+  const data = (await ytRes.json()) as { items?: any[] };
+  const item = data.items?.[0];
+  if (!item) {
+    // Valid response but no such video — deleted or private.
+    return new Response(JSON.stringify({ error: "not_found" }), {
+      status: 404,
+      headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
+    });
+  }
+
+  const body = JSON.stringify({
+    title: item.snippet.title as string,
+    channel: item.snippet.channelTitle as string,
+    duration: item.contentDetails?.duration as string | undefined,
   });
   await env.YOUTUBE_CACHE.put(cacheKey, body, { expirationTtl: 3600 });
 

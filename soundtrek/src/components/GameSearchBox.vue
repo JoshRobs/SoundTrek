@@ -163,8 +163,13 @@ function onDocPointerdown(e: PointerEvent) {
   }
 }
 
+function onFocus() {
+  focused.value = true;
+  dropdownOpen.value = true;
+  store.loadAll(); // no-op once already loaded/hydrated — fires on first real interaction
+}
+
 onMounted(() => {
-  store.loadAll();
   if (props.autofocus) inputEl.value?.focus();
   document.addEventListener("pointerdown", onDocPointerdown);
 });
@@ -200,7 +205,7 @@ onUnmounted(() => {
         placeholder="Search games or composers…"
         autocomplete="off"
         spellcheck="false"
-        @focus="focused = true; dropdownOpen = true"
+        @focus="onFocus"
         @blur="onBlur"
         @keydown="onKeydown"
       />
