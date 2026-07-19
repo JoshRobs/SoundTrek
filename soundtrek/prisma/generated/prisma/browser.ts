@@ -38,12 +38,12 @@ export type Submission = Prisma.SubmissionModel
  */
 export type Soundtrack = Prisma.SoundtrackModel
 /**
+ * Model Track
+ * 
+ */
+export type Track = Prisma.TrackModel
+/**
  * Model UserLike
  * 
  */
 export type UserLike = Prisma.UserLikeModel
-/**
- * Model UserSave
- * 
- */
-export type UserSave = Prisma.UserSaveModel

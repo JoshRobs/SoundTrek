@@ -26,7 +26,7 @@ import PrivacyView from "@/views/PrivacyView.vue";
 import TermsView from "@/views/TermsView.vue";
 import SearchView from "@/views/SearchView.vue";
 import LoginView from "@/views/LoginView.vue";
-import SavedView from "@/views/SavedView.vue";
+import LikedView from "@/views/LikedView.vue";
 import AccountView from "@/views/AccountView.vue";
 import ResetPasswordView from "@/views/ResetPasswordView.vue";
 import AdminLayout from "@/views/admin/AdminLayout.vue";
@@ -35,6 +35,7 @@ import AdminAddSoundtrack from "@/views/admin/AdminAddSoundtrack.vue";
 import AdminEditSoundtrack from "@/views/admin/AdminEditSoundtrack.vue";
 import AdminComposers from "@/views/admin/AdminComposers.vue";
 import AdminLinks from "@/views/admin/AdminLinks.vue";
+import AdminComposerBios from "@/views/admin/AdminComposerBios.vue";
 import NotFoundView from "@/views/NotFoundView.vue";
 
 export const routes: RouteRecordRaw[] = [
@@ -58,7 +59,8 @@ export const routes: RouteRecordRaw[] = [
   { path: "/terms-of-service", component: TermsView },
   { path: "/search", component: SearchView },
   { path: "/login", component: LoginView },
-  { path: "/saved", component: SavedView },
+  { path: "/liked", component: LikedView },
+  { path: "/saved", redirect: "/liked" },
   { path: "/account", component: AccountView },
   { path: "/reset-password", component: ResetPasswordView },
   {
@@ -71,6 +73,7 @@ export const routes: RouteRecordRaw[] = [
       { path: "edit-soundtrack", component: AdminEditSoundtrack },
       { path: "composers",       component: AdminComposers },
       { path: "links",           component: AdminLinks },
+      { path: "composer-bios",   component: AdminComposerBios },
     ],
   },
   { path: "/:pathMatch(.*)*", component: NotFoundView },

@@ -12,28 +12,57 @@ export const useSoundtrackStore = defineStore("soundtracks", () => {
   const error = ref<string | null>(null);
   let fetched = false;
 
-  async function loadAll() {
-    if (fetched) return;
+  // Tracks whether the current rows came straight from Supabase. Admin pages
+  // require fresh rows (the edit form hydrates from them), so a cached load
+  // must be replaced when they ask.
+  let fetchedFresh = false;
+
+  async function loadAll(opts?: { fresh?: boolean }) {
+    const wantFresh = !!opts?.fresh;
+    if (fetched && (fetchedFresh || !wantFresh)) return;
     loading.value = true;
     error.value = null;
 
     try {
-      const PAGE = 1000;
-      let all: Soundtrack[] = [];
-      let from = 0;
-      while (true) {
-        const { data, error: err } = await supabase
-          .from("soundtracks")
-          .select("*")
-          .order("created_at", { ascending: true })
-          .range(from, from + PAGE - 1);
-        if (err) throw err;
-        all = all.concat(data ?? []);
-        if (!data || data.length < PAGE) break;
-        from += PAGE;
+      let all: Soundtrack[] | null = null;
+      let viaCache = false;
+
+      // Cached catalog from the Cloudflare worker — spares Supabase the
+      // ~2MB-per-visitor egress. Stale by up to the worker's TTL, which is
+      // fine everywhere except admin editing.
+      const proxyUrl = import.meta.env.VITE_YOUTUBE_PROXY_URL;
+      if (!wantFresh && proxyUrl) {
+        try {
+          const res = await fetch(`${proxyUrl}/catalog`);
+          if (res.ok) {
+            all = (await res.json()) as Soundtrack[];
+            viaCache = true;
+          }
+        } catch {
+          /* worker unreachable — fall back to Supabase below */
+        }
       }
+
+      if (!all) {
+        const PAGE = 1000;
+        all = [];
+        let from = 0;
+        while (true) {
+          const { data, error: err } = await supabase
+            .from("soundtracks")
+            .select("*")
+            .order("created_at", { ascending: true })
+            .range(from, from + PAGE - 1);
+          if (err) throw err;
+          all = all.concat(data ?? []);
+          if (!data || data.length < PAGE) break;
+          from += PAGE;
+        }
+      }
+
       allSoundtracks.value = all;
       fetched = true;
+      fetchedFresh = !viaCache;
     } catch (e: unknown) {
       error.value =
         e instanceof Error ? e.message : "Failed to load soundtracks.";
@@ -223,9 +252,11 @@ export const useSoundtrackStore = defineStore("soundtracks", () => {
   }
 
   async function likeSoundtrack(id: string, delta: 1 | -1) {
+    // The catalog is loaded lazily (views fetch their own rows), so the
+    // store row may be absent — the counter RPC must fire regardless; only
+    // the optimistic bump needs the row.
     const track = allSoundtracks.value.find((s) => s.id === id);
-    if (!track) return;
-    track.likes += delta; // optimistic
+    if (track) track.likes += delta; // optimistic
     if (!USE_MOCK) {
       const { data, error } = await supabase.rpc("toggle_soundtrack_like", {
         p_soundtrack_id: id,
@@ -234,7 +265,7 @@ export const useSoundtrackStore = defineStore("soundtracks", () => {
       // Reconcile with the authoritative server value — the RPC dedupes
       // repeat likes/unlikes server-side, so it can differ from the
       // optimistic guess above (e.g. a stale double-click no-ops there).
-      if (!error && typeof data === "number") track.likes = data;
+      if (!error && typeof data === "number" && track) track.likes = data;
     }
   }
 

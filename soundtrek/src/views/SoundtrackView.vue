@@ -2,19 +2,22 @@
 import { ref, computed, onMounted, onUnmounted } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useHead } from "@unhead/vue";
-import { supabase } from "@/lib/supabase";
+import { supabase, SOUNDTRACK_LIST_COLUMNS } from "@/lib/supabase";
 import { useSoundtrackStore } from "@/stores/soundtracks";
 import StreamingLinks from "@/components/StreamingLinks.vue";
 import type { Soundtrack, StreamingLink } from "@/types/soundtrack";
+import type { TracklistEntry } from "@/types/track";
+import { cleanTracklistTitles } from "@/utils/trackTitle";
 import { toSlug } from "@/utils/slug";
 import { useLikes } from "@/composables/useLikes";
-import { useSaves } from "@/composables/useSaves";
 import ReviewSection from "@/components/ReviewSection.vue";
 import { displayLikes } from "@/utils/likes";
 import AddToCollectionModal from "@/components/AddToCollectionModal.vue";
+import TracklistPanel from "@/components/TracklistPanel.vue";
 import { useAuth } from "@/composables/useAuth";
 
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const route = useRoute();
 const router = useRouter();
@@ -25,7 +28,6 @@ const notFound = ref(false);
 const coverColor = ref("");
 const copied = ref(false);
 const { isLiked, toggleLike: rawToggle } = useLikes();
-const { isSaved, toggleSave } = useSaves();
 const { user } = useAuth();
 const showAddToPlaylist = ref(false);
 
@@ -62,7 +64,7 @@ async function loadTrack() {
   const [studioResult, genreResult, themeResult] = await Promise.all([
     supabase
       .from("soundtracks")
-      .select("*")
+      .select(SOUNDTRACK_LIST_COLUMNS)
       .eq("studio", t.studio)
       .neq("id", t.id)
       .order("total_likes", { ascending: false })
@@ -70,7 +72,7 @@ async function loadTrack() {
     (t.genre_tags ?? []).length
       ? supabase
           .from("soundtracks")
-          .select("*")
+          .select(SOUNDTRACK_LIST_COLUMNS)
           .overlaps("genre_tags", t.genre_tags ?? [])
           .neq("id", t.id)
           .neq("studio", t.studio)
@@ -79,7 +81,7 @@ async function loadTrack() {
     (t.theme_tags ?? []).length
       ? supabase
           .from("soundtracks")
-          .select("*")
+          .select(SOUNDTRACK_LIST_COLUMNS)
           .overlaps("theme_tags", t.theme_tags ?? [])
           .neq("id", t.id)
           .neq("studio", t.studio)
@@ -87,12 +89,15 @@ async function loadTrack() {
       : Promise.resolve({ data: [] as Soundtrack[] }),
   ]);
 
-  moreFromStudio.value = studioResult.data ?? [];
+  moreFromStudio.value = (studioResult.data ?? []) as Soundtrack[];
 
   const genres = new Set(t.genre_tags ?? []);
   const themes = new Set(t.theme_tags ?? []);
   const candidates = new Map<string, Soundtrack>();
-  for (const s of [...(genreResult.data ?? []), ...(themeResult.data ?? [])]) {
+  for (const s of [
+    ...(genreResult.data ?? []),
+    ...(themeResult.data ?? []),
+  ] as Soundtrack[]) {
     candidates.set(s.id, s);
   }
   similarSoundtracks.value = [...candidates.values()]
@@ -111,6 +116,44 @@ async function loadTrack() {
 // Use the track's actual ID for likes/saves/API calls
 const id = computed(() => track.value?.id ?? param);
 
+// ── Tracklist ─────────────────────────────────────────────────────────────────
+const tracklist = ref<TracklistEntry[]>([]);
+
+async function loadTracklist() {
+  const t = track.value;
+  if (!t?.youtube_playlist_id) return;
+
+  const { data } = await supabase
+    .from("tracks")
+    .select("position, video_id, title, unavailable")
+    .eq("soundtrack_id", t.id)
+    .order("position");
+  if (data?.length) {
+    tracklist.value = data;
+    return;
+  }
+
+  // Not synced yet — fall back to a live fetch from the youtube-proxy worker
+  // (same shape the sync script snapshots from).
+  const proxyUrl = import.meta.env.VITE_YOUTUBE_PROXY_URL;
+  if (!proxyUrl) return;
+  try {
+    const res = await fetch(`${proxyUrl}/playlist/${t.youtube_playlist_id}`);
+    if (!res.ok) return;
+    const items: { videoId: string; title: string; unavailable: boolean }[] =
+      await res.json();
+    const titles = cleanTracklistTitles(
+      items.map((it) => ({ title: it.title, unavailable: it.unavailable })),
+      { gameTitle: t.game_title, composers: t.composers, studio: t.studio },
+    );
+    tracklist.value = items.map((item, i) => ({
+      position: i,
+      video_id: item.videoId,
+      title: titles[i],
+      unavailable: item.unavailable,
+    }));
+  } catch {}
+}
 
 useHead(
   computed(() => {
@@ -338,6 +381,7 @@ function execCommandCopy(url: string) {
 
 onMounted(async () => {
   await loadTrack();
+  loadTracklist();
   composerRow.attach();
   similarRow.attach();
 });
@@ -382,375 +426,390 @@ onUnmounted(() => {
       "
     />
 
-    <!-- Amazon card — absolutely positioned to the right, outside main content -->
-    <a
-      v-if="amazonUrl"
-      :href="amazonUrl"
-      target="_blank"
-      rel="noopener sponsored"
-      class="amazon-card"
-    >
-      <img
-        v-if="track.amazon_image_url"
-        :src="track.amazon_image_url"
-        :alt="`${track.game_title} on Amazon`"
-        class="amazon-product-img"
-      />
-      <div class="amazon-footer">
-        <img src="/amazonLogo.png" alt="Amazon" class="amazon-logo" />
-        <span class="amazon-cta">{{
-          track.amazon_image_url ? "Buy the OST" : "Find on Amazon"
-        }}</span>
-      </div>
-    </a>
+    <!-- Two-column layout: main content + right rail. The rail is a real
+         flex column, so content can never run beneath it. -->
+    <div class="page-columns">
+      <div class="page-main">
+        <!-- Hero -->
+        <div class="hero">
+          <div class="hero-body">
+            <div
+              class="cover-wrap"
+              @click="play"
+              :style="coverColor ? { '--cover-color': coverColor } : {}"
+            >
+              <img
+                v-if="track.cover_image_url"
+                :src="track.cover_image_url"
+                :alt="track.game_title"
+                class="cover-img"
+                crossorigin="anonymous"
+                @load="extractCoverColor($event.target as HTMLImageElement)"
+              />
+              <div v-else class="cover-fallback">🎮</div>
+              <div class="cover-play-overlay">
+                <svg
+                  width="56"
+                  height="56"
+                  viewBox="0 0 24 24"
+                  fill="currentColor"
+                >
+                  <path d="M8 5v14l11-7z" />
+                </svg>
+              </div>
+            </div>
 
-    <!-- Hero -->
-    <div class="hero">
-      <div class="hero-body">
-        <div
-          class="cover-wrap"
-          @click="play"
-          :style="coverColor ? { '--cover-color': coverColor } : {}"
+            <div class="info">
+              <div class="meta-line">
+                <span class="source-badge">{{
+                  track.source_type === "playlist" ? "Full OST" : "Video"
+                }}</span>
+                <span class="console">{{ track.console }}</span>
+                <span class="year">{{ track.release_year }}</span>
+              </div>
+
+              <h1 class="game-title">{{ track.game_title }}</h1>
+              <div class="composers">
+                <RouterLink
+                  v-for="c in track.composers"
+                  :key="c"
+                  :to="`/composer/${toSlug(c)}`"
+                  class="composer-link"
+                  >{{ c }}</RouterLink
+                >
+                <RouterLink
+                  :to="`/studio/${toSlug(track.studio)}`"
+                  class="studio-link"
+                >
+                  {{ track.studio }}
+                </RouterLink>
+              </div>
+
+              <div class="actions">
+                <button class="play-btn" @click="play">
+                  <svg
+                    width="20"
+                    height="20"
+                    viewBox="0 0 24 24"
+                    fill="currentColor"
+                    style="padding-left: 2px"
+                  >
+                    <path d="M8 5v14l11-7z" />
+                  </svg>
+                  Play
+                </button>
+
+                <button
+                  class="like-btn"
+                  :class="{ liked: isLiked(id) }"
+                  @click="toggleLike"
+                >
+                  <svg
+                    width="18"
+                    height="18"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <path
+                      d="M19.5 12.572l-7.5 7.428-7.5-7.428a5 5 0 1 1 7.5-6.566 5 5 0 1 1 7.5 6.572"
+                    />
+                  </svg>
+                  {{ displayLikes(track) }}
+                </button>
+
+                <button
+                  v-if="user"
+                  class="save-btn"
+                  aria-label="Add to collection"
+                  @click="showAddToPlaylist = true"
+                >
+                  <svg
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <line x1="12" y1="5" x2="12" y2="19" />
+                    <line x1="5" y1="12" x2="19" y2="12" />
+                  </svg>
+                  Collection
+                </button>
+
+                <button class="share-btn" @click="share">
+                  <svg
+                    v-if="!copied"
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <circle cx="18" cy="5" r="3" />
+                    <circle cx="6" cy="12" r="3" />
+                    <circle cx="18" cy="19" r="3" />
+                    <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" />
+                    <line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
+                  </svg>
+                  <svg
+                    v-else
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2.5"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <polyline points="20 6 9 17 4 12" />
+                  </svg>
+                  {{ copied ? "Copied!" : "Share" }}
+                </button>
+              </div>
+              <div
+                v-if="track.genre_tags?.length || track.theme_tags?.length"
+                class="tags"
+              >
+                <span
+                  v-for="tag in track.genre_tags"
+                  :key="tag"
+                  class="tag genre"
+                  >{{ tag }}</span
+                >
+                <span
+                  v-for="tag in track.theme_tags"
+                  :key="tag"
+                  class="tag mood"
+                  >{{ tag }}</span
+                >
+              </div>
+              <a
+                v-if="amazonUrl"
+                :href="amazonUrl"
+                target="_blank"
+                rel="noopener sponsored"
+                class="amazon-inline"
+              >
+                <img
+                  src="/amazonLogo.png"
+                  alt="Amazon"
+                  class="amazon-inline-logo"
+                />
+                <span class="amazon-inline-cta">{{
+                  track.amazon_image_url ? "Buy the OST" : "Find on Amazon"
+                }}</span>
+              </a>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tracklist for narrow viewports (the right rail is hidden there) —
+         collapsed by default so it doesn't push the page down -->
+        <div v-if="tracklist.length" class="tracklist-mobile">
+          <TracklistPanel :tracks="tracklist" collapsible />
+        </div>
+
+        <!-- Amazon disclosure -->
+        <p v-if="amazonUrl" class="amazon-disclosure">
+          As an Amazon Associate, SoundTrek earns from qualifying purchases.
+        </p>
+
+        <!-- Streaming links -->
+        <div v-if="listenOnLinks.length" class="links-section">
+          <h2 class="links-heading">Listen On</h2>
+          <StreamingLinks :links="listenOnLinks" />
+        </div>
+
+        <!-- More from studio -->
+        <div v-if="moreFromStudio.length" class="related-section">
+          <h2 class="related-heading">More from {{ track.studio }}</h2>
+          <div class="row-wrap">
+            <div
+              :ref="
+                (el) => {
+                  composerRow.el.value = el as HTMLElement | null;
+                }
+              "
+              class="scroll-row"
+            >
+              <RouterLink
+                v-for="s in moreFromStudio"
+                :key="s.id"
+                :to="`/soundtrack/${s.slug ?? s.id}`"
+                class="related-card"
+              >
+                <div class="related-cover">
+                  <img
+                    v-if="s.cover_image_url"
+                    :src="s.cover_image_url"
+                    :alt="s.game_title"
+                  />
+                  <span v-else class="related-fallback">🎮</span>
+                </div>
+                <p class="related-title">{{ s.game_title }}</p>
+                <p class="related-meta">{{ s.release_year }}</p>
+              </RouterLink>
+            </div>
+            <Transition name="fade">
+              <button
+                v-if="composerRow.canLeft.value"
+                class="nav-edge nav-edge--left"
+                @click="composerRow.scroll(-1)"
+              >
+                <svg
+                  width="32"
+                  height="32"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <path d="M15 18l-6-6 6-6" />
+                </svg>
+              </button>
+            </Transition>
+            <Transition name="fade">
+              <button
+                v-if="composerRow.canRight.value"
+                class="nav-edge nav-edge--right"
+                @click="composerRow.scroll(1)"
+              >
+                <svg
+                  width="32"
+                  height="32"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <path d="M9 18l6-6-6-6" />
+                </svg>
+              </button>
+            </Transition>
+          </div>
+        </div>
+
+        <!-- Similar soundtracks -->
+        <div v-if="similarSoundtracks.length" class="related-section">
+          <h2 class="related-heading">You Might Also Like</h2>
+          <div class="row-wrap">
+            <div
+              :ref="
+                (el) => {
+                  similarRow.el.value = el as HTMLElement | null;
+                }
+              "
+              class="scroll-row"
+            >
+              <RouterLink
+                v-for="s in similarSoundtracks"
+                :key="s.id"
+                :to="`/soundtrack/${s.slug ?? s.id}`"
+                class="related-card"
+              >
+                <div class="related-cover">
+                  <img
+                    v-if="s.cover_image_url"
+                    :src="s.cover_image_url"
+                    :alt="s.game_title"
+                  />
+                  <span v-else class="related-fallback">🎮</span>
+                </div>
+                <p class="related-title">{{ s.game_title }}</p>
+                <p class="related-meta">
+                  {{ s.studio }} · {{ s.release_year }}
+                </p>
+              </RouterLink>
+            </div>
+            <Transition name="fade">
+              <button
+                v-if="similarRow.canLeft.value"
+                class="nav-edge nav-edge--left"
+                @click="similarRow.scroll(-1)"
+              >
+                <svg
+                  width="32"
+                  height="32"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <path d="M15 18l-6-6 6-6" />
+                </svg>
+              </button>
+            </Transition>
+            <Transition name="fade">
+              <button
+                v-if="similarRow.canRight.value"
+                class="nav-edge nav-edge--right"
+                @click="similarRow.scroll(1)"
+              >
+                <svg
+                  width="32"
+                  height="32"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <path d="M9 18l6-6-6-6" />
+                </svg>
+              </button>
+            </Transition>
+          </div>
+        </div>
+
+        <!-- Reviews -->
+        <div class="reviews-section">
+          <ReviewSection :soundtrack-id="track?.id ?? null" />
+        </div>
+      </div>
+
+      <!-- Right rail — Amazon card with the tracklist beneath it -->
+      <div v-if="amazonUrl || tracklist.length" class="side-rail">
+        <a
+          v-if="amazonUrl"
+          :href="amazonUrl"
+          target="_blank"
+          rel="noopener sponsored"
+          class="amazon-card"
         >
           <img
-            v-if="track.cover_image_url"
-            :src="track.cover_image_url"
-            :alt="track.game_title"
-            class="cover-img"
-            crossorigin="anonymous"
-            @load="extractCoverColor($event.target as HTMLImageElement)"
+            v-if="track.amazon_image_url"
+            :src="track.amazon_image_url"
+            :alt="`${track.game_title} on Amazon`"
+            class="amazon-product-img"
           />
-          <div v-else class="cover-fallback">🎮</div>
-          <div class="cover-play-overlay">
-            <svg width="56" height="56" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M8 5v14l11-7z" />
-            </svg>
-          </div>
-        </div>
-
-        <div class="info">
-          <div class="meta-line">
-            <span class="source-badge">{{
-              track.source_type === "playlist" ? "Full OST" : "Video"
-            }}</span>
-            <span class="console">{{ track.console }}</span>
-            <span class="year">{{ track.release_year }}</span>
-          </div>
-
-          <h1 class="game-title">{{ track.game_title }}</h1>
-          <div class="composers">
-            <RouterLink
-              v-for="c in track.composers"
-              :key="c"
-              :to="`/composer/${toSlug(c)}`"
-              class="composer-link"
-              >{{ c }}</RouterLink
-            >
-            <RouterLink
-              :to="`/studio/${toSlug(track.studio)}`"
-              class="studio-link"
-            >
-              {{ track.studio }}
-            </RouterLink>
-          </div>
-
-          <div class="actions">
-            <button class="play-btn" @click="play">
-              <svg
-                width="20"
-                height="20"
-                viewBox="0 0 24 24"
-                fill="currentColor"
-                style="padding-left: 2px"
-              >
-                <path d="M8 5v14l11-7z" />
-              </svg>
-              Play
-            </button>
-
-            <button
-              class="like-btn"
-              :class="{ liked: isLiked(id) }"
-              @click="toggleLike"
-            >
-              <svg
-                width="18"
-                height="18"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-              >
-                <path
-                  d="M19.5 12.572l-7.5 7.428-7.5-7.428a5 5 0 1 1 7.5-6.566 5 5 0 1 1 7.5 6.572"
-                />
-              </svg>
-              {{ displayLikes(track) }}
-            </button>
-
-            <button
-              class="save-btn"
-              :class="{ saved: isSaved(id) }"
-              :aria-label="isSaved(id) ? 'Remove from saved' : 'Save'"
-              @click="toggleSave(id)"
-            >
-              <svg
-                width="16"
-                height="16"
-                viewBox="0 0 24 24"
-                :fill="isSaved(id) ? 'currentColor' : 'none'"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-              >
-                <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
-              </svg>
-              {{ isSaved(id) ? "Saved" : "Save" }}
-            </button>
-
-            <button
-              v-if="user"
-              class="save-btn"
-              aria-label="Add to collection"
-              @click="showAddToPlaylist = true"
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
-              </svg>
-              Collection
-            </button>
-
-            <button class="share-btn" @click="share">
-              <svg
-                v-if="!copied"
-                width="16"
-                height="16"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-              >
-                <circle cx="18" cy="5" r="3" />
-                <circle cx="6" cy="12" r="3" />
-                <circle cx="18" cy="19" r="3" />
-                <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" />
-                <line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
-              </svg>
-              <svg
-                v-else
-                width="16"
-                height="16"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2.5"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-              >
-                <polyline points="20 6 9 17 4 12" />
-              </svg>
-              {{ copied ? "Copied!" : "Share" }}
-            </button>
-          </div>
-          <div
-            v-if="track.genre_tags?.length || track.theme_tags?.length"
-            class="tags"
-          >
-            <span
-              v-for="tag in track.genre_tags"
-              :key="tag"
-              class="tag genre"
-              >{{ tag }}</span
-            >
-            <span v-for="tag in track.theme_tags" :key="tag" class="tag mood">{{
-              tag
-            }}</span>
-          </div>
-          <a
-            v-if="amazonUrl"
-            :href="amazonUrl"
-            target="_blank"
-            rel="noopener sponsored"
-            class="amazon-inline"
-          >
-            <img
-              src="/amazonLogo.png"
-              alt="Amazon"
-              class="amazon-inline-logo"
-            />
-            <span class="amazon-inline-cta">{{
+          <div class="amazon-footer">
+            <img src="/amazonLogo.png" alt="Amazon" class="amazon-logo" />
+            <span class="amazon-cta">{{
               track.amazon_image_url ? "Buy the OST" : "Find on Amazon"
             }}</span>
-          </a>
-        </div>
+          </div>
+        </a>
+
+        <TracklistPanel v-if="tracklist.length" :tracks="tracklist" />
       </div>
-    </div>
-
-    <!-- Amazon disclosure -->
-    <p v-if="amazonUrl" class="amazon-disclosure">
-      As an Amazon Associate, SoundTrek earns from qualifying purchases.
-    </p>
-
-    <!-- Streaming links -->
-    <div v-if="listenOnLinks.length" class="links-section">
-      <h2 class="links-heading">Listen On</h2>
-      <StreamingLinks :links="listenOnLinks" />
-    </div>
-
-    <!-- More from studio -->
-    <div v-if="moreFromStudio.length" class="related-section">
-      <h2 class="related-heading">More from {{ track.studio }}</h2>
-      <div class="row-wrap">
-        <div
-          :ref="
-            (el) => {
-              composerRow.el.value = el as HTMLElement | null;
-            }
-          "
-          class="scroll-row"
-        >
-          <RouterLink
-            v-for="s in moreFromStudio"
-            :key="s.id"
-            :to="`/soundtrack/${s.slug ?? s.id}`"
-            class="related-card"
-          >
-            <div class="related-cover">
-              <img
-                v-if="s.cover_image_url"
-                :src="s.cover_image_url"
-                :alt="s.game_title"
-              />
-              <span v-else class="related-fallback">🎮</span>
-            </div>
-            <p class="related-title">{{ s.game_title }}</p>
-            <p class="related-meta">{{ s.release_year }}</p>
-          </RouterLink>
-        </div>
-        <Transition name="fade">
-          <button
-            v-if="composerRow.canLeft.value"
-            class="nav-edge nav-edge--left"
-            @click="composerRow.scroll(-1)"
-          >
-            <svg
-              width="32"
-              height="32"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            >
-              <path d="M15 18l-6-6 6-6" />
-            </svg>
-          </button>
-        </Transition>
-        <Transition name="fade">
-          <button
-            v-if="composerRow.canRight.value"
-            class="nav-edge nav-edge--right"
-            @click="composerRow.scroll(1)"
-          >
-            <svg
-              width="32"
-              height="32"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            >
-              <path d="M9 18l6-6-6-6" />
-            </svg>
-          </button>
-        </Transition>
-      </div>
-    </div>
-
-    <!-- Similar soundtracks -->
-    <div v-if="similarSoundtracks.length" class="related-section">
-      <h2 class="related-heading">You Might Also Like</h2>
-      <div class="row-wrap">
-        <div
-          :ref="
-            (el) => {
-              similarRow.el.value = el as HTMLElement | null;
-            }
-          "
-          class="scroll-row"
-        >
-          <RouterLink
-            v-for="s in similarSoundtracks"
-            :key="s.id"
-            :to="`/soundtrack/${s.slug ?? s.id}`"
-            class="related-card"
-          >
-            <div class="related-cover">
-              <img
-                v-if="s.cover_image_url"
-                :src="s.cover_image_url"
-                :alt="s.game_title"
-              />
-              <span v-else class="related-fallback">🎮</span>
-            </div>
-            <p class="related-title">{{ s.game_title }}</p>
-            <p class="related-meta">{{ s.studio }} · {{ s.release_year }}</p>
-          </RouterLink>
-        </div>
-        <Transition name="fade">
-          <button
-            v-if="similarRow.canLeft.value"
-            class="nav-edge nav-edge--left"
-            @click="similarRow.scroll(-1)"
-          >
-            <svg
-              width="32"
-              height="32"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            >
-              <path d="M15 18l-6-6 6-6" />
-            </svg>
-          </button>
-        </Transition>
-        <Transition name="fade">
-          <button
-            v-if="similarRow.canRight.value"
-            class="nav-edge nav-edge--right"
-            @click="similarRow.scroll(1)"
-          >
-            <svg
-              width="32"
-              height="32"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            >
-              <path d="M9 18l6-6-6-6" />
-            </svg>
-          </button>
-        </Transition>
-      </div>
-    </div>
-
-    <!-- Reviews -->
-    <div class="reviews-section">
-      <ReviewSection :soundtrack-id="track?.id ?? null" />
     </div>
   </div>
 
@@ -896,13 +955,37 @@ onUnmounted(() => {
   font-size: 4rem;
 }
 
-/* ── Amazon card ──────────────────────────────────────────────────────────── */
-.amazon-card {
+/* ── Right rail (Amazon card + tracklist) ─────────────────────────────────── */
+/* ── Two-column layout (main + right rail) ────────────────────────────────── */
+.page-columns {
+  position: relative; /* paints above the absolutely-positioned backdrop */
+  display: flex;
+  align-items: flex-start;
+}
+
+.page-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.side-rail {
   display: none; /* only on wide viewports */
-  position: absolute;
-  top: 1.25rem;
-  right: 1.5rem;
-  z-index: 1;
+  width: 330px;
+  flex-shrink: 0;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 1rem;
+  padding: 1.25rem 1.5rem 1rem 0;
+}
+
+@media (min-width: 1150px) {
+  .side-rail {
+    display: flex;
+  }
+}
+
+.amazon-card {
+  display: flex;
   width: 130px;
   flex-direction: column;
   border-radius: 10px;
@@ -913,12 +996,6 @@ onUnmounted(() => {
   transition:
     border-color 0.2s,
     box-shadow 0.2s;
-}
-
-@media (min-width: 1380px) {
-  .amazon-card {
-    display: flex;
-  }
 }
 
 .amazon-card:hover {
@@ -953,6 +1030,29 @@ onUnmounted(() => {
   font-weight: 600;
   color: #ff9900;
   white-space: nowrap;
+}
+
+/* ── Tracklist (narrow viewports) ─────────────────────────────────────────── */
+/* Card styles live in TracklistPanel.vue; this wrapper only handles where
+   the mobile instance sits and when it shows (the rail covers ≥1150px). */
+.tracklist-mobile {
+  display: none;
+  position: relative;
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 0 3rem 1.5rem;
+}
+
+@media (max-width: 1149.98px) {
+  .tracklist-mobile {
+    display: block;
+  }
+}
+
+@media (max-width: 768px) {
+  .tracklist-mobile {
+    padding: 0 1rem 1.5rem;
+  }
 }
 
 /* ── Info ─────────────────────────────────────────────────────────────────── */
@@ -1019,7 +1119,7 @@ onUnmounted(() => {
 }
 
 .composer-link + .composer-link::before,
-.studio-link::before {
+.composer-link + .studio-link::before {
   content: "·";
   margin-right: 0.5rem;
   color: var(--text-muted);
@@ -1040,6 +1140,7 @@ onUnmounted(() => {
 /* ── Actions ──────────────────────────────────────────────────────────────── */
 .actions {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 0.75rem;
   margin-bottom: 1.5rem;
@@ -1215,7 +1316,7 @@ onUnmounted(() => {
   white-space: nowrap;
 }
 
-@media (min-width: 1380px) {
+@media (min-width: 1150px) {
   .amazon-inline {
     display: none;
   }

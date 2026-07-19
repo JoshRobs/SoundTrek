@@ -79,7 +79,12 @@ function onAvatarBlur(e: FocusEvent) {
           />
         </div>
 
-        <RouterLink to="/saved" class="icon-btn" aria-label="Saved soundtracks">
+        <RouterLink
+          v-if="user"
+          to="/collections"
+          class="icon-btn"
+          aria-label="My collections"
+        >
           <svg
             width="16"
             height="16"
@@ -90,9 +95,32 @@ function onAvatarBlur(e: FocusEvent) {
             stroke-linecap="round"
             stroke-linejoin="round"
           >
-            <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
+            <line x1="8" y1="6" x2="21" y2="6" />
+            <line x1="8" y1="12" x2="21" y2="12" />
+            <line x1="8" y1="18" x2="21" y2="18" />
+            <line x1="3" y1="6" x2="3.01" y2="6" />
+            <line x1="3" y1="12" x2="3.01" y2="12" />
+            <line x1="3" y1="18" x2="3.01" y2="18" />
           </svg>
-          Saved Soundtracks
+          My Collections
+        </RouterLink>
+
+        <RouterLink to="/liked" class="icon-btn" aria-label="Liked soundtracks">
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path
+              d="M19.5 12.572l-7.5 7.428-7.5-7.428a5 5 0 1 1 7.5-6.566 5 5 0 1 1 7.5 6.572"
+            />
+          </svg>
+          Liked Soundtracks
         </RouterLink>
 
         <!-- Logged out -->
@@ -129,7 +157,7 @@ function onAvatarBlur(e: FocusEvent) {
                 My Collections
               </RouterLink>
               <RouterLink
-                to="/saved"
+                to="/liked"
                 class="dropdown-item"
                 @click="menuOpen = false"
               >
@@ -143,9 +171,11 @@ function onAvatarBlur(e: FocusEvent) {
                   stroke-linecap="round"
                   stroke-linejoin="round"
                 >
-                  <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
+                  <path
+                    d="M19.5 12.572l-7.5 7.428-7.5-7.428a5 5 0 1 1 7.5-6.566 5 5 0 1 1 7.5 6.572"
+                  />
                 </svg>
-                Saved
+                Liked
               </RouterLink>
               <RouterLink
                 to="/account"

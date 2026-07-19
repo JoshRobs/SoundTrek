@@ -11,6 +11,10 @@ const emit = defineEmits<{ close: [] }>();
 const router = useRouter();
 const { topThemes } = storeToRefs(useSoundtrackStore());
 const store = useSoundtrackStore();
+
+// The drawer mounts only when opened, so this lazily fetches the catalog
+// (worker KV-cached, deduped by the store) that topThemes derives from.
+store.loadAll();
 const { user, signOut } = useAuth();
 
 function navigate(path: string) {
@@ -140,7 +144,7 @@ async function handleSignOut() {
             </svg>
             My Collections
           </button>
-          <button class="nav-item" @click="navigate('/saved')">
+          <button class="nav-item" @click="navigate('/liked')">
             <svg
               width="14"
               height="14"
@@ -151,9 +155,11 @@ async function handleSignOut() {
               stroke-linecap="round"
               stroke-linejoin="round"
             >
-              <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
+              <path
+                d="M19.5 12.572l-7.5 7.428-7.5-7.428a5 5 0 1 1 7.5-6.566 5 5 0 1 1 7.5 6.572"
+              />
             </svg>
-            Saved Soundtracks
+            Liked Soundtracks
           </button>
           <button v-if="!user" class="nav-item" @click="navigate('/login')">
             <svg

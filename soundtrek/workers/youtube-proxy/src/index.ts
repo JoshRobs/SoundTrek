@@ -1,6 +1,8 @@
 export interface Env {
   YOUTUBE_CACHE: KVNamespace;
   YOUTUBE_API_KEY: string;
+  SUPABASE_URL: string;
+  SUPABASE_ANON_KEY: string;
 }
 
 const CORS_HEADERS = {
@@ -16,6 +18,10 @@ export default {
     }
 
     const url = new URL(request.url);
+
+    if (url.pathname === "/catalog") {
+      return catalog(env);
+    }
 
     const infoMatch = url.pathname.match(/^\/playlist-info\/([A-Za-z0-9_-]+)$/);
     if (infoMatch) {
@@ -94,6 +100,61 @@ export default {
     });
   },
 };
+
+// Full soundtracks catalog, cached in KV so Supabase egress is ~1 fetch per
+// TTL instead of ~2MB per visitor. Public data only — no auth is forwarded,
+// so nothing user-specific can ever end up in the shared cache. Admin pages
+// bypass this entirely and read Supabase directly (see loadAll's fresh flag).
+const CATALOG_TTL = 3600; // KV: at most one Supabase fetch per hour
+const CATALOG_BROWSER_TTL = 900; // repeat visitors skip the worker too
+
+async function catalog(env: Env): Promise<Response> {
+  const cacheKey = "catalog:v1";
+
+  const cached = await env.YOUTUBE_CACHE.get(cacheKey);
+  if (cached) return catalogResponse(cached);
+
+  // PostgREST caps responses at 1000 rows — page through like the client did.
+  const PAGE = 1000;
+  const rows: unknown[] = [];
+  let from = 0;
+  while (true) {
+    const res = await fetch(
+      `${env.SUPABASE_URL}/rest/v1/soundtracks?select=*&order=created_at.asc`,
+      {
+        headers: {
+          apikey: env.SUPABASE_ANON_KEY,
+          Authorization: `Bearer ${env.SUPABASE_ANON_KEY}`,
+          Range: `${from}-${from + PAGE - 1}`,
+        },
+      },
+    );
+    if (!res.ok) {
+      return new Response("Upstream error", {
+        status: res.status,
+        headers: CORS_HEADERS,
+      });
+    }
+    const page = (await res.json()) as unknown[];
+    rows.push(...page);
+    if (page.length < PAGE) break;
+    from += PAGE;
+  }
+
+  const body = JSON.stringify(rows);
+  await env.YOUTUBE_CACHE.put(cacheKey, body, { expirationTtl: CATALOG_TTL });
+  return catalogResponse(body);
+}
+
+function catalogResponse(body: string): Response {
+  return new Response(body, {
+    headers: {
+      ...CORS_HEADERS,
+      "Content-Type": "application/json",
+      "Cache-Control": `public, max-age=${CATALOG_BROWSER_TTL}`,
+    },
+  });
+}
 
 // Playlist metadata (title, item count) — used by the admin link checker.
 // Cached briefly so repeated checks are cheap but corrections show up fast.

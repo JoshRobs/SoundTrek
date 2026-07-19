@@ -1,6 +1,6 @@
 import { ref } from "vue";
 import { defineStore } from "pinia";
-import { supabase } from "@/lib/supabase";
+import { supabase, SOUNDTRACK_LIST_COLUMNS } from "@/lib/supabase";
 import type { Collection } from "@/types/collection";
 
 export const useCollectionStore = defineStore("collections", () => {
@@ -40,7 +40,7 @@ export const useCollectionStore = defineStore("collections", () => {
         *,
         collection_items (
           *,
-          soundtrack:soundtracks(*)
+          soundtrack:soundtracks(${SOUNDTRACK_LIST_COLUMNS})
         )
       `)
       .eq("id", id)

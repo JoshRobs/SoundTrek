@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { ref, computed, watch, nextTick, onMounted, onUnmounted } from "vue";
-import { useRouter } from "vue-router";
+import { RouterLink, useRouter } from "vue-router";
 import { storeToRefs } from "pinia";
 import { useSoundtrackStore } from "@/stores/soundtracks";
+import { toSlug } from "@/utils/slug";
 import StreamingLinks from "./StreamingLinks.vue";
 import { usePlayerControls } from "@/composables/usePlayerControls";
 import { useLikes } from "@/composables/useLikes";
@@ -270,7 +271,7 @@ watch(ytFallbackNeeded, (failed) => {
 
   if (ytPlaylistMode.value && track.youtube_video_id) {
     setYtPlaylistMode(false);
-    fallbackNotice.value = "Playlist unavailable — switched to single video";
+    fallbackNotice.value = "Playlist unavailable — switched to backup audio";
   } else if (hasSpotify.value) {
     activeSource.value = "spotify";
     fallbackNotice.value = "Video unavailable — switched to Spotify";
@@ -463,10 +464,37 @@ function ctxSwitchSource(src: "youtube" | "spotify") {
     <!-- Header -->
     <div class="player-header" @mousedown="onMoveStart">
       <div class="player-title-group">
-        <span class="player-game">{{ nowPlaying.game_title }}</span>
-        <span class="player-composer">{{
-          nowPlaying.composers?.join(", ") || nowPlaying.studio
-        }}</span>
+        <template v-if="!minimized">
+          <RouterLink
+            :to="`/soundtrack/${nowPlaying.slug ?? nowPlaying.id}`"
+            class="player-game player-link"
+            >{{ nowPlaying.game_title }}</RouterLink
+          >
+          <span class="player-composer">
+            <template v-if="nowPlaying.composers?.length">
+              <template v-for="(c, i) in nowPlaying.composers" :key="c">
+                <RouterLink :to="`/composer/${toSlug(c)}`" class="player-link">{{
+                  c
+                }}</RouterLink
+                ><template v-if="i < nowPlaying.composers.length - 1"
+                  >,
+                </template>
+              </template>
+            </template>
+            <RouterLink
+              v-else
+              :to="`/studio/${toSlug(nowPlaying.studio)}`"
+              class="player-link"
+              >{{ nowPlaying.studio }}</RouterLink
+            >
+          </span>
+        </template>
+        <template v-else>
+          <span class="player-game">{{ nowPlaying.game_title }}</span>
+          <span class="player-composer">{{
+            nowPlaying.composers?.join(", ") || nowPlaying.studio
+          }}</span>
+        </template>
       </div>
       <div v-if="minimized && hasSource" class="center-controls">
         <button
@@ -820,16 +848,28 @@ function ctxSwitchSource(src: "youtube" | "spotify") {
           class="yt-mode-btn"
           :title="
             ytPlaylistMode
-              ? 'Switch to single video'
-              : 'Switch to full playlist'
+              ? 'Playlist missing tracks or not playing? Switch to the backup audio source'
+              : 'Switch back to the full playlist'
           "
           @click="setYtPlaylistMode(!ytPlaylistMode)"
         >
           <template v-if="ytPlaylistMode">
-            <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M8 5v14l11-7z" />
+            <svg
+              width="11"
+              height="11"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2.5"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path d="M8 3 4 7l4 4" />
+              <path d="M4 7h16" />
+              <path d="m16 21 4-4-4-4" />
+              <path d="M20 17H4" />
             </svg>
-            Single video
+            Playlist broken? Try backup audio
           </template>
           <template v-else>
             <svg
@@ -849,7 +889,7 @@ function ctxSwitchSource(src: "youtube" | "spotify") {
               <line x1="3" y1="12" x2="3.01" y2="12" />
               <line x1="3" y1="18" x2="3.01" y2="18" />
             </svg>
-            Full playlist
+            Back to full playlist
           </template>
         </button>
       </div>
@@ -1049,6 +1089,25 @@ function ctxSwitchSource(src: "youtube" | "spotify") {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.player-link {
+  color: inherit;
+  text-decoration: none;
+  transition: color 0.15s;
+}
+
+/* Flex children stretch full-width by default — keep the title link's
+   hit area to just its text, so the rest of the header stays draggable. */
+.player-game.player-link {
+  align-self: flex-start;
+  max-width: 100%;
+}
+
+.player-link:hover {
+  color: var(--accent-light, var(--accent));
+  text-decoration: underline;
+  text-underline-offset: 2px;
 }
 
 .player-actions {
@@ -1350,14 +1409,16 @@ function ctxSwitchSource(src: "youtube" | "spotify") {
 .yt-mode-btn {
   display: flex;
   align-items: center;
-  gap: 0.25rem;
+  gap: 0.35rem;
   margin-left: auto;
-  padding: 0.15rem 0.45rem;
-  border-radius: 4px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  background: transparent;
-  color: rgba(255, 255, 255, 0.3);
-  font-size: 0.65rem;
+  padding: 0.28rem 0.7rem;
+  border-radius: 99px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.75);
+  font-size: 0.68rem;
+  font-weight: 600;
+  white-space: nowrap;
   cursor: pointer;
   transition:
     color 0.15s,
@@ -1366,9 +1427,9 @@ function ctxSwitchSource(src: "youtube" | "spotify") {
 }
 
 .yt-mode-btn:hover {
-  color: rgba(255, 255, 255, 0.75);
-  border-color: rgba(255, 255, 255, 0.25);
-  background: rgba(255, 255, 255, 0.05);
+  color: #fff;
+  border-color: color-mix(in srgb, var(--accent) 65%, transparent);
+  background: color-mix(in srgb, var(--accent) 20%, transparent);
 }
 
 .meta-playlist {

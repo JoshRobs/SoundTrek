@@ -10,7 +10,8 @@
     "generate-sitemap": "tsx scripts/generate-sitemap.ts",
     "generate-rss": "tsx scripts/generate-rss.ts",
     "enrich-composers": "tsx scripts/enrich-composers.ts",
-    "enrich-bios": "tsx scripts/enrich-bios.ts"
+    "enrich-bios": "tsx scripts/enrich-bios.ts",
+    "sync-tracklists": "tsx scripts/sync-tracklists.ts"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.8.0",

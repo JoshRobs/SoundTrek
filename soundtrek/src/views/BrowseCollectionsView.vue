@@ -11,7 +11,8 @@ useHead({
   meta: [
     {
       name: "description",
-      content: "Browse soundtrack collections curated by the SoundTrek community.",
+      content:
+        "Browse soundtrack collections curated by the SoundTrek community.",
     },
   ],
 });
@@ -27,7 +28,7 @@ const sortBy = ref<SortKey>("newest");
 const sortOptions: { value: SortKey; label: string }[] = [
   { value: "newest", label: "Newest" },
   { value: "tracks", label: "Most Tracks" },
-  { value: "name",   label: "Name A–Z" },
+  { value: "name", label: "Name A–Z" },
 ];
 
 const sortedCollections = computed(() => {
@@ -35,13 +36,37 @@ const sortedCollections = computed(() => {
   switch (sortBy.value) {
     case "newest":
       return list.sort(
-        (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+        (a, b) =>
+          new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
       );
     case "tracks":
       return list.sort((a, b) => itemCount(b) - itemCount(a));
     case "name":
       return list.sort((a, b) => a.name.localeCompare(b.name));
   }
+});
+
+const search = ref("");
+
+// Matches rank by where the query hit: title first, then theme tags, then
+// creator name. The active sort order is preserved within each group.
+const filteredCollections = computed(() => {
+  const q = search.value.trim().toLowerCase();
+  if (!q) return sortedCollections.value;
+
+  const matchTier = (c: Collection): number => {
+    if (c.name.toLowerCase().includes(q)) return 0;
+    if ((c.theme_tags ?? []).some((t) => t.toLowerCase().includes(q))) return 1;
+    if ((c.creator_name ?? "").toLowerCase().includes(q)) return 2;
+    return -1;
+  };
+
+  const tiers: Collection[][] = [[], [], []];
+  for (const c of sortedCollections.value) {
+    const tier = matchTier(c);
+    if (tier !== -1) tiers[tier].push(c);
+  }
+  return tiers.flat();
 });
 
 function coverImages(c: Collection): string[] {
@@ -66,25 +91,67 @@ function itemCount(c: Collection): number {
         subtitle="Soundtrack collections curated by other listeners"
       />
 
-      <div v-if="sortedCollections.length" class="sort-bar">
-        <button
-          v-for="opt in sortOptions"
-          :key="opt.value"
-          class="sort-pill"
-          :class="{ active: sortBy === opt.value }"
-          @click="sortBy = opt.value"
-        >
-          {{ opt.label }}
-        </button>
+      <div v-if="sortedCollections.length" class="toolbar">
+        <div class="search-box">
+          <svg
+            width="15"
+            height="15"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <circle cx="11" cy="11" r="8" />
+            <path d="m21 21-4.35-4.35" />
+          </svg>
+          <input
+            v-model="search"
+            type="text"
+            placeholder="Search collections, creators, tags…"
+          />
+          <button
+            v-if="search"
+            class="search-clear"
+            aria-label="Clear search"
+            @click="search = ''"
+          >
+            <svg
+              width="12"
+              height="12"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2.5"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path d="M18 6 6 18M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        <div class="sort-bar">
+          <button
+            v-for="opt in sortOptions"
+            :key="opt.value"
+            class="sort-pill"
+            :class="{ active: sortBy === opt.value }"
+            @click="sortBy = opt.value"
+          >
+            {{ opt.label }}
+          </button>
+        </div>
       </div>
 
       <div v-if="store.loadingPublic" class="state">
         <div class="spinner" style="--spinner-size: 28px" />
       </div>
 
-      <div v-else-if="sortedCollections.length" class="grid">
+      <div v-else-if="filteredCollections.length" class="grid">
         <div
-          v-for="c in sortedCollections"
+          v-for="c in filteredCollections"
           :key="c.id"
           class="card"
           @click="router.push(`/collection/${c.id}`)"
@@ -106,7 +173,7 @@ function itemCount(c: Collection): number {
             />
             <div v-else class="cover-empty">♫</div>
 
-            <div v-if="c.theme_tags?.length" class="card-overlay">
+            <div class="card-overlay">
               <div class="overlay-tags">
                 <span v-for="t in c.theme_tags" :key="t" class="overlay-tag">{{
                   t
@@ -122,6 +189,11 @@ function itemCount(c: Collection): number {
             </p>
           </div>
         </div>
+      </div>
+
+      <div v-else-if="search.trim()" class="empty">
+        <p>No collections match “{{ search.trim() }}”.</p>
+        <button class="browse-link" @click="search = ''">Clear search</button>
       </div>
 
       <div v-else class="empty">
@@ -149,12 +221,70 @@ function itemCount(c: Collection): number {
   padding: 0 1.5rem 4rem;
 }
 
+/* ── Toolbar ──────────────────────────────────────────────────────────────── */
+.toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem 1rem;
+  flex-wrap: wrap;
+  margin-bottom: 1.5rem;
+}
+
+.search-box {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0 0.85rem;
+  height: 34px;
+  min-width: 260px;
+  border-radius: 99px;
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  transition: border-color 0.15s;
+}
+
+.search-box:focus-within {
+  border-color: color-mix(in srgb, var(--accent) 50%, transparent);
+  color: var(--text-secondary);
+}
+
+.search-box input {
+  flex: 1;
+  border: none;
+  background: transparent;
+  color: var(--text-primary);
+  font-size: 0.85rem;
+  font-family: inherit;
+  outline: none;
+  min-width: 0;
+}
+
+.search-box input::placeholder {
+  color: var(--text-muted);
+}
+
+.search-clear {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: color 0.15s;
+}
+
+.search-clear:hover {
+  color: var(--text-primary);
+}
+
 /* ── Sort bar ─────────────────────────────────────────────────────────────── */
 .sort-bar {
   display: flex;
   flex-wrap: wrap;
   gap: 0.5rem;
-  margin-bottom: 1.5rem;
 }
 
 .sort-pill {
@@ -166,7 +296,10 @@ function itemCount(c: Collection): number {
   font-size: 0.8rem;
   font-weight: 500;
   cursor: pointer;
-  transition: background 0.12s, color 0.12s, border-color 0.12s;
+  transition:
+    background 0.12s,
+    color 0.12s,
+    border-color 0.12s;
 }
 
 .sort-pill:hover {
@@ -216,6 +349,7 @@ function itemCount(c: Collection): number {
   color: var(--text-secondary);
   font-size: 0.875rem;
   text-decoration: none;
+  cursor: pointer;
   transition:
     background 0.15s,
     color 0.15s;
@@ -358,13 +492,22 @@ function itemCount(c: Collection): number {
     padding: 0 1rem 5rem;
   }
 
+  .toolbar {
+    margin-bottom: 1.25rem;
+  }
+
+  .search-box {
+    width: 100%;
+    min-width: 0;
+  }
+
   .sort-bar {
     flex-wrap: nowrap;
     overflow-x: auto;
     scrollbar-width: none;
     padding-bottom: 0.25rem;
-    margin-bottom: 1.25rem;
     -webkit-overflow-scrolling: touch;
+    width: 100%;
   }
 
   .sort-bar::-webkit-scrollbar {

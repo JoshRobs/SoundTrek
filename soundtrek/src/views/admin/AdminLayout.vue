@@ -4,7 +4,9 @@ import { useRoute, useRouter } from "vue-router";
 import { useAuth } from "@/composables/useAuth";
 import { useSoundtrackStore } from "@/stores/soundtracks";
 
-useSoundtrackStore().loadAll();
+// fresh: admin forms hydrate from these rows — never serve them from the
+// worker's cached catalog.
+useSoundtrackStore().loadAll({ fresh: true });
 
 const route = useRoute();
 const router = useRouter();
@@ -16,6 +18,7 @@ const navItems = [
   { label: "Edit Soundtrack", path: "/admin/edit-soundtrack" },
   { label: "Composers",       path: "/admin/composers" },
   { label: "Fix Links",       path: "/admin/links" },
+  { label: "Composer Bios",   path: "/admin/composer-bios" },
 ];
 
 const currentLabel = computed(

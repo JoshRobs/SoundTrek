@@ -10,3 +10,9 @@ id = "f530810858954e51bd363c98a1e53469"
 
 # Run: wrangler secret put YOUTUBE_API_KEY
 # Then paste your YouTube Data API v3 key when prompted
+
+# Supabase anon credentials for the cached /catalog endpoint. The anon key is
+# public by design (it ships in the browser bundle) — safe to commit here.
+[vars]
+SUPABASE_URL = "https://uayihpavunkgubfxuhqj.supabase.co"
+SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVheWlocGF2dW5rZ3ViZnh1aHFqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE3MjYzMDIsImV4cCI6MjA5NzMwMjMwMn0.cjAxzBmq4M82LZ6NB7Wu_hElTqzMTVCimcdovGOJ8Vw"

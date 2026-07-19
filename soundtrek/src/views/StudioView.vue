@@ -2,7 +2,7 @@
 import { ref, computed, watch } from "vue";
 import { useHead } from "@unhead/vue";
 import { useRoute } from "vue-router";
-import { supabase } from "@/lib/supabase";
+import { supabase, SOUNDTRACK_LIST_COLUMNS } from "@/lib/supabase";
 import { toSlug } from "@/utils/slug";
 import PageHero from "@/components/PageHero.vue";
 import type { Soundtrack } from "@/types/soundtrack";
@@ -39,13 +39,13 @@ watch(
 
     const { data, error: err2 } = await supabase
       .from("soundtracks")
-      .select("*")
+      .select(SOUNDTRACK_LIST_COLUMNS)
       .eq("studio", name)
       .order("total_likes", { ascending: false });
     if (err2) {
       error.value = err2.message;
     } else {
-      studioSoundtracks.value = data ?? [];
+      studioSoundtracks.value = (data ?? []) as Soundtrack[];
     }
     loading.value = false;
   },

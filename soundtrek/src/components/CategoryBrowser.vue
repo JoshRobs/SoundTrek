@@ -6,7 +6,13 @@ import { useSoundtrackStore } from "@/stores/soundtracks";
 import { toSlug } from "@/utils/slug";
 
 const router = useRouter();
-const { allSoundtracks } = storeToRefs(useSoundtrackStore());
+const store = useSoundtrackStore();
+const { allSoundtracks } = storeToRefs(store);
+
+// Self-sufficient: the landing page no longer loads the catalog itself, so
+// fetch it here (worker KV-cached, deduped by the store). The cards pop in
+// reactively when it resolves.
+store.loadAll();
 
 const CATEGORIES = [
   { label: "historical", type: "theme", tags: ["historical"] },

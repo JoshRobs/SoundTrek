@@ -1,17 +1,22 @@
 <script setup lang="ts">
 import { ref } from "vue";
 import { useRouter } from "vue-router";
+import { useSoundtrackStore } from "@/stores/soundtracks";
 import MegaFeatured from "./MegaFeatured.vue";
 import MegaCategories from "./MegaCategories.vue";
 import MegaComposers from "./MegaComposers.vue";
 import MegaStudios from "./MegaStudios.vue";
 
 const router = useRouter();
+const store = useSoundtrackStore();
 const open = ref(false);
 let closeTimer: ReturnType<typeof setTimeout> | null = null;
 
 function onEnter() {
   if (closeTimer) clearTimeout(closeTimer);
+  // Featured/Categories derive from the catalog; kick off the (KV-cached,
+  // store-deduped) fetch on hover so the panel isn't empty.
+  store.loadAll();
   open.value = true;
 }
 

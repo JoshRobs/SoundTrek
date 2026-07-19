@@ -55,8 +55,8 @@ export const ModelName = {
   ContactMessage: 'ContactMessage',
   Submission: 'Submission',
   Soundtrack: 'Soundtrack',
-  UserLike: 'UserLike',
-  UserSave: 'UserSave'
+  Track: 'Track',
+  UserLike: 'UserLike'
 } as const
 
 export type ModelName = (typeof ModelName)[keyof typeof ModelName]
@@ -142,6 +142,18 @@ export const SoundtrackScalarFieldEnum = {
 export type SoundtrackScalarFieldEnum = (typeof SoundtrackScalarFieldEnum)[keyof typeof SoundtrackScalarFieldEnum]
 
 
+export const TrackScalarFieldEnum = {
+  soundtrack_id: 'soundtrack_id',
+  position: 'position',
+  video_id: 'video_id',
+  title: 'title',
+  unavailable: 'unavailable',
+  synced_at: 'synced_at'
+} as const
+
+export type TrackScalarFieldEnum = (typeof TrackScalarFieldEnum)[keyof typeof TrackScalarFieldEnum]
+
+
 export const UserLikeScalarFieldEnum = {
   user_id: 'user_id',
   soundtrack_id: 'soundtrack_id',
@@ -149,15 +161,6 @@ export const UserLikeScalarFieldEnum = {
 } as const
 
 export type UserLikeScalarFieldEnum = (typeof UserLikeScalarFieldEnum)[keyof typeof UserLikeScalarFieldEnum]
-
-
-export const UserSaveScalarFieldEnum = {
-  user_id: 'user_id',
-  soundtrack_id: 'soundtrack_id',
-  created_at: 'created_at'
-} as const
-
-export type UserSaveScalarFieldEnum = (typeof UserSaveScalarFieldEnum)[keyof typeof UserSaveScalarFieldEnum]
 
 
 export const SortOrder = {

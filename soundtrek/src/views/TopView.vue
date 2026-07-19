@@ -2,7 +2,7 @@
 import { ref, useTemplateRef } from "vue";
 import { useHead } from "@unhead/vue";
 import { useRouter } from "vue-router";
-import { supabase } from "@/lib/supabase";
+import { supabase, SOUNDTRACK_LIST_COLUMNS } from "@/lib/supabase";
 import { useSoundtrackStore } from "@/stores/soundtracks";
 import { useInfiniteScroll } from "@/composables/useInfiniteScroll";
 import PageHero from "@/components/PageHero.vue";
@@ -43,7 +43,7 @@ const { loading, exhausted } = useInfiniteScroll(sentinelEl, async () => {
   const from = items.value.length;
   const { data, error: err } = await supabase
     .from("soundtracks")
-    .select("*")
+    .select(SOUNDTRACK_LIST_COLUMNS)
     .order("total_likes", { ascending: false })
     .order("created_at", { ascending: true })
     .range(from, from + PAGE_SIZE - 1);
@@ -52,7 +52,7 @@ const { loading, exhausted } = useInfiniteScroll(sentinelEl, async () => {
     error.value = err.message;
     return false;
   }
-  items.value.push(...(data ?? []));
+  items.value.push(...((data ?? []) as Soundtrack[]));
   return (data?.length ?? 0) >= PAGE_SIZE;
 });
 </script>

@@ -5,7 +5,7 @@ import { useHead } from "@unhead/vue";
 import GameSearchBox from "@/components/GameSearchBox.vue";
 import RandomizeButton from "@/components/RandomizeButton.vue";
 import HeroCovers from "@/components/HeroCovers.vue";
-import { supabase } from "@/lib/supabase";
+import { supabase, SOUNDTRACK_LIST_COLUMNS } from "@/lib/supabase";
 import { useSoundtrackStore } from "@/stores/soundtracks";
 import type { Soundtrack } from "@/types/soundtrack";
 import { animate, stagger } from "animejs";
@@ -56,9 +56,7 @@ useHead({
     },
     { property: "og:url", content: "https://soundtrek.app/" },
   ],
-  link: [
-    { rel: "canonical", href: "https://soundtrek.app/" },
-  ],
+  link: [{ rel: "canonical", href: "https://soundtrek.app/" }],
 });
 
 const buildDate = __BUILD_DATE__;
@@ -71,7 +69,9 @@ function scrollToTop() {
 }
 
 function onSearchSelect(
-  result: { type: "soundtrack"; id: string } | { type: "composer"; slug: string },
+  result:
+    | { type: "soundtrack"; id: string }
+    | { type: "composer"; slug: string },
 ) {
   if (result.type === "composer") router.push(`/composer/${result.slug}`);
   else router.push(`/soundtrack/${result.id}`);
@@ -109,21 +109,23 @@ async function buildSections() {
     batchSize > 0
       ? supabase
           .from("soundtracks")
-          .select("*")
+          .select(SOUNDTRACK_LIST_COLUMNS)
           .range(offset, offset + batchSize - 1)
       : Promise.resolve({ data: [] as Soundtrack[] }),
     supabase
       .from("soundtracks")
-      .select("*")
+      .select(SOUNDTRACK_LIST_COLUMNS)
       .order("created_at", { ascending: false })
       .limit(5),
   ]);
 
-  const shuffled = [...(batch ?? [])].sort(() => Math.random() - 0.5);
+  const shuffled = [...((batch ?? []) as Soundtrack[])].sort(
+    () => Math.random() - 0.5,
+  );
   heroCovers.value = shuffled.filter((s) => s.cover_image_url).slice(0, 35);
   nowListeningItems.value = shuffled.slice(0, 4);
-  featuredItems.value = shuffled.slice(3, 9);
-  recentItems.value = recent ?? [];
+  featuredItems.value = shuffled.slice(4, 10);
+  recentItems.value = (recent ?? []) as Soundtrack[];
 
   if (total > 0) {
     const counter = { n: 0 };
@@ -270,8 +272,10 @@ onMounted(() => {
           </div>
           <div class="footer-col">
             <p class="footer-col-heading">Library</p>
-            <RouterLink to="/collections" class="footer-link">My Collections</RouterLink>
-            <RouterLink to="/saved" class="footer-link">Saved</RouterLink>
+            <RouterLink to="/collections" class="footer-link"
+              >My Collections</RouterLink
+            >
+            <RouterLink to="/liked" class="footer-link">Liked</RouterLink>
           </div>
           <div class="footer-col">
             <p class="footer-col-heading">Contribute</p>
@@ -301,10 +305,32 @@ onMounted(() => {
             property of their respective owners.
           </p>
           <p class="footer-disclaimer">
-            Game data powered by <a href="https://www.igdb.com" target="_blank" rel="noopener" class="footer-rss">IGDB</a>.
+            Game data powered by
+            <a
+              href="https://www.igdb.com"
+              target="_blank"
+              rel="noopener"
+              class="footer-rss"
+              >IGDB</a
+            >.
           </p>
           <p class="footer-disclaimer">
-            Icon made by <a href="https://www.freepik.com" target="_blank" rel="noopener" class="footer-rss">Freepik</a> from <a href="https://www.flaticon.com" target="_blank" rel="noopener" class="footer-rss">www.flaticon.com</a>.
+            Icon made by
+            <a
+              href="https://www.freepik.com"
+              target="_blank"
+              rel="noopener"
+              class="footer-rss"
+              >Freepik</a
+            >
+            from
+            <a
+              href="https://www.flaticon.com"
+              target="_blank"
+              rel="noopener"
+              class="footer-rss"
+              >www.flaticon.com</a
+            >.
           </p>
           <p class="footer-meta">
             Made with ♥ by Joshua Roberts &nbsp;·&nbsp; Updated {{ buildDate }}

@@ -94,6 +94,9 @@ watch(query, (q) => {
   clearTimeout(searchTimer);
   searching.value = !!q.trim();
   results.value = [];
+  // Typing reopens the dropdown — selecting a result (or Escape) closes it
+  // without blurring the input, so focus alone can't be the open trigger.
+  if (q.trim()) dropdownOpen.value = true;
   searchTimer = setTimeout(() => runSearch(q), 250);
 });
 

@@ -70,6 +70,21 @@ model Soundtrack {
   @@map("soundtracks")
 }
 
+// Tracklist rows synced from YouTube playlists by scripts/sync-tracklists.ts.
+// title is a snapshot taken at sync time; position is the 0-based playlist
+// index. Replaced wholesale per soundtrack on each sync.
+model Track {
+  soundtrack_id String   @db.Uuid
+  position      Int
+  video_id      String
+  title         String
+  unavailable   Boolean  @default(false)
+  synced_at     DateTime @default(now()) @db.Timestamptz(6)
+
+  @@id([soundtrack_id, position])
+  @@map("tracks")
+}
+
 // user_id references auth.users(id), managed by Supabase Auth — not modeled
 // here since this app's Prisma schema only tracks the public schema.
 model UserLike {
@@ -81,11 +96,3 @@ model UserLike {
   @@map("user_likes")
 }
 
-model UserSave {
-  user_id       String    @db.Uuid
-  soundtrack_id String
-  created_at    DateTime? @default(now()) @db.Timestamptz(6)
-
-  @@id([user_id, soundtrack_id])
-  @@map("user_saves")
-}
