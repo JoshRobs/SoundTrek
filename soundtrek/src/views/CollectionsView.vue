@@ -4,6 +4,7 @@ import { useRouter } from "vue-router";
 import { useHead } from "@unhead/vue";
 import { useCollectionStore } from "@/stores/collections";
 import CreateCollectionModal from "@/components/CreateCollectionModal.vue";
+import PageHero from "@/components/PageHero.vue";
 import type { Collection } from "@/types/collection";
 
 useHead({ title: "My Collections | SoundTrek" });
@@ -37,15 +38,14 @@ async function deleteCollection(c: Collection) {
 <template>
   <div class="page">
     <div class="page-inner">
-      <div class="page-header">
-        <div>
-          <h1 class="page-title">My Collections</h1>
-          <p class="page-subtitle">
-            {{ store.myCollections.length }} collection{{
-              store.myCollections.length !== 1 ? "s" : ""
-            }}
-          </p>
-        </div>
+      <div class="hero-row">
+        <PageHero
+          label="Library"
+          title="My Collections"
+          :subtitle="`${store.myCollections.length} collection${
+            store.myCollections.length !== 1 ? 's' : ''
+          }`"
+        />
         <button class="btn-create" @click="showCreate = true">
           + New Collection
         </button>
@@ -115,12 +115,9 @@ async function deleteCollection(c: Collection) {
                 </button>
               </div>
             </div>
-
-            <div class="card-title-center">
-              <p class="card-name">{{ c.name }}</p>
-            </div>
           </div>
           <div class="card-info">
+            <p class="card-name">{{ c.name }}</p>
             <p class="card-meta">
               {{ itemCount(c) }} track{{ itemCount(c) !== 1 ? "s" : "" }} ·
               {{ c.is_public ? "Public" : "Private" }}
@@ -151,26 +148,17 @@ async function deleteCollection(c: Collection) {
   flex: 1;
 }
 .page-inner {
-  max-width: 1100px;
+  max-width: 1200px;
+  width: 100%;
   margin: 0 auto;
-  padding: 2rem 2rem 4rem;
+  padding: 0 1.5rem 4rem;
 }
-.page-header {
+.hero-row {
   display: flex;
-  align-items: flex-end;
+  align-items: center;
   justify-content: space-between;
-  margin-bottom: 2rem;
   gap: 1rem;
-}
-.page-title {
-  font-size: 1.8rem;
-  font-weight: 700;
-  margin: 0;
-}
-.page-subtitle {
-  font-size: 0.85rem;
-  color: var(--text-muted);
-  margin: 0.25rem 0 0;
+  flex-wrap: wrap;
 }
 .btn-create {
   background: var(--accent);
@@ -199,7 +187,7 @@ async function deleteCollection(c: Collection) {
 }
 .grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
   gap: 1.25rem;
 }
 
@@ -221,38 +209,19 @@ async function deleteCollection(c: Collection) {
 .card-info {
   padding: 0 0.1rem;
 }
-.card-title-center {
-  position: absolute;
-  inset: 0;
-  z-index: 4;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 1rem;
-  text-align: center;
-  pointer-events: none;
-}
 .card-name {
-  font-size: 1.7rem;
+  font-size: 1.4rem;
   font-weight: 700;
-  color: #fff;
+  color: var(--text-primary);
   margin: 0;
-  max-width: 100%;
-  overflow-wrap: anywhere;
-  line-height: 1.25;
-  text-shadow:
-    0 1px 3px rgba(0, 0, 0, 0.9),
-    0 1px 2px rgba(0, 0, 0, 0.9);
-  display: -webkit-box;
-  -webkit-line-clamp: 3;
-  line-clamp: 3;
-  -webkit-box-orient: vertical;
+  white-space: nowrap;
   overflow: hidden;
+  text-overflow: ellipsis;
 }
 .card-meta {
-  font-size: 1rem;
+  font-size: 0.85rem;
   color: var(--text-muted);
-  margin: 0.2rem 0 0;
+  margin: 0.15rem 0 0;
 }
 
 .card-cover {
@@ -261,18 +230,6 @@ async function deleteCollection(c: Collection) {
   background: var(--surface-2);
   overflow: hidden;
   border-radius: 12px;
-}
-.card-cover::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  z-index: 1;
-  background: radial-gradient(
-    ellipse at center,
-    rgba(0, 0, 0, 0.45) 0%,
-    rgba(0, 0, 0, 0.55) 100%
-  );
-  pointer-events: none;
 }
 
 .cover-grid {
@@ -309,8 +266,8 @@ async function deleteCollection(c: Collection) {
   z-index: 3;
   background: linear-gradient(
     to top,
-    rgba(0, 0, 0, 0.85) 0%,
-    rgba(0, 0, 0, 0.4) 50%,
+    rgba(0, 0, 0, 0.75) 0%,
+    rgba(0, 0, 0, 0.25) 45%,
     rgba(0, 0, 0, 0) 100%
   );
   display: flex;
@@ -329,24 +286,6 @@ async function deleteCollection(c: Collection) {
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
-}
-
-.overlay-name {
-  font-size: 0.95rem;
-  font-weight: 700;
-  color: #fff;
-  margin: 0;
-  line-height: 1.2;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-
-.overlay-meta {
-  font-size: 0.72rem;
-  color: rgba(255, 255, 255, 0.65);
-  margin: 0;
 }
 
 .overlay-tags {
@@ -387,11 +326,25 @@ async function deleteCollection(c: Collection) {
 }
 @media (max-width: 768px) {
   .page-inner {
-    padding: 1.5rem 1rem 3rem;
+    padding: 0 1rem 5rem;
   }
   .grid {
     grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
     gap: 0.75rem;
+  }
+  .card-name {
+    font-size: 1.05rem;
+  }
+  .card-meta {
+    font-size: 0.8rem;
+  }
+}
+
+/* Touch devices can't hover — keep the overlay (and its Quick Edit /
+   Delete actions) visible, matching Browse Collections. */
+@media (hover: none) {
+  .card-overlay {
+    opacity: 1;
   }
 }
 </style>

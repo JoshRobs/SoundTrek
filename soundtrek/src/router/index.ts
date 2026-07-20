@@ -36,6 +36,7 @@ import AdminEditSoundtrack from "@/views/admin/AdminEditSoundtrack.vue";
 import AdminComposers from "@/views/admin/AdminComposers.vue";
 import AdminLinks from "@/views/admin/AdminLinks.vue";
 import AdminComposerBios from "@/views/admin/AdminComposerBios.vue";
+import AdminAmazon from "@/views/admin/AdminAmazon.vue";
 import NotFoundView from "@/views/NotFoundView.vue";
 
 export const routes: RouteRecordRaw[] = [
@@ -74,6 +75,7 @@ export const routes: RouteRecordRaw[] = [
       { path: "composers",       component: AdminComposers },
       { path: "links",           component: AdminLinks },
       { path: "composer-bios",   component: AdminComposerBios },
+      { path: "amazon",          component: AdminAmazon },
     ],
   },
   { path: "/:pathMatch(.*)*", component: NotFoundView },

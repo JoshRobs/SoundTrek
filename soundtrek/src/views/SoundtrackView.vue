@@ -616,8 +616,8 @@ onUnmounted(() => {
 
         <!-- Tracklist for narrow viewports (the right rail is hidden there) —
          collapsed by default so it doesn't push the page down -->
-        <div v-if="tracklist.length" class="tracklist-mobile">
-          <TracklistPanel :tracks="tracklist" collapsible />
+        <div v-if="tracklist.length && track" class="tracklist-mobile">
+          <TracklistPanel :tracks="tracklist" :soundtrack="track" collapsible />
         </div>
 
         <!-- Amazon disclosure -->
@@ -808,7 +808,11 @@ onUnmounted(() => {
           </div>
         </a>
 
-        <TracklistPanel v-if="tracklist.length" :tracks="tracklist" />
+        <TracklistPanel
+          v-if="tracklist.length && track"
+          :tracks="tracklist"
+          :soundtrack="track"
+        />
       </div>
     </div>
   </div>

@@ -7,6 +7,8 @@ declare namespace YT {
     nextVideo(): void
     previousVideo(): void
     playVideoAt(index: number): void
+    loadVideoById(videoId: string): void
+    seekTo(seconds: number, allowSeekAhead: boolean): void
     getPlaylistIndex(): number
     getPlayerState(): number
     destroy(): void

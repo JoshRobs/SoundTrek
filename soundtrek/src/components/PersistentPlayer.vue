@@ -3,16 +3,20 @@ import { ref, computed, watch, nextTick, onMounted, onUnmounted } from "vue";
 import { RouterLink, useRouter } from "vue-router";
 import { storeToRefs } from "pinia";
 import { useSoundtrackStore } from "@/stores/soundtracks";
+import { usePlayerStore } from "@/stores/player";
 import { toSlug } from "@/utils/slug";
 import StreamingLinks from "./StreamingLinks.vue";
 import { usePlayerControls } from "@/composables/usePlayerControls";
 import { useLikes } from "@/composables/useLikes";
 import SpotifyEmbed from "./SpotifyEmbed.vue";
+import PlayerQueue from "./PlayerQueue.vue";
 
 const router = useRouter();
 
 const store = useSoundtrackStore();
 const { nowPlaying } = storeToRefs(store);
+const playerStore = usePlayerStore();
+const { activeSoundtrack } = storeToRefs(playerStore);
 const { isLiked, toggleLike: rawToggle } = useLikes();
 
 function toggleLike() {
@@ -45,17 +49,18 @@ const hasBoth = computed(() => hasYoutube.value && hasSpotify.value);
 const hasAnySources = computed(() => hasYoutube.value || hasSpotify.value);
 
 // ── Playlist side panel ─────────────────────────────────────────────────────
-interface PlaylistItem {
-  videoId: string;
-  title: string;
-  unavailable: boolean;
-}
-const playlistItems = ref<PlaylistItem[]>([]);
 const showPanel = computed(
   () =>
-    !!nowPlaying.value?.youtube_playlist_id &&
+    (queue.value.length > 0 || !!nowPlaying.value?.youtube_playlist_id) &&
     activeSource.value === "youtube" &&
     ytPlaylistMode.value,
+);
+// Prev/next track controls: OST playlists (native fallback included) and
+// user-built queues.
+const showTrackNav = computed(
+  () =>
+    ytPlaylistMode.value &&
+    (nowPlaying.value?.source_type === "playlist" || queue.value.length > 0),
 );
 const PANEL_WIDTH = 220;
 const displayWidth = computed(() => {
@@ -77,6 +82,18 @@ function applySourceDefaults(source: "youtube" | "spotify") {
 }
 
 function switchSource(source: "youtube" | "spotify") {
+  if (source === activeSource.value) return;
+  // Leaving YouTube: remember the current queue track so switching back
+  // resumes from it instead of restarting the playlist. Reuses the same
+  // pendingVideoId path that restores position across page refreshes —
+  // it seeks once the rebuilt player's queue repopulates.
+  if (
+    activeSource.value === "youtube" &&
+    nowPlaying.value?.youtube_playlist_id
+  ) {
+    const vid = playerVideoIds.value[currentTrackIndex.value];
+    if (vid) pendingVideoId.value = vid;
+  }
   activeSource.value = source;
 }
 
@@ -94,7 +111,10 @@ watch([width, height], ([w, h]) => {
   localStorage.setItem("player-height", String(h));
 });
 
-watch(nowPlaying, (s, prev) => {
+// activeSoundtrack (not nowPlaying) means "the user started playing something
+// new" — a mixed queue advancing across OSTs changes nowPlaying but shouldn't
+// un-minimize the player or reset the source tab.
+watch(activeSoundtrack, (s, prev) => {
   if (!s) return;
   if (skipNextReset) {
     skipNextReset = false;
@@ -116,9 +136,12 @@ onMounted(() => {
       | "spotify";
     const w = Number(localStorage.getItem("player-width")) || 320;
     const h = Number(localStorage.getItem("player-height")) || 180;
-    pendingVideoId.value = localStorage.getItem("player-video-id");
     skipNextReset = true;
-    store.setNowPlaying(track);
+    // A persisted custom queue takes priority; otherwise restore the OST
+    if (!playerStore.restoreQueue()) {
+      pendingVideoId.value = localStorage.getItem("player-video-id");
+      store.setNowPlaying(track);
+    }
     activeSource.value = src;
     width.value = w;
     height.value = h;
@@ -243,6 +266,7 @@ const {
   volume,
   muted,
   currentTrackIndex,
+  queue,
   playerVideoIds,
   toggleMute,
   togglePlay,
@@ -292,11 +316,6 @@ const canToggleYtMode = computed(
     !!nowPlaying.value?.youtube_video_id,
 );
 
-function playVideoById(videoId: string) {
-  const idx = playerVideoIds.value.indexOf(videoId);
-  if (idx !== -1) playTrackAt(idx);
-}
-
 // ── Playlist resume across refreshes ───────────────────────────────────────
 const pendingVideoId = ref<string | null>(null);
 
@@ -314,25 +333,6 @@ watch(playerVideoIds, (ids) => {
   if (idx > 0) playTrackAt(idx);
   pendingVideoId.value = null;
 });
-
-// ── Playlist items fetch ────────────────────────────────────────────────────
-watch(
-  nowPlaying,
-  async (track) => {
-    playlistItems.value = [];
-    if (!track?.youtube_playlist_id) return;
-    const proxyUrl = import.meta.env.VITE_YOUTUBE_PROXY_URL;
-    if (!proxyUrl) return;
-    try {
-      const res = await fetch(
-        `${proxyUrl}/playlist/${track.youtube_playlist_id}`,
-      );
-      if (!res.ok) return;
-      playlistItems.value = await res.json();
-    } catch {}
-  },
-  { immediate: true },
-);
 
 const hasSource = computed(
   () =>
@@ -498,7 +498,7 @@ function ctxSwitchSource(src: "youtube" | "spotify") {
       </div>
       <div v-if="minimized && hasSource" class="center-controls">
         <button
-          v-if="nowPlaying.source_type === 'playlist' && ytPlaylistMode"
+          v-if="showTrackNav"
           class="track-nav-btn"
           aria-label="Previous track"
           @click="prevTrack"
@@ -533,7 +533,7 @@ function ctxSwitchSource(src: "youtube" | "spotify") {
           </svg>
         </button>
         <button
-          v-if="nowPlaying.source_type === 'playlist' && ytPlaylistMode"
+          v-if="showTrackNav"
           class="track-nav-btn"
           aria-label="Next track"
           @click="nextTrack"
@@ -685,20 +685,11 @@ function ctxSwitchSource(src: "youtube" | "spotify") {
           class="playlist-panel"
           :style="{ height: height + 'px' }"
         >
-          <button
-            v-for="(item, i) in playlistItems"
-            :key="item.videoId"
-            class="playlist-track"
-            :class="{
-              active: playerVideoIds[currentTrackIndex] === item.videoId,
-              unavailable: item.unavailable,
-            }"
-            :disabled="item.unavailable"
-            @click="!item.unavailable && playVideoById(item.videoId)"
-          >
-            <span class="track-num">{{ i + 1 }}</span>
-            <span class="track-title">{{ item.title }}</span>
-          </button>
+          <PlayerQueue
+            :items="queue"
+            :current-video-id="playerVideoIds[currentTrackIndex] ?? null"
+            @select="playTrackAt"
+          />
         </div>
         <div
           class="embed-wrap"
@@ -727,10 +718,7 @@ function ctxSwitchSource(src: "youtube" | "spotify") {
         <StreamingLinks :links="nowPlaying.streaming_links ?? []" />
       </div>
 
-      <div
-        v-if="nowPlaying.source_type === 'playlist' && hasSource && ytPlaylistMode"
-        class="playlist-nav"
-      >
+      <div v-if="showTrackNav && hasSource" class="playlist-nav">
         <button class="playlist-nav-btn" aria-label="Previous track" @click="prevTrack">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
             <path d="M6 6h2v12H6zm3.5 6 8.5 6V6z" />
@@ -1236,61 +1224,6 @@ function ctxSwitchSource(src: "youtube" | "spotify") {
 
 .playlist-panel::-webkit-scrollbar {
   display: none;
-}
-
-.playlist-track {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.42rem 0.75rem;
-  width: 100%;
-  border: none;
-  background: transparent;
-  text-align: left;
-  cursor: pointer;
-  transition: background 0.1s;
-}
-
-.playlist-track:hover {
-  background: rgba(255, 255, 255, 0.04);
-}
-
-.playlist-track.active {
-  background: rgba(255, 255, 255, 0.07);
-}
-
-.track-num {
-  flex-shrink: 0;
-  width: 1.4rem;
-  text-align: right;
-  font-size: 0.6rem;
-  color: rgba(255, 255, 255, 0.2);
-  font-variant-numeric: tabular-nums;
-}
-
-.playlist-track.active .track-num {
-  color: rgba(255, 255, 255, 0.45);
-}
-
-.track-title {
-  font-size: 0.7rem;
-  color: rgba(255, 255, 255, 0.38);
-  line-height: 1.3;
-  word-break: break-word;
-}
-
-.playlist-track.active .track-title {
-  color: rgba(255, 255, 255, 0.88);
-  font-weight: 500;
-}
-
-.playlist-track.unavailable {
-  cursor: default;
-  opacity: 0.3;
-}
-
-.playlist-track.unavailable .track-title {
-  text-decoration: line-through;
 }
 
 .no-source {

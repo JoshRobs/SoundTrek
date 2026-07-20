@@ -3,13 +3,17 @@ import { ref, computed, watch, onMounted, onUnmounted } from "vue";
 import { useRouter } from "vue-router";
 import { storeToRefs } from "pinia";
 import { useSoundtrackStore } from "@/stores/soundtracks";
+import { usePlayerStore } from "@/stores/player";
 import { usePlayerControls } from "@/composables/usePlayerControls";
 import { useLikes } from "@/composables/useLikes";
 import SpotifyEmbed from "./SpotifyEmbed.vue";
+import PlayerQueue from "./PlayerQueue.vue";
 
 const router = useRouter();
 const store = useSoundtrackStore();
 const { nowPlaying } = storeToRefs(store);
+const playerStore = usePlayerStore();
+const { activeSoundtrack } = storeToRefs(playerStore);
 const { isLiked, toggleLike: rawToggle } = useLikes();
 
 function toggleLike() {
@@ -39,6 +43,7 @@ const spotifyEmbedRef = ref<InstanceType<typeof SpotifyEmbed> | null>(null);
 const {
   isPlaying,
   currentTrackIndex,
+  queue,
   playerVideoIds,
   togglePlay,
   nextTrack,
@@ -52,6 +57,12 @@ const {
   activeSource,
   ytContainerRef,
   spotifyEmbedRef,
+);
+
+// The currently playing track within a playlist/queue — distinct from the
+// OST's game title, which is all the mini bar showed before.
+const currentTrackTitle = computed(
+  () => queue.value[currentTrackIndex.value]?.title ?? null,
 );
 
 function togglePlaylistMode() {
@@ -70,7 +81,7 @@ watch(ytFallbackNeeded, (failed) => {
 
   if (ytPlaylistMode.value && track.youtube_video_id) {
     setYtPlaylistMode(false);
-    fallbackNotice.value = "Playlist unavailable — switched to single video";
+    fallbackNotice.value = "Playlist unavailable — switched to backup audio";
   } else if (!!(track.spotify_id && track.spotify_type)) {
     activeSource.value = "spotify";
     fallbackNotice.value = "Video unavailable — switched to Spotify";
@@ -85,7 +96,9 @@ watch(ytFallbackNeeded, (failed) => {
 });
 
 const isPlaylist = computed(
-  () => nowPlaying.value?.source_type === "playlist" && ytPlaylistMode.value,
+  () =>
+    (nowPlaying.value?.source_type === "playlist" || queue.value.length > 0) &&
+    ytPlaylistMode.value,
 );
 
 const canToggleMode = computed(
@@ -95,37 +108,11 @@ const canToggleMode = computed(
     !!nowPlaying.value?.youtube_video_id,
 );
 
-// ── Playlist items ─────────────────────────────────────────────────────────
-interface PlaylistItem {
-  videoId: string;
-  title: string;
-  unavailable: boolean;
-}
-const playlistItems = ref<PlaylistItem[]>([]);
-
-watch(
-  nowPlaying,
-  async (track) => {
-    playlistItems.value = [];
-    showTracklist.value = false;
-    if (!track?.youtube_playlist_id) return;
-    const proxyUrl = import.meta.env.VITE_YOUTUBE_PROXY_URL;
-    if (!proxyUrl) return;
-    try {
-      const res = await fetch(
-        `${proxyUrl}/playlist/${track.youtube_playlist_id}`,
-      );
-      if (!res.ok) return;
-      playlistItems.value = await res.json();
-    } catch {}
-  },
-  { immediate: true },
-);
-
-function playVideoById(videoId: string) {
-  const idx = playerVideoIds.value.indexOf(videoId);
-  if (idx !== -1) playTrackAt(idx);
-}
+// Close the tracklist overlay when new playback starts (not on queue
+// advancement — nowPlaying changes mid-queue in mixed queues).
+watch(activeSoundtrack, () => {
+  showTracklist.value = false;
+});
 
 // ── Persistence ────────────────────────────────────────────────────────────
 let skipNextReset = false;
@@ -137,7 +124,10 @@ watch(nowPlaying, (s) => {
 
 watch(activeSource, (src) => localStorage.setItem("player-source", src));
 
-watch(nowPlaying, (s, prev) => {
+// activeSoundtrack (not nowPlaying) means "the user started playing something
+// new" — a mixed queue advancing across OSTs changes nowPlaying but shouldn't
+// pop the sheet open or reset the source tab.
+watch(activeSoundtrack, (s, prev) => {
   if (!s) {
     sheetOpen.value = false;
     return;
@@ -176,9 +166,12 @@ onMounted(() => {
     const src = (localStorage.getItem("player-source") ?? "youtube") as
       | "youtube"
       | "spotify";
-    pendingVideoId.value = localStorage.getItem("player-video-id");
     skipNextReset = true;
-    store.setNowPlaying(track);
+    // A persisted custom queue takes priority; otherwise restore the OST
+    if (!playerStore.restoreQueue()) {
+      pendingVideoId.value = localStorage.getItem("player-video-id");
+      store.setNowPlaying(track);
+    }
     activeSource.value = src;
   } catch {
     localStorage.removeItem("player-track");
@@ -223,7 +216,8 @@ onMounted(() => window.addEventListener("keydown", onKeydown));
 onUnmounted(() => window.removeEventListener("keydown", onKeydown));
 
 function goToPage() {
-  if (nowPlaying.value) router.push(`/soundtrack/${nowPlaying.value.slug ?? nowPlaying.value.id}`);
+  if (nowPlaying.value)
+    router.push(`/soundtrack/${nowPlaying.value.slug ?? nowPlaying.value.id}`);
   sheetOpen.value = false;
 }
 </script>
@@ -231,7 +225,12 @@ function goToPage() {
 <template>
   <template v-if="nowPlaying">
     <!-- ── Mini bar ─────────────────────────────────────────────────────── -->
-    <div class="mini-bar" @click="sheetOpen = true" @touchstart.stop @touchmove.stop>
+    <div
+      class="mini-bar"
+      @click="sheetOpen = true"
+      @touchstart.stop
+      @touchmove.stop
+    >
       <img
         v-if="nowPlaying.cover_image_url"
         class="mini-cover"
@@ -241,9 +240,13 @@ function goToPage() {
       <div v-else class="mini-cover mini-cover--fallback">🎮</div>
 
       <div class="mini-info">
-        <span class="mini-title">{{ nowPlaying.game_title }}</span>
+        <span class="mini-title">{{
+          currentTrackTitle || nowPlaying.game_title
+        }}</span>
         <span class="mini-artist">{{
-          (nowPlaying.composers ?? []).join(", ") || nowPlaying.studio
+          currentTrackTitle
+            ? nowPlaying.game_title
+            : (nowPlaying.composers ?? []).join(", ") || nowPlaying.studio
         }}</span>
       </div>
 
@@ -252,10 +255,23 @@ function goToPage() {
         :aria-label="isPlaying ? 'Pause' : 'Play'"
         @click.stop="togglePlay"
       >
-        <svg v-if="isPlaying" width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
+        <svg
+          v-if="isPlaying"
+          width="22"
+          height="22"
+          viewBox="0 0 24 24"
+          fill="currentColor"
+        >
           <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" />
         </svg>
-        <svg v-else width="22" height="22" viewBox="0 0 24 24" fill="currentColor" style="padding-left: 2px">
+        <svg
+          v-else
+          width="22"
+          height="22"
+          viewBox="0 0 24 24"
+          fill="currentColor"
+          style="padding-left: 2px"
+        >
           <path d="M8 5v14l11-7z" />
         </svg>
       </button>
@@ -266,13 +282,37 @@ function goToPage() {
         :aria-label="isLiked(nowPlaying.id) ? 'Unlike' : 'Like'"
         @click.stop="toggleLike"
       >
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+        <svg
+          width="20"
+          height="20"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path
+            d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"
+          />
         </svg>
       </button>
 
-      <button class="mini-btn" aria-label="Close player" @click.stop="store.setNowPlaying(null)">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+      <button
+        class="mini-btn"
+        aria-label="Close player"
+        @click.stop="store.setNowPlaying(null)"
+      >
+        <svg
+          width="18"
+          height="18"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2.5"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
           <path d="M18 6 6 18M6 6l12 12" />
         </svg>
       </button>
@@ -288,7 +328,13 @@ function goToPage() {
         @touchstart.self.stop="sheetOpen = false"
         @touchmove.stop
       >
-        <div ref="sheetEl" class="sheet" @click.stop @touchstart.stop @touchmove.stop>
+        <div
+          ref="sheetEl"
+          class="sheet"
+          @click.stop
+          @touchstart.stop
+          @touchmove.stop
+        >
           <!-- Handle -->
           <div
             class="sheet-handle-area"
@@ -303,15 +349,39 @@ function goToPage() {
           <!-- Header -->
           <div class="sheet-header">
             <button class="sheet-page-btn" @click="goToPage">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path
+                  d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"
+                />
                 <polyline points="15 3 21 3 21 9" />
                 <line x1="10" y1="14" x2="21" y2="3" />
               </svg>
               View soundtrack
             </button>
-            <button class="sheet-close-btn" aria-label="Close" @click="sheetOpen = false">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <button
+              class="sheet-close-btn"
+              aria-label="Close"
+              @click="sheetOpen = false"
+            >
+              <svg
+                width="20"
+                height="20"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2.5"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
                 <path d="M18 6 6 18M6 6l12 12" />
               </svg>
             </button>
@@ -319,12 +389,29 @@ function goToPage() {
 
           <!-- Source tabs — visible whenever at least one source exists -->
           <div v-if="hasYoutube || hasSpotify" class="source-bar">
-            <button v-if="hasYoutube" class="source-btn source-btn--youtube" :class="{ active: activeSource === 'youtube' }" @click="activeSource = 'youtube'">
+            <button
+              v-if="hasYoutube"
+              class="source-btn source-btn--youtube"
+              :class="{ active: activeSource === 'youtube' }"
+              @click="activeSource = 'youtube'"
+            >
               <img src="/ytLogo.png" alt="YouTube" class="yt-logo-img" />
             </button>
-            <button v-if="hasSpotify" class="source-btn source-btn--spotify" :class="{ active: activeSource === 'spotify' }" @click="activeSource = 'spotify'">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z" />
+            <button
+              v-if="hasSpotify"
+              class="source-btn source-btn--spotify"
+              :class="{ active: activeSource === 'spotify' }"
+              @click="activeSource = 'spotify'"
+            >
+              <svg
+                width="12"
+                height="12"
+                viewBox="0 0 24 24"
+                fill="currentColor"
+              >
+                <path
+                  d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"
+                />
               </svg>
               Spotify
             </button>
@@ -333,7 +420,16 @@ function goToPage() {
           <!-- Fallback notice -->
           <Transition name="notice">
             <div v-if="fallbackNotice" class="fallback-notice">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <svg
+                width="13"
+                height="13"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
                 <circle cx="12" cy="12" r="10" />
                 <line x1="12" y1="8" x2="12" y2="12" />
                 <line x1="12" y1="16" x2="12.01" y2="16" />
@@ -344,7 +440,11 @@ function goToPage() {
 
           <!-- Embed -->
           <div class="sheet-embed">
-            <div v-if="activeSource === 'youtube' && hasYoutube" ref="ytContainerRef" class="yt-container" />
+            <div
+              v-if="activeSource === 'youtube' && hasYoutube"
+              ref="ytContainerRef"
+              class="yt-container"
+            />
             <a
               v-if="activeSource === 'spotify' && hasSpotify"
               :href="`https://open.spotify.com/${nowPlaying.spotify_type}/${nowPlaying.spotify_id}`"
@@ -352,8 +452,15 @@ function goToPage() {
               rel="noopener noreferrer"
               class="spotify-open"
             >
-              <svg width="36" height="36" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z" />
+              <svg
+                width="36"
+                height="36"
+                viewBox="0 0 24 24"
+                fill="currentColor"
+              >
+                <path
+                  d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z"
+                />
               </svg>
               <span class="spotify-open-label">Open in Spotify</span>
               <span class="spotify-open-sub">Tap to open the Spotify app</span>
@@ -364,34 +471,78 @@ function goToPage() {
           <div class="sheet-lower">
             <!-- Mode row: always below embed -->
             <div
-              v-if="canToggleMode || (isPlaylist && playlistItems.length && activeSource === 'youtube')"
+              v-if="
+                canToggleMode ||
+                (isPlaylist && queue.length && activeSource === 'youtube')
+              "
               class="sheet-mode-row"
             >
-              <button v-if="canToggleMode" class="mode-btn" @click="togglePlaylistMode">
-                <svg v-if="ytPlaylistMode" width="11" height="11" viewBox="0 0 24 24" fill="currentColor">
+              <button
+                v-if="canToggleMode"
+                class="mode-btn mode-btn--yt"
+                @click="togglePlaylistMode"
+              >
+                <svg
+                  v-if="ytPlaylistMode"
+                  width="11"
+                  height="11"
+                  viewBox="0 0 24 24"
+                  fill="currentColor"
+                >
                   <path d="M8 5v14l11-7z" />
                 </svg>
-                <svg v-else width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                  <line x1="8" y1="6" x2="21" y2="6" /><line x1="8" y1="12" x2="21" y2="12" /><line x1="8" y1="18" x2="21" y2="18" />
-                  <line x1="3" y1="6" x2="3.01" y2="6" /><line x1="3" y1="12" x2="3.01" y2="12" /><line x1="3" y1="18" x2="3.01" y2="18" />
+                <svg
+                  v-else
+                  width="11"
+                  height="11"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2.5"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <line x1="8" y1="6" x2="21" y2="6" />
+                  <line x1="8" y1="12" x2="21" y2="12" />
+                  <line x1="8" y1="18" x2="21" y2="18" />
+                  <line x1="3" y1="6" x2="3.01" y2="6" />
+                  <line x1="3" y1="12" x2="3.01" y2="12" />
+                  <line x1="3" y1="18" x2="3.01" y2="18" />
                 </svg>
-                {{ ytPlaylistMode ? "Single video" : "Full playlist" }}
+                {{
+                  ytPlaylistMode
+                    ? "Playlist broken? Try backup audio"
+                    : "Full playlist"
+                }}
               </button>
 
               <span class="mode-spacer" />
 
               <button
-                v-if="isPlaylist && playlistItems.length && activeSource === 'youtube'"
+                v-if="isPlaylist && queue.length && activeSource === 'youtube'"
                 class="mode-btn mode-btn--list"
                 :class="{ active: showTracklist }"
                 @click="showTracklist = !showTracklist"
               >
-                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                  <line x1="8" y1="6" x2="21" y2="6" /><line x1="8" y1="12" x2="21" y2="12" /><line x1="8" y1="18" x2="21" y2="18" />
-                  <line x1="3" y1="6" x2="3.01" y2="6" /><line x1="3" y1="12" x2="3.01" y2="12" /><line x1="3" y1="18" x2="3.01" y2="18" />
+                <svg
+                  width="11"
+                  height="11"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2.5"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <line x1="8" y1="6" x2="21" y2="6" />
+                  <line x1="8" y1="12" x2="21" y2="12" />
+                  <line x1="8" y1="18" x2="21" y2="18" />
+                  <line x1="3" y1="6" x2="3.01" y2="6" />
+                  <line x1="3" y1="12" x2="3.01" y2="12" />
+                  <line x1="3" y1="18" x2="3.01" y2="18" />
                 </svg>
                 Tracklist
-                <span class="tracklist-badge">{{ playlistItems.length }}</span>
+                <span class="tracklist-badge">{{ queue.length }}</span>
               </button>
             </div>
 
@@ -404,11 +555,31 @@ function goToPage() {
                 :alt="nowPlaying.game_title"
               />
               <div class="sheet-text">
-                <p class="sheet-title">{{ nowPlaying.game_title }}</p>
-                <p class="sheet-artist">
-                  {{ (nowPlaying.composers ?? []).join(", ") || nowPlaying.studio }}
+                <p class="sheet-title">
+                  {{ currentTrackTitle || nowPlaying.game_title }}
                 </p>
-                <p class="sheet-meta">{{ nowPlaying.console }} · {{ nowPlaying.release_year }}</p>
+                <p class="sheet-artist">
+                  <template v-if="currentTrackTitle">
+                    {{ nowPlaying.game_title
+                    }}<template
+                      v-if="
+                        (nowPlaying.composers ?? []).length || nowPlaying.studio
+                      "
+                    >
+                      ·
+                      {{
+                        (nowPlaying.composers ?? []).join(", ") ||
+                        nowPlaying.studio
+                      }}</template
+                    >
+                  </template>
+                  <template v-else>{{
+                    (nowPlaying.composers ?? []).join(", ") || nowPlaying.studio
+                  }}</template>
+                </p>
+                <p class="sheet-meta">
+                  {{ nowPlaying.console }} · {{ nowPlaying.release_year }}
+                </p>
               </div>
               <button
                 class="sheet-like-btn"
@@ -416,8 +587,19 @@ function goToPage() {
                 :aria-label="isLiked(nowPlaying.id) ? 'Unlike' : 'Like'"
                 @click="toggleLike"
               >
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+                <svg
+                  width="22"
+                  height="22"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <path
+                    d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"
+                  />
                 </svg>
               </button>
             </div>
@@ -430,15 +612,37 @@ function goToPage() {
                 aria-label="Previous track"
                 @click="prevTrack"
               >
-                <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor">
+                <svg
+                  width="28"
+                  height="28"
+                  viewBox="0 0 24 24"
+                  fill="currentColor"
+                >
                   <path d="M6 6h2v12H6zm3.5 6 8.5 6V6z" />
                 </svg>
               </button>
-              <button class="ctrl-play" :aria-label="isPlaying ? 'Pause' : 'Play'" @click="togglePlay">
-                <svg v-if="isPlaying" width="32" height="32" viewBox="0 0 24 24" fill="currentColor">
+              <button
+                class="ctrl-play"
+                :aria-label="isPlaying ? 'Pause' : 'Play'"
+                @click="togglePlay"
+              >
+                <svg
+                  v-if="isPlaying"
+                  width="32"
+                  height="32"
+                  viewBox="0 0 24 24"
+                  fill="currentColor"
+                >
                   <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" />
                 </svg>
-                <svg v-else width="32" height="32" viewBox="0 0 24 24" fill="currentColor" style="padding-left: 3px">
+                <svg
+                  v-else
+                  width="32"
+                  height="32"
+                  viewBox="0 0 24 24"
+                  fill="currentColor"
+                  style="padding-left: 3px"
+                >
                   <path d="M8 5v14l11-7z" />
                 </svg>
               </button>
@@ -448,7 +652,12 @@ function goToPage() {
                 aria-label="Next track"
                 @click="nextTrack"
               >
-                <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor">
+                <svg
+                  width="28"
+                  height="28"
+                  viewBox="0 0 24 24"
+                  fill="currentColor"
+                >
                   <path d="M6 18l8.5-6L6 6v12zM16 6h2v12h-2z" />
                 </svg>
               </button>
@@ -457,34 +666,45 @@ function goToPage() {
             <!-- Tracklist overlay: slides up over info + controls -->
             <Transition name="tracklist-slide">
               <div
-                v-if="showTracklist && isPlaylist && playlistItems.length && activeSource === 'youtube'"
+                v-if="
+                  showTracklist &&
+                  isPlaylist &&
+                  queue.length &&
+                  activeSource === 'youtube'
+                "
                 class="tracklist-overlay"
                 @touchstart.stop
                 @touchmove.stop
               >
                 <div class="tracklist-header">
                   <span class="tracklist-heading">Tracklist</span>
-                  <button class="tracklist-close-btn" aria-label="Close tracklist" @click="showTracklist = false">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                  <button
+                    class="tracklist-close-btn"
+                    aria-label="Close tracklist"
+                    @click="showTracklist = false"
+                  >
+                    <svg
+                      width="14"
+                      height="14"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2.5"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    >
                       <path d="M18 15l-6 6-6-6" />
                     </svg>
                   </button>
                 </div>
                 <div class="tracklist-scroll" @touchstart.stop @touchmove.stop>
-                  <button
-                    v-for="(item, i) in playlistItems"
-                    :key="item.videoId"
-                    class="playlist-track"
-                    :class="{
-                      active: playerVideoIds[currentTrackIndex] === item.videoId,
-                      unavailable: item.unavailable,
-                    }"
-                    :disabled="item.unavailable"
-                    @click="!item.unavailable && playVideoById(item.videoId)"
-                  >
-                    <span class="track-num">{{ i + 1 }}</span>
-                    <span class="track-title">{{ item.title }}</span>
-                  </button>
+                  <PlayerQueue
+                    :items="queue"
+                    :current-video-id="
+                      playerVideoIds[currentTrackIndex] ?? null
+                    "
+                    @select="playTrackAt"
+                  />
                 </div>
               </div>
             </Transition>
@@ -578,7 +798,9 @@ function goToPage() {
 }
 
 .mini-like-btn svg {
-  transition: fill 0.15s, stroke 0.15s;
+  transition:
+    fill 0.15s,
+    stroke 0.15s;
 }
 
 .mini-like-btn.liked svg {
@@ -643,7 +865,9 @@ function goToPage() {
   color: rgba(255, 255, 255, 0.5);
   font-size: 0.78rem;
   cursor: pointer;
-  transition: color 0.15s, border-color 0.15s;
+  transition:
+    color 0.15s,
+    border-color 0.15s;
 }
 
 .sheet-page-btn:active {
@@ -686,7 +910,9 @@ function goToPage() {
   font-weight: 500;
   cursor: pointer;
   border-bottom: 2px solid transparent;
-  transition: color 0.15s, border-color 0.15s;
+  transition:
+    color 0.15s,
+    border-color 0.15s;
   -webkit-tap-highlight-color: transparent;
 }
 
@@ -721,7 +947,9 @@ function goToPage() {
 
 .notice-enter-active,
 .notice-leave-active {
-  transition: opacity 0.3s, max-height 0.3s;
+  transition:
+    opacity 0.3s,
+    max-height 0.3s;
   max-height: 40px;
   overflow: hidden;
 }
@@ -812,7 +1040,10 @@ function goToPage() {
   font-size: 0.72rem;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
-  transition: color 0.15s, border-color 0.15s, background 0.15s;
+  transition:
+    color 0.15s,
+    border-color 0.15s,
+    background 0.15s;
 }
 
 .mode-btn:active {
@@ -824,6 +1055,24 @@ function goToPage() {
   background: rgba(255, 255, 255, 0.08);
   color: rgba(255, 255, 255, 0.75);
   border-color: rgba(255, 255, 255, 0.2);
+}
+
+/* Matches .yt-mode-btn in PersistentPlayer.vue */
+.mode-btn--yt {
+  padding: 0.28rem 0.7rem;
+  border-radius: 99px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.75);
+  font-size: 0.68rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.mode-btn--yt:active {
+  color: #fff;
+  border-color: color-mix(in srgb, var(--accent) 65%, transparent);
+  background: color-mix(in srgb, var(--accent) 20%, transparent);
 }
 
 .tracklist-badge {
@@ -865,7 +1114,9 @@ function goToPage() {
 }
 
 .sheet-like-btn svg {
-  transition: fill 0.15s, stroke 0.15s;
+  transition:
+    fill 0.15s,
+    stroke 0.15s;
 }
 
 .sheet-like-btn:active {
@@ -959,7 +1210,9 @@ function goToPage() {
   color: #000;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
-  transition: transform 0.12s, background 0.15s;
+  transition:
+    transform 0.12s,
+    background 0.15s;
 }
 
 .ctrl-play:active {
@@ -1017,63 +1270,15 @@ function goToPage() {
   touch-action: pan-y;
   overscroll-behavior: contain;
   scrollbar-width: none;
+  /* Larger touch targets for the shared PlayerQueue rows */
+  --queue-gap: 0.6rem;
+  --queue-pad: 0.55rem 1rem;
+  --queue-num-size: 0.65rem;
+  --queue-title-size: 0.75rem;
 }
 
 .tracklist-scroll::-webkit-scrollbar {
   display: none;
-}
-
-/* ── Playlist track rows ──────────────────────────────────────────────────── */
-.playlist-track {
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-  padding: 0.55rem 1rem;
-  width: 100%;
-  border: none;
-  background: transparent;
-  text-align: left;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-  transition: background 0.1s;
-}
-
-.playlist-track:active {
-  background: rgba(255, 255, 255, 0.05);
-}
-
-.playlist-track.active {
-  background: rgba(255, 255, 255, 0.07);
-}
-
-.playlist-track.unavailable {
-  opacity: 0.3;
-  cursor: default;
-}
-
-.track-num {
-  flex-shrink: 0;
-  width: 1.4rem;
-  text-align: right;
-  font-size: 0.65rem;
-  color: rgba(255, 255, 255, 0.2);
-  font-variant-numeric: tabular-nums;
-}
-
-.playlist-track.active .track-num {
-  color: rgba(255, 255, 255, 0.5);
-}
-
-.track-title {
-  font-size: 0.75rem;
-  color: rgba(255, 255, 255, 0.38);
-  line-height: 1.3;
-  text-align: left;
-}
-
-.playlist-track.active .track-title {
-  color: rgba(255, 255, 255, 0.9);
-  font-weight: 500;
 }
 
 /* ── Tracklist slide transition ───────────────────────────────────────────── */

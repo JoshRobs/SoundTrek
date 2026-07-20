@@ -1,14 +1,53 @@
 <script setup lang="ts">
-import { ref } from "vue";
+import { ref, computed } from "vue";
 import type { TracklistEntry } from "@/types/track";
+import type { Soundtrack } from "@/types/soundtrack";
+import { usePlayerStore } from "@/stores/player";
+import { storeToRefs } from "pinia";
 
 const props = defineProps<{
   tracks: TracklistEntry[];
+  /** The soundtrack these tracks belong to — needed to enqueue them. */
+  soundtrack: Soundtrack;
   /** Accordion mode for narrow viewports: header toggles the list. */
   collapsible?: boolean;
 }>();
 
 const open = ref(!props.collapsible);
+
+// ── Playback ─────────────────────────────────────────────────────────────────
+const player = usePlayerStore();
+const { nowPlaying, currentVideoId, queue } = storeToRefs(player);
+
+function playTrack(item: TracklistEntry) {
+  if (item.unavailable) return;
+  const idx = queue.value.findIndex((q) => q.videoId === item.video_id);
+  if (idx !== -1) {
+    player.seekToQueueIndex(idx);
+  } else {
+    player.playFromTrack(props.soundtrack, item.video_id);
+  }
+}
+
+// ── Now-playing indicator ────────────────────────────────────────────────────
+
+// Only highlight rows when this tracklist's OST is the one actually playing.
+const activeVideoId = computed<string | null>(() =>
+  nowPlaying.value?.id === props.soundtrack.id ? currentVideoId.value : null,
+);
+
+// ── Add to queue ────────────────────────────────────────────────────────────
+const added = ref(new Set<number>());
+
+function addToQueue(item: TracklistEntry) {
+  player.enqueueTrack(props.soundtrack, {
+    videoId: item.video_id,
+    title: item.title,
+    unavailable: item.unavailable,
+  });
+  added.value.add(item.position);
+  setTimeout(() => added.value.delete(item.position), 1600);
+}
 </script>
 
 <template>
@@ -47,17 +86,29 @@ const open = ref(!props.collapsible);
         v-for="item in tracks"
         :key="item.position"
         class="tracklist-item"
-        :class="{ unavailable: item.unavailable }"
+        :class="{
+          unavailable: item.unavailable,
+          playing: activeVideoId === item.video_id,
+        }"
         :title="item.title"
+        @click="playTrack(item)"
       >
-        <span class="tracklist-num">{{ item.position + 1 }}</span>
+        <span class="tracklist-num">
+          <span v-if="activeVideoId === item.video_id" class="now-playing-bars" aria-label="Now playing">
+            <span /><span /><span />
+          </span>
+          <template v-else>{{ item.position + 1 }}</template>
+        </span>
         <span class="tracklist-title">{{ item.title }}</span>
-        <div class="tracklist-actions">
+        <div class="tracklist-actions" @click.stop>
           <button
             type="button"
             class="track-action"
-            aria-label="Add to queue"
-            title="Add to queue"
+            :class="{ 'track-action--added': added.has(item.position) }"
+            :disabled="item.unavailable"
+            :aria-label="added.has(item.position) ? 'Added to queue' : 'Add to queue'"
+            :title="added.has(item.position) ? 'Added!' : 'Add to queue'"
+            @click="addToQueue(item)"
           >
             <svg
               width="15"
@@ -69,11 +120,14 @@ const open = ref(!props.collapsible);
               stroke-linecap="round"
               stroke-linejoin="round"
             >
-              <line x1="4" y1="7" x2="15" y2="7" />
-              <line x1="4" y1="12" x2="15" y2="12" />
-              <line x1="4" y1="17" x2="11" y2="17" />
-              <line x1="18" y1="14" x2="18" y2="20" />
-              <line x1="15" y1="17" x2="21" y2="17" />
+              <path v-if="added.has(item.position)" d="M20 6 9 17l-5-5" />
+              <template v-else>
+                <line x1="4" y1="7" x2="15" y2="7" />
+                <line x1="4" y1="12" x2="15" y2="12" />
+                <line x1="4" y1="17" x2="11" y2="17" />
+                <line x1="18" y1="14" x2="18" y2="20" />
+                <line x1="15" y1="17" x2="21" y2="17" />
+              </template>
             </svg>
           </button>
           <button
@@ -196,6 +250,10 @@ const open = ref(!props.collapsible);
   border-top: 1px solid color-mix(in srgb, var(--border) 45%, transparent);
 }
 
+.tracklist-item:not(.unavailable) {
+  cursor: pointer;
+}
+
 .tracklist-item:hover {
   background: color-mix(in srgb, var(--accent) 8%, transparent);
   border-left-color: var(--accent);
@@ -291,6 +349,18 @@ const open = ref(!props.collapsible);
   outline-offset: -1px;
 }
 
+.track-action--added,
+.track-action--added:hover {
+  color: #1db954;
+  background: transparent;
+}
+
+.track-action:disabled {
+  cursor: default;
+  color: var(--text-muted);
+  background: transparent;
+}
+
 .tracklist-item.unavailable {
   opacity: 0.45;
 }
@@ -303,5 +373,42 @@ const open = ref(!props.collapsible);
 .tracklist-item.unavailable .tracklist-actions {
   visibility: hidden;
   pointer-events: none;
+}
+
+/* ── Now-playing indicator ─────────────────────────────────────────────────── */
+.tracklist-item.playing {
+  background: color-mix(in srgb, var(--accent) 6%, transparent);
+  border-left-color: var(--accent);
+}
+
+.tracklist-item.playing .tracklist-title {
+  color: var(--accent);
+}
+
+.now-playing-bars {
+  display: inline-flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 11px;
+}
+
+.now-playing-bars span {
+  display: block;
+  width: 3px;
+  height: 11px;
+  border-radius: 1.5px;
+  background: var(--accent);
+  transform-origin: bottom;
+  animation: bar-pulse ease-in-out infinite;
+}
+
+/* Same duration, delays spaced D/3 apart → peak travels left to right */
+.now-playing-bars span:nth-child(1) { animation-duration: 1.8s; animation-delay: -0.9s; }
+.now-playing-bars span:nth-child(2) { animation-duration: 1.8s; animation-delay: -0.3s; }
+.now-playing-bars span:nth-child(3) { animation-duration: 1.8s; animation-delay: -1.5s; }
+
+@keyframes bar-pulse {
+  0%, 100% { transform: scaleY(0.4); }
+  50%       { transform: scaleY(1); }
 }
 </style>

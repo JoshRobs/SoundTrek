@@ -3,6 +3,7 @@ import { ref, computed, watch } from "vue";
 import { storeToRefs } from "pinia";
 import { supabase } from "@/lib/supabase";
 import { useSoundtrackStore } from "@/stores/soundtracks";
+import { cleanTracklistTitles } from "@/utils/trackTitle";
 
 const { allSoundtracks } = storeToRefs(useSoundtrackStore());
 
@@ -279,11 +280,80 @@ const spotifySearchUrl = computed(() =>
 
 // ── Save ──────────────────────────────────────────────────────────────────────
 
+// Single-soundtrack version of scripts/sync-tracklists.ts replaceTracks():
+// fetch the playlist via the worker, clean titles the same way, then replace
+// this soundtrack's rows in the tracks table. Fetches BEFORE deleting so a
+// dead playlist never wipes an existing good tracklist.
+async function syncTracklist(
+  soundtrackId: string,
+  newPlaylistId: string | null,
+): Promise<string> {
+  const track = current.value!;
+
+  let rows: {
+    soundtrack_id: string;
+    position: number;
+    video_id: string;
+    title: string;
+    unavailable: boolean;
+  }[] = [];
+
+  if (newPlaylistId) {
+    const proxyUrl = import.meta.env.VITE_YOUTUBE_PROXY_URL;
+    if (!proxyUrl) throw new Error("VITE_YOUTUBE_PROXY_URL not configured");
+    const res = await fetch(`${proxyUrl}/playlist/${newPlaylistId}`);
+    if (!res.ok) throw new Error(`playlist fetch failed (HTTP ${res.status})`);
+    const items = (await res.json()) as {
+      videoId: string;
+      title: string;
+      unavailable: boolean;
+    }[];
+    if (!items.length) throw new Error("playlist empty or unavailable");
+
+    const titles = cleanTracklistTitles(
+      items.map((it) => ({ title: it.title, unavailable: it.unavailable })),
+      {
+        gameTitle: track.game_title,
+        composers: track.composers,
+        studio: track.studio,
+      },
+    );
+    rows = items.map((item, i) => ({
+      soundtrack_id: soundtrackId,
+      position: i,
+      video_id: item.videoId,
+      title: titles[i],
+      unavailable: item.unavailable,
+    }));
+  }
+
+  const { error: delError } = await supabase
+    .from("tracks")
+    .delete()
+    .eq("soundtrack_id", soundtrackId);
+  if (delError) throw new Error(`tracks delete failed: ${delError.message}`);
+
+  if (!rows.length) return "tracklist cleared";
+
+  const CHUNK = 500;
+  for (let i = 0; i < rows.length; i += CHUNK) {
+    const { error } = await supabase
+      .from("tracks")
+      .insert(rows.slice(i, i + CHUNK));
+    if (error) throw new Error(`tracks insert failed: ${error.message}`);
+  }
+
+  const dead = rows.filter((r) => r.unavailable).length;
+  return `tracklist synced (${rows.length} tracks${dead ? `, ${dead} unavailable` : ""})`;
+}
+
 async function save() {
   if (!current.value) return;
   saving.value = true;
   saveError.value = null;
   success.value = null;
+
+  const prevPlaylistId = current.value.youtube_playlist_id;
 
   const fields = {
     youtube_playlist_id: playlistId.value.trim() || null,
@@ -297,14 +367,33 @@ async function save() {
     .update(fields)
     .eq("id", current.value.id);
 
-  saving.value = false;
-
   if (error) {
+    saving.value = false;
     saveError.value = error.message;
-  } else {
-    const s = allSoundtracks.value.find((s) => s.id === current.value?.id);
-    if (s) Object.assign(s, fields);
-    success.value = "Saved.";
+    return;
+  }
+
+  // Regenerate this soundtrack's tracks rows to match the saved playlist.
+  // Skipped entirely when there's no playlist now and wasn't one before.
+  let trackNote = "";
+  if (fields.youtube_playlist_id || prevPlaylistId) {
+    try {
+      trackNote = await syncTracklist(
+        current.value.id,
+        fields.youtube_playlist_id,
+      );
+    } catch (e) {
+      saveError.value = `Links saved, but tracklist sync failed: ${
+        e instanceof Error ? e.message : "unknown error"
+      }`;
+    }
+  }
+
+  saving.value = false;
+  const s = allSoundtracks.value.find((s) => s.id === current.value?.id);
+  if (s) Object.assign(s, fields);
+  if (!saveError.value) {
+    success.value = trackNote ? `Saved — ${trackNote}.` : "Saved.";
   }
 }
 </script>

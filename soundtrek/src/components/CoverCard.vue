@@ -6,7 +6,11 @@ defineEmits<{ click: []; play: [] }>();
 </script>
 
 <template>
-  <button class="cover-card" :class="{ 'cover-card--with-info': showInfo }" @click="$emit('click')">
+  <button
+    class="cover-card"
+    :class="{ 'cover-card--with-info': showInfo }"
+    @click="$emit('click')"
+  >
     <div class="cover-wrap">
       <img
         v-if="soundtrack.cover_image_url"
@@ -17,7 +21,7 @@ defineEmits<{ click: []; play: [] }>();
       <div v-else class="cover-fallback">🎮</div>
       <div class="cover-overlay">
         <button class="overlay-play" @click.stop="$emit('play')">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
             <path d="M8 5v14l11-7z" />
           </svg>
         </button>
@@ -27,7 +31,9 @@ defineEmits<{ click: []; play: [] }>();
     <div v-if="showInfo" class="card-info">
       <p class="card-title">{{ soundtrack.game_title }}</p>
       <p class="card-meta">
-        <span v-if="soundtrack.composers?.length">{{ soundtrack.composers.join(", ") }}</span>
+        <span v-if="soundtrack.composers?.length">{{
+          soundtrack.composers.join(", ")
+        }}</span>
         <span>{{ soundtrack.release_year }}</span>
       </p>
     </div>
@@ -45,7 +51,9 @@ defineEmits<{ click: []; play: [] }>();
   padding: 0;
   display: block;
   width: 100%;
-  transition: transform 0.18s, box-shadow 0.18s;
+  transition:
+    transform 0.18s,
+    box-shadow 0.18s;
 }
 
 .cover-card:hover {
@@ -115,8 +123,10 @@ defineEmits<{ click: []; play: [] }>();
   background: rgba(0, 0, 0, 0.4);
   color: #fff;
   cursor: pointer;
-  padding-left: 3px;
-  transition: background 0.15s, transform 0.15s;
+  padding-left: 6px;
+  transition:
+    background 0.15s,
+    transform 0.15s;
 }
 
 .overlay-play:hover {

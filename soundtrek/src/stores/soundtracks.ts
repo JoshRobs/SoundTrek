@@ -1,6 +1,7 @@
 import { ref, computed } from "vue";
 import { defineStore } from "pinia";
 import { supabase } from "@/lib/supabase";
+import { usePlayerStore } from "@/stores/player";
 import type { Soundtrack, FilterState, ExploreRow } from "@/types/soundtrack";
 
 const USE_MOCK = import.meta.env.VITE_USE_MOCK_DATA === "true";
@@ -72,10 +73,14 @@ export const useSoundtrackStore = defineStore("soundtracks", () => {
   }
 
   // ── Now playing ───────────────────────────────────────────────────────────
-  const nowPlaying = ref<Soundtrack | null>(null);
+  // Derived from the player queue (see stores/player.ts) — the current queue
+  // item's soundtrack, or the one playback started from. Kept here so the
+  // many existing consumers don't have to change stores.
+  const player = usePlayerStore();
+  const nowPlaying = computed(() => player.nowPlaying);
 
   function setNowPlaying(s: Soundtrack | null) {
-    nowPlaying.value = s;
+    player.playSoundtrack(s);
   }
 
   // ── Discovery state ────────────────────────────────────────────────────────

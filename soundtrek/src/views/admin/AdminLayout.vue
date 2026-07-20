@@ -19,6 +19,7 @@ const navItems = [
   { label: "Composers",       path: "/admin/composers" },
   { label: "Fix Links",       path: "/admin/links" },
   { label: "Composer Bios",   path: "/admin/composer-bios" },
+  { label: "Amazon Links",    path: "/admin/amazon" },
 ];
 
 const currentLabel = computed(
