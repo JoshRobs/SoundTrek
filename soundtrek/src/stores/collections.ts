@@ -188,6 +188,23 @@ export const useCollectionStore = defineStore("collections", () => {
     return !error;
   }
 
+  // Writes a full reordering: each item gets its (contiguous) index as its new
+  // position. Normalizing every row keeps the stored order unambiguous even if
+  // earlier removals had left gaps.
+  async function reorderItems(
+    order: { id: string; position: number }[],
+  ): Promise<boolean> {
+    const results = await Promise.all(
+      order.map((o) =>
+        supabase
+          .from("collection_items")
+          .update({ position: o.position })
+          .eq("id", o.id),
+      ),
+    );
+    return results.every((r) => !r.error);
+  }
+
   // Collections (owned by the current user) that contain the whole soundtrack
   // as an album item — powers the checkbox state in the album add modal.
   async function getCollectionsContaining(soundtrackId: string): Promise<string[]> {
@@ -231,6 +248,7 @@ export const useCollectionStore = defineStore("collections", () => {
     removeTrackFromCollection,
     removeItemById,
     moveItem,
+    reorderItems,
     getCollectionsContaining,
     getCollectionsContainingTrack,
   };

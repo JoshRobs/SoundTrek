@@ -24,28 +24,86 @@ function measureHeader() {
   const el = document.querySelector("header.header") as HTMLElement | null;
   if (el) headerHeight.value = el.offsetHeight;
 }
-onMounted(() => {
-  measureHeader();
-  window.addEventListener("resize", measureHeader);
-});
-onUnmounted(() => window.removeEventListener("resize", measureHeader));
 
-// Desktop: the drawer is open while the right edge / panel is hovered, and
-// slides away otherwise.
+// Desktop: the drawer opens on hover of the right edge, stays while hovered,
+// and is resizable from a handle on its left edge.
 const open = ref(false);
 const hovered = ref(false);
 const drawerEl = ref<HTMLElement | null>(null);
+
+const MIN_WIDTH = 260;
+const MAX_WIDTH = 600;
+const width = ref(340);
+const resizing = ref(false);
+
 function onEnter() {
   hovered.value = true;
   open.value = true;
 }
-function onLeave() {
-  // Keep the drawer pinned open while a drag is in progress, so the list can't
-  // slide away from under the pointer.
-  if (dragIndex.value !== null) return;
-  hovered.value = false;
-  open.value = false;
+
+// Collapse only once the pointer has moved ~30px clear of the drawer (past its
+// left edge, or above/below it) rather than the instant it crosses the edge —
+// so brushing the edge doesn't snap it shut. Suppressed while reordering or
+// resizing.
+function onHoverMove(e: PointerEvent) {
+  if (!open.value || !hovered.value) return;
+  if (dragIndex.value !== null || resizing.value) return;
+  const el = drawerEl.value;
+  if (!el) return;
+  const r = el.getBoundingClientRect();
+  if (
+    e.clientX < r.left - 30 ||
+    e.clientY < r.top - 30 ||
+    e.clientY > r.bottom + 30
+  ) {
+    hovered.value = false;
+    open.value = false;
+  }
 }
+
+// ── Resize (left-edge handle) ─────────────────────────────────────────────────
+let resizeStartX = 0;
+let resizeStartW = 0;
+function onResizeDown(e: PointerEvent) {
+  e.preventDefault();
+  e.stopPropagation();
+  resizing.value = true;
+  hovered.value = true;
+  open.value = true;
+  resizeStartX = e.clientX;
+  resizeStartW = width.value;
+  window.addEventListener("pointermove", onResizeMove);
+  window.addEventListener("pointerup", onResizeUp);
+}
+function onResizeMove(e: PointerEvent) {
+  // The drawer is anchored to the right edge, so dragging left widens it.
+  const delta = resizeStartX - e.clientX;
+  width.value = Math.max(MIN_WIDTH, Math.min(MAX_WIDTH, resizeStartW + delta));
+}
+function onResizeUp() {
+  resizing.value = false;
+  window.removeEventListener("pointermove", onResizeMove);
+  window.removeEventListener("pointerup", onResizeUp);
+  try {
+    localStorage.setItem("queue-width", String(width.value));
+  } catch {
+    /* ignore */
+  }
+}
+
+onMounted(() => {
+  measureHeader();
+  const w = Number(localStorage.getItem("queue-width"));
+  if (w) width.value = Math.max(MIN_WIDTH, Math.min(MAX_WIDTH, w));
+  window.addEventListener("resize", measureHeader);
+  window.addEventListener("pointermove", onHoverMove);
+});
+onUnmounted(() => {
+  window.removeEventListener("resize", measureHeader);
+  window.removeEventListener("pointermove", onHoverMove);
+  window.removeEventListener("pointermove", onResizeMove);
+  window.removeEventListener("pointerup", onResizeUp);
+});
 
 // ── Drag-to-reorder ───────────────────────────────────────────────────────────
 // The list is reordered live as the pointer moves; <TransitionGroup> FLIP-
@@ -145,15 +203,22 @@ function itemSubtitle(item: CollectionItem): string {
       <div
         v-if="!isMobile"
         class="queue-clip"
-        :style="{ top: headerHeight + 'px' }"
+        :style="{ top: headerHeight + 'px', width: width + 60 + 'px' }"
       >
         <aside
           ref="drawerEl"
           class="queue-drawer"
           :class="{ open, dragging: dragIndex !== null }"
+          :style="{ width: width + 'px' }"
           @mouseenter="onEnter"
-          @mouseleave="onLeave"
         >
+          <!-- Resize handle — drag left/right to change the drawer width -->
+          <div
+            class="queue-resize"
+            aria-label="Resize queue"
+            @pointerdown="onResizeDown"
+          />
+
           <!-- Grip: the slim strip that shows when the drawer is tucked away -->
           <div class="queue-grip" aria-hidden="true">
             <svg
@@ -515,6 +580,41 @@ function itemSubtitle(item: CollectionItem): string {
 }
 .queue-drawer.open {
   transform: translateX(0);
+}
+
+/* Resize handle — thin strip on the drawer's left edge (over the padding, so it
+   doesn't cover any controls). Only usable once the drawer is open. */
+.queue-resize {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 7px;
+  z-index: 3;
+  cursor: ew-resize;
+  touch-action: none;
+}
+.queue-resize::after {
+  content: "";
+  position: absolute;
+  left: 2px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 3px;
+  height: 44px;
+  border-radius: 2px;
+  background: var(--border);
+  opacity: 0;
+  transition:
+    opacity 0.15s,
+    background 0.15s;
+}
+.queue-resize:hover::after {
+  opacity: 1;
+  background: var(--accent);
+}
+.queue-drawer:not(.open) .queue-resize {
+  display: none;
 }
 
 /* Grip — the visible strip when tucked away; fades out once the drawer opens */

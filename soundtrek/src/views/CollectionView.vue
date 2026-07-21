@@ -128,6 +128,117 @@ async function removeItem(item: CollectionItem) {
   }
 }
 
+// ── Reorder (edit mode) ───────────────────────────────────────────────────────
+// List view mirrors the queue's drag-handle reorder; grid view drags the whole
+// card. Both live-reorder with <TransitionGroup> FLIP animation and persist the
+// new positions on drop. Hit-testing uses geometry captured at drag start, so
+// it's stable regardless of the in-flight move animations.
+const dragIndex = ref<number | null>(null);
+let dragMode: "list" | "grid" = "list";
+let dragOrigOrder: string[] = [];
+// list geometry
+let listTop = 0;
+let rowH = 0;
+// grid geometry
+let gridLeft = 0;
+let gridTop = 0;
+let cellW = 1;
+let cellH = 1;
+let gridCols = 1;
+
+const clamp = (v: number, lo: number, hi: number) =>
+  Math.max(lo, Math.min(v, hi));
+
+// Reorders the displayed items and rewrites their positions so the `items`
+// computed re-sorts into the new order (objects are shared with the store).
+function reorder(from: number, to: number) {
+  const arr = items.value.slice();
+  const dest = clamp(to, 0, arr.length - 1);
+  if (from === dest) return;
+  const [moved] = arr.splice(from, 1);
+  arr.splice(dest, 0, moved);
+  arr.forEach((it, i) => (it.position = i));
+}
+
+function startDrag(index: number) {
+  dragOrigOrder = items.value.map((i) => i.id);
+  dragIndex.value = index;
+  window.addEventListener("pointermove", onDragMove);
+  window.addEventListener("pointerup", onDragUp);
+}
+
+function onListHandleDown(e: PointerEvent, index: number) {
+  e.preventDefault();
+  const row = (e.currentTarget as HTMLElement).closest(
+    ".list-row",
+  ) as HTMLElement | null;
+  const list = row?.parentElement as HTMLElement | null;
+  if (!row || !list) return;
+  const first = (list.firstElementChild as HTMLElement | null) ?? row;
+  dragMode = "list";
+  listTop = first.getBoundingClientRect().top;
+  rowH = row.getBoundingClientRect().height || 1;
+  startDrag(index);
+}
+
+function onCardDown(e: PointerEvent, index: number) {
+  if (!editMode.value) return;
+  // Pressing the remove (trash) button shouldn't start a drag.
+  if ((e.target as HTMLElement).closest(".overlay-remove")) return;
+  e.preventDefault();
+  const card = (e.currentTarget as HTMLElement).closest(
+    ".track-card",
+  ) as HTMLElement | null;
+  const grid = card?.parentElement as HTMLElement | null;
+  if (!card || !grid) return;
+  const gr = grid.getBoundingClientRect();
+  const cr = card.getBoundingClientRect();
+  const cs = getComputedStyle(grid);
+  const colGap = parseFloat(cs.columnGap) || 0;
+  const rowGap = parseFloat(cs.rowGap) || 0;
+  dragMode = "grid";
+  gridLeft = gr.left;
+  gridTop = gr.top;
+  cellW = cr.width + colGap;
+  cellH = cr.height + rowGap;
+  gridCols = Math.max(1, Math.round((gr.width + colGap) / cellW));
+  startDrag(index);
+}
+
+function onDragMove(e: PointerEvent) {
+  if (dragIndex.value === null) return;
+  const n = items.value.length;
+  let target: number;
+  if (dragMode === "list") {
+    target = Math.floor((e.clientY - listTop) / rowH);
+  } else {
+    const col = clamp(
+      Math.floor((e.clientX - gridLeft) / cellW),
+      0,
+      gridCols - 1,
+    );
+    const row = Math.max(0, Math.floor((e.clientY - gridTop) / cellH));
+    target = row * gridCols + col;
+  }
+  target = clamp(target, 0, n - 1);
+  if (target !== dragIndex.value) {
+    reorder(dragIndex.value, target);
+    dragIndex.value = target;
+  }
+}
+
+function onDragUp() {
+  window.removeEventListener("pointermove", onDragMove);
+  window.removeEventListener("pointerup", onDragUp);
+  const moved =
+    dragIndex.value !== null &&
+    items.value.some((it, i) => dragOrigOrder[i] !== it.id);
+  dragIndex.value = null;
+  if (moved && collection.value) {
+    cStore.reorderItems(items.value.map((it, i) => ({ id: it.id, position: i })));
+  }
+}
+
 async function copyLink() {
   await navigator.clipboard.writeText(window.location.href);
   copied.value = true;
@@ -309,13 +420,34 @@ function onUpdated() {
         </div>
       </div>
 
-      <div v-if="items.length && viewMode === 'grid'" class="track-grid">
+      <TransitionGroup
+        v-if="items.length && viewMode === 'grid'"
+        tag="div"
+        name="reorder"
+        class="track-grid"
+      >
         <div
-          v-for="item in items"
+          v-for="(item, i) in items"
           :key="item.id"
           class="track-card"
-          :class="{ active: isActive(item) }"
+          :class="{
+            active: isActive(item),
+            editing: editMode,
+            dragging: dragIndex === i,
+          }"
+          @pointerdown="onCardDown($event, i)"
         >
+          <!-- Affordance only — dragging it is the same as dragging the card. -->
+          <div v-if="editMode" class="card-handle" aria-hidden="true">
+            <svg width="10" height="16" viewBox="0 0 10 16" fill="currentColor">
+              <circle cx="2.5" cy="3" r="1.3" />
+              <circle cx="7.5" cy="3" r="1.3" />
+              <circle cx="2.5" cy="8" r="1.3" />
+              <circle cx="7.5" cy="8" r="1.3" />
+              <circle cx="2.5" cy="13" r="1.3" />
+              <circle cx="7.5" cy="13" r="1.3" />
+            </svg>
+          </div>
           <CollectionTrackCard
             v-if="item.soundtrack"
             :soundtrack="item.soundtrack"
@@ -326,16 +458,41 @@ function onUpdated() {
             @remove="removeItem(item)"
           />
         </div>
-      </div>
+      </TransitionGroup>
 
-      <div v-else-if="items.length" class="track-list">
+      <TransitionGroup
+        v-else-if="items.length"
+        tag="div"
+        name="reorder"
+        class="track-list"
+      >
         <div
-          v-for="item in items"
+          v-for="(item, i) in items"
           :key="item.id"
           class="list-row"
-          :class="{ active: isActive(item) }"
+          :class="{
+            active: isActive(item),
+            editing: editMode,
+            dragging: dragIndex === i,
+          }"
           @click="!editMode && navigate(item)"
         >
+          <button
+            v-if="editMode"
+            class="list-handle"
+            aria-label="Drag to reorder"
+            @pointerdown.stop.prevent="onListHandleDown($event, i)"
+            @click.stop
+          >
+            <svg width="10" height="16" viewBox="0 0 10 16" fill="currentColor">
+              <circle cx="2.5" cy="3" r="1.3" />
+              <circle cx="7.5" cy="3" r="1.3" />
+              <circle cx="2.5" cy="8" r="1.3" />
+              <circle cx="7.5" cy="8" r="1.3" />
+              <circle cx="2.5" cy="13" r="1.3" />
+              <circle cx="7.5" cy="13" r="1.3" />
+            </svg>
+          </button>
           <div class="list-thumb">
             <img
               v-if="item.soundtrack?.cover_image_url"
@@ -392,7 +549,7 @@ function onUpdated() {
             </svg>
           </button>
         </div>
-      </div>
+      </TransitionGroup>
       <p v-else class="empty">No tracks in this collection yet.</p>
     </template>
   </div>
@@ -721,6 +878,43 @@ function onUpdated() {
   cursor: pointer;
   transition: background 0.12s;
 }
+/* Edit mode: prepend a drag-handle column. */
+.list-row.editing {
+  grid-template-columns: 20px 48px minmax(0, 1fr) auto auto 40px;
+}
+.list-row.dragging {
+  opacity: 0.55;
+  background: var(--surface-2);
+}
+.list-handle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 100%;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: grab;
+  touch-action: none;
+}
+.list-handle:hover {
+  color: var(--text-secondary);
+}
+.list-handle:active {
+  cursor: grabbing;
+}
+/* FLIP: qualified with .list-row so it out-specifies the base
+   `.list-row { transition: background }` rule (else rows would teleport). */
+.list-row.reorder-move {
+  transition: transform 0.28s cubic-bezier(0.2, 0, 0.2, 1);
+}
+/* Zebra striping — kept before :hover/.active so those still win on equal
+   specificity. */
+.list-row:nth-child(even) {
+  background: color-mix(in srgb, var(--text-primary) 4%, transparent);
+}
 .list-row:hover {
   background: var(--surface-2);
 }
@@ -827,6 +1021,60 @@ function onUpdated() {
   border-radius: 10px;
 }
 
+/* Edit mode: the whole card is a drag target. The inner card is a <button>
+   with cursor:pointer, so override it to grab (but keep pointer on delete). */
+.track-card.editing {
+  cursor: grab;
+  touch-action: none;
+}
+.track-card.editing :deep(.cover-card),
+.track-card.editing :deep(.cover-card):hover {
+  cursor: grab;
+}
+.track-card.editing:active,
+.track-card.editing:active :deep(.cover-card) {
+  cursor: grabbing;
+}
+.track-card.editing :deep(.overlay-remove) {
+  cursor: pointer;
+}
+/* Don't lift the card on hover while editing — it fights the drag. */
+.track-card.editing :deep(.cover-card):hover {
+  transform: none;
+  box-shadow: none;
+}
+.track-card.dragging {
+  opacity: 0.5;
+}
+
+/* Reorder handle — a visual affordance in the card's corner. */
+.card-handle {
+  position: absolute;
+  top: 0.45rem;
+  right: 0.45rem;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.55);
+  color: rgba(255, 255, 255, 0.85);
+  cursor: grab;
+  transition: background 0.15s;
+}
+.card-handle:hover {
+  background: rgba(0, 0, 0, 0.75);
+}
+.track-card.editing:active .card-handle {
+  cursor: grabbing;
+}
+/* FLIP for grid reordering (cards slide to their new cells). */
+.track-card.reorder-move {
+  transition: transform 0.28s cubic-bezier(0.2, 0, 0.2, 1);
+}
+
 @media (max-width: 768px) {
   .back-btn {
     top: 1rem;
@@ -871,6 +1119,9 @@ function onUpdated() {
     grid-template-columns: 44px minmax(0, 1fr) auto 36px;
     gap: 0.6rem;
     padding: 0.4rem 0.5rem;
+  }
+  .list-row.editing {
+    grid-template-columns: 18px 44px minmax(0, 1fr) auto 36px;
   }
   .list-thumb {
     width: 44px;
