@@ -1,5 +1,5 @@
 import { ref } from "vue";
-import { defineStore } from "pinia";
+import { defineStore, acceptHMRUpdate } from "pinia";
 import { supabase, SOUNDTRACK_LIST_COLUMNS } from "@/lib/supabase";
 import type { Collection } from "@/types/collection";
 
@@ -13,7 +13,7 @@ export const useCollectionStore = defineStore("collections", () => {
     loadingPublic.value = true;
     const { data, error } = await supabase
       .from("collections")
-      .select("*, collection_items(soundtrack_id, position, soundtrack:soundtracks(cover_image_url))")
+      .select("*, collection_items(soundtrack_id, video_id, position, soundtrack:soundtracks(cover_image_url))")
       .eq("is_public", true)
       .order("created_at", { ascending: false });
     loadingPublic.value = false;
@@ -26,7 +26,7 @@ export const useCollectionStore = defineStore("collections", () => {
     loading.value = true;
     const { data, error } = await supabase
       .from("collections")
-      .select("*, collection_items(soundtrack_id, position, soundtrack:soundtracks(cover_image_url))")
+      .select("*, collection_items(soundtrack_id, video_id, position, soundtrack:soundtracks(cover_image_url))")
       .eq("user_id", user.id)
       .order("created_at", { ascending: false });
     loading.value = false;
@@ -93,37 +93,90 @@ export const useCollectionStore = defineStore("collections", () => {
     return !error;
   }
 
-  async function addToCollection(collectionId: string, soundtrackId: string): Promise<boolean> {
-    const existing = await supabase
-      .from("collection_items")
-      .select("id")
-      .eq("collection_id", collectionId)
-      .eq("soundtrack_id", soundtrackId)
-      .maybeSingle();
-    if (existing.data) return true;
-
+  // Next position (append to end) for a collection.
+  async function nextPosition(collectionId: string): Promise<number> {
     const { data: items } = await supabase
       .from("collection_items")
       .select("position")
       .eq("collection_id", collectionId)
       .order("position", { ascending: false })
       .limit(1);
-    const nextPosition = (items?.[0]?.position ?? -1) + 1;
+    return (items?.[0]?.position ?? -1) + 1;
+  }
+
+  // Adds a whole soundtrack (album item: video_id null).
+  async function addToCollection(collectionId: string, soundtrackId: string): Promise<boolean> {
+    const existing = await supabase
+      .from("collection_items")
+      .select("id")
+      .eq("collection_id", collectionId)
+      .eq("soundtrack_id", soundtrackId)
+      .is("video_id", null)
+      .maybeSingle();
+    if (existing.data) return true;
 
     const { error } = await supabase.from("collection_items").insert({
       collection_id: collectionId,
       soundtrack_id: soundtrackId,
-      position: nextPosition,
+      position: await nextPosition(collectionId),
     });
     return !error;
   }
 
+  // Adds a single track (track item: video_id set). track_title is snapshotted.
+  async function addTrackToCollection(
+    collectionId: string,
+    soundtrackId: string,
+    videoId: string,
+    trackTitle: string,
+  ): Promise<boolean> {
+    const existing = await supabase
+      .from("collection_items")
+      .select("id")
+      .eq("collection_id", collectionId)
+      .eq("video_id", videoId)
+      .maybeSingle();
+    if (existing.data) return true;
+
+    const { error } = await supabase.from("collection_items").insert({
+      collection_id: collectionId,
+      soundtrack_id: soundtrackId,
+      video_id: videoId,
+      track_title: trackTitle,
+      position: await nextPosition(collectionId),
+    });
+    return !error;
+  }
+
+  // Removes the whole-soundtrack (album) item — not any track items of the
+  // same OST, which are addressed by video_id.
   async function removeFromCollection(collectionId: string, soundtrackId: string): Promise<boolean> {
     const { error } = await supabase
       .from("collection_items")
       .delete()
       .eq("collection_id", collectionId)
-      .eq("soundtrack_id", soundtrackId);
+      .eq("soundtrack_id", soundtrackId)
+      .is("video_id", null);
+    return !error;
+  }
+
+  // Removes a single track item by its video id.
+  async function removeTrackFromCollection(collectionId: string, videoId: string): Promise<boolean> {
+    const { error } = await supabase
+      .from("collection_items")
+      .delete()
+      .eq("collection_id", collectionId)
+      .eq("video_id", videoId);
+    return !error;
+  }
+
+  // Removes any item (album or track) by its row id — used when editing a
+  // collection, where the exact item is already known.
+  async function removeItemById(itemId: string): Promise<boolean> {
+    const { error } = await supabase
+      .from("collection_items")
+      .delete()
+      .eq("id", itemId);
     return !error;
   }
 
@@ -135,6 +188,8 @@ export const useCollectionStore = defineStore("collections", () => {
     return !error;
   }
 
+  // Collections (owned by the current user) that contain the whole soundtrack
+  // as an album item — powers the checkbox state in the album add modal.
   async function getCollectionsContaining(soundtrackId: string): Promise<string[]> {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return [];
@@ -142,6 +197,19 @@ export const useCollectionStore = defineStore("collections", () => {
       .from("collection_items")
       .select("collection_id, collections!inner(user_id)")
       .eq("soundtrack_id", soundtrackId)
+      .is("video_id", null)
+      .eq("collections.user_id", user.id);
+    return (data ?? []).map((r: any) => r.collection_id as string);
+  }
+
+  // Collections (owned by the current user) that contain a given track.
+  async function getCollectionsContainingTrack(videoId: string): Promise<string[]> {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return [];
+    const { data } = await supabase
+      .from("collection_items")
+      .select("collection_id, collections!inner(user_id)")
+      .eq("video_id", videoId)
       .eq("collections.user_id", user.id);
     return (data ?? []).map((r: any) => r.collection_id as string);
   }
@@ -158,8 +226,19 @@ export const useCollectionStore = defineStore("collections", () => {
     updateCollection,
     deleteCollection,
     addToCollection,
+    addTrackToCollection,
     removeFromCollection,
+    removeTrackFromCollection,
+    removeItemById,
     moveItem,
     getCollectionsContaining,
+    getCollectionsContainingTrack,
   };
 });
+
+// Without this, editing this setup store during dev hot-swaps the module but
+// leaves the already-instantiated store in place — so newly added actions are
+// missing on the live instance and calling one throws. See Pinia HMR docs.
+if (import.meta.hot) {
+  import.meta.hot.accept(acceptHMRUpdate(useCollectionStore, import.meta.hot));
+}

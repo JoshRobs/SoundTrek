@@ -1,7 +1,14 @@
 <script setup lang="ts">
 import type { Soundtrack } from "@/types/soundtrack";
 
-defineProps<{ soundtrack: Soundtrack; editMode?: boolean }>();
+// When `track` is set the card represents a single track from the soundtrack
+// (title = the track name, art = the OST cover, with a TRACK badge); otherwise
+// it represents the whole soundtrack (album item).
+defineProps<{
+  soundtrack: Soundtrack;
+  track?: { title: string } | null;
+  editMode?: boolean;
+}>();
 defineEmits<{ click: []; play: []; remove: [] }>();
 </script>
 
@@ -16,6 +23,8 @@ defineEmits<{ click: []; play: []; remove: [] }>();
       />
       <div v-else class="cover-fallback">🎮</div>
 
+      <span v-if="track" class="track-badge">Track</span>
+
       <div class="cover-overlay" :class="{ 'cover-overlay--edit': editMode }">
         <button
           v-if="!editMode"
@@ -26,7 +35,7 @@ defineEmits<{ click: []; play: []; remove: [] }>();
             <path d="M8 5v14l11-7z" />
           </svg>
         </button>
-        <span class="cover-title">{{ soundtrack.game_title }}</span>
+        <span class="cover-title">{{ track ? track.title : soundtrack.game_title }}</span>
       </div>
 
       <div v-if="editMode" class="remove-wrap">
@@ -51,10 +60,16 @@ defineEmits<{ click: []; play: []; remove: [] }>();
       </div>
     </div>
     <div class="card-info">
-      <p class="card-title">{{ soundtrack.game_title }}</p>
+      <p class="card-title">{{ track ? track.title : soundtrack.game_title }}</p>
       <p class="card-meta">
-        <span v-if="soundtrack.composers?.length">{{ soundtrack.composers.join(", ") }}</span>
-        <span>{{ soundtrack.release_year }}</span>
+        <template v-if="track">
+          <span>{{ soundtrack.game_title }}</span>
+          <span>{{ soundtrack.release_year }}</span>
+        </template>
+        <template v-else>
+          <span v-if="soundtrack.composers?.length">{{ soundtrack.composers.join(", ") }}</span>
+          <span>{{ soundtrack.release_year }}</span>
+        </template>
       </p>
     </div>
   </button>
@@ -109,6 +124,21 @@ defineEmits<{ click: []; play: []; remove: [] }>();
   align-items: center;
   justify-content: center;
   font-size: 3rem;
+}
+
+.track-badge {
+  position: absolute;
+  top: 0.5rem;
+  left: 0.5rem;
+  z-index: 2;
+  padding: 0.12rem 0.45rem;
+  border-radius: 5px;
+  background: color-mix(in srgb, var(--accent) 85%, black);
+  color: #fff;
+  font-size: 0.6rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
 }
 
 .cover-overlay {

@@ -4,6 +4,7 @@ import { storeToRefs } from "pinia";
 import { supabase } from "@/lib/supabase";
 import type { Soundtrack } from "@/types/soundtrack";
 import { usePlayerStore } from "@/stores/player";
+import { useQueueStore } from "@/stores/queue";
 import { cleanTracklistTitles } from "@/utils/trackTitle";
 
 interface SpotifyEmbedControls {
@@ -69,6 +70,10 @@ export function usePlayerControls(
     seekRequestIndex,
     seekRequestSeq,
   } = storeToRefs(usePlayerStore());
+  // Item-level queue. When active, reaching the end of the current item's track
+  // queue advances to the next item instead of stopping, and prev/next cross
+  // item boundaries per the queue's rules.
+  const itemQueue = useQueueStore();
   // Native list mode is kept only as a fallback when the proxy is unreachable.
   const nativePlaylistIds = ref<string[]>([]);
   const playerVideoIds = computed(() =>
@@ -215,6 +220,10 @@ export function usePlayerControls(
               // one (no wrap), matching native playlist behavior.
               const next = findAvailable(currentTrackIndex.value, 1, false);
               if (next !== -1) playTrackAt(next);
+              // End of this item's track queue — hand off to the item queue,
+              // which loads the next item. Stops at the last item.
+              else if (itemQueue.isActive && itemQueue.hasNext)
+                itemQueue.nextItem();
             } else if (
               !playlistId &&
               isCustomQueue.value &&
@@ -224,6 +233,10 @@ export function usePlayerControls(
               // waiting — hand playback off to the queue.
               customQueueActive.value = true;
               playTrackAt(0);
+            } else if (itemQueue.isActive && itemQueue.hasNext) {
+              // A single-video item (or a native playlist) finished inside an
+              // item queue — advance to the next item.
+              itemQueue.nextItem();
             }
           }
         },
@@ -352,13 +365,25 @@ export function usePlayerControls(
     }
   }
 
+  // True when Prev has somewhere to go. In an item queue the button is disabled
+  // on the first track of an item (crossing back to a previous item is the
+  // queue panel's job); otherwise Prev always works (it restarts the first
+  // track, like YouTube).
+  const canPrev = computed(() => {
+    if (!itemQueue.isActive) return true;
+    return findAvailable(currentTrackIndex.value, -1, false) !== -1;
+  });
+
   function nextTrack() {
     if (!customQueueActive.value) {
       player?.nextVideo();
       return;
     }
-    const next = findAvailable(currentTrackIndex.value, 1, true);
+    // In an item queue, don't wrap — roll into the next item at the end instead.
+    const wrap = !itemQueue.isActive;
+    const next = findAvailable(currentTrackIndex.value, 1, wrap);
     if (next !== -1) playTrackAt(next);
+    else if (itemQueue.isActive && itemQueue.hasNext) itemQueue.nextItem();
   }
 
   function prevTrack() {
@@ -368,7 +393,8 @@ export function usePlayerControls(
     }
     const prev = findAvailable(currentTrackIndex.value, -1, false);
     if (prev !== -1) playTrackAt(prev);
-    else player?.seekTo(0, true); // on the first track — restart it, like YT does
+    // First track of an item queue: stay put (Prev is disabled in the UI).
+    else if (!itemQueue.isActive) player?.seekTo(0, true);
   }
 
   function playTrackAt(index: number) {
@@ -480,9 +506,13 @@ export function usePlayerControls(
     initPlayer();
   });
 
-  onMounted(() => {
+  onMounted(async () => {
     initPlayer();
     setupMediaSessionHandlers();
+    // After the player has restored its own playback (component onMounted),
+    // re-attach any persisted item queue so the panel reappears.
+    await nextTick();
+    itemQueue.restore();
   });
   onUnmounted(destroyPlayer);
 
@@ -493,6 +523,7 @@ export function usePlayerControls(
     currentTrackIndex,
     queue,
     playerVideoIds,
+    canPrev,
     toggleMute,
     togglePlay,
     nextTrack,

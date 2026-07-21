@@ -47,3 +47,13 @@ export type Track = Prisma.TrackModel
  * 
  */
 export type UserLike = Prisma.UserLikeModel
+/**
+ * Model Collection
+ * 
+ */
+export type Collection = Prisma.CollectionModel
+/**
+ * Model CollectionItem
+ * 
+ */
+export type CollectionItem = Prisma.CollectionItemModel

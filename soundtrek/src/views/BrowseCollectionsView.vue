@@ -3,6 +3,7 @@ import { ref, computed, onMounted } from "vue";
 import { useRouter } from "vue-router";
 import { useHead } from "@unhead/vue";
 import { useCollectionStore } from "@/stores/collections";
+import { itemSummary } from "@/utils/collectionSummary";
 import PageHero from "@/components/PageHero.vue";
 import type { Collection } from "@/types/collection";
 
@@ -185,7 +186,7 @@ function itemCount(c: Collection): number {
             <p class="card-name">{{ c.name }}</p>
             <p class="card-creator">by {{ c.creator_name ?? "Anonymous" }}</p>
             <p class="card-meta">
-              {{ itemCount(c) }} track{{ itemCount(c) !== 1 ? "s" : "" }}
+              {{ itemSummary(c.collection_items) }}
             </p>
           </div>
         </div>

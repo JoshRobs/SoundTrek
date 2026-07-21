@@ -1,20 +1,31 @@
 <script setup lang="ts">
-import { ref, watch } from "vue";
+import { ref, computed, watch } from "vue";
 import { useCollectionStore } from "@/stores/collections";
 import { useAuth } from "@/composables/useAuth";
+import { itemSummary } from "@/utils/collectionSummary";
 import CreateCollectionModal from "./CreateCollectionModal.vue";
 import type { Collection } from "@/types/collection";
 
+// Two modes, keyed on whether a track is supplied:
+//   album mode (videoId omitted) → add/remove the whole soundtrack.
+//   track mode (videoId set)     → add/remove that single track.
 const props = defineProps<{
   open: boolean;
   soundtrackId: string;
   soundtrackTitle: string;
+  videoId?: string | null;
+  trackTitle?: string | null;
 }>();
 
 const emit = defineEmits<{ close: [] }>();
 
 const store    = useCollectionStore();
 const { user } = useAuth();
+
+const isTrack  = computed(() => !!props.videoId);
+const subtitle = computed(() =>
+  isTrack.value ? (props.trackTitle ?? "") : props.soundtrackTitle,
+);
 
 const checked    = ref<Set<string>>(new Set());
 const original   = ref<Set<string>>(new Set());
@@ -24,7 +35,9 @@ const showCreate = ref(false);
 watch(() => props.open, async (open) => {
   if (!open) return;
   await store.fetchMyCollections();
-  const inCollections = await store.getCollectionsContaining(props.soundtrackId);
+  const inCollections = isTrack.value
+    ? await store.getCollectionsContainingTrack(props.videoId as string)
+    : await store.getCollectionsContaining(props.soundtrackId);
   checked.value  = new Set(inCollections);
   original.value = new Set(inCollections);
 });
@@ -35,13 +48,30 @@ function toggle(id: string) {
   checked.value = new Set(checked.value);
 }
 
+function addTo(collectionId: string) {
+  return isTrack.value
+    ? store.addTrackToCollection(
+        collectionId,
+        props.soundtrackId,
+        props.videoId as string,
+        props.trackTitle ?? "",
+      )
+    : store.addToCollection(collectionId, props.soundtrackId);
+}
+
+function removeFrom(collectionId: string) {
+  return isTrack.value
+    ? store.removeTrackFromCollection(collectionId, props.videoId as string)
+    : store.removeFromCollection(collectionId, props.soundtrackId);
+}
+
 async function save() {
   saving.value = true;
   const toAdd    = [...checked.value].filter(id => !original.value.has(id));
   const toRemove = [...original.value].filter(id => !checked.value.has(id));
   await Promise.all([
-    ...toAdd.map(id => store.addToCollection(id, props.soundtrackId)),
-    ...toRemove.map(id => store.removeFromCollection(id, props.soundtrackId)),
+    ...toAdd.map(id => addTo(id)),
+    ...toRemove.map(id => removeFrom(id)),
   ]);
   saving.value = false;
   emit("close");
@@ -51,7 +81,7 @@ function onCreated(c: Collection) {
   showCreate.value = false;
   checked.value.add(c.id);
   checked.value = new Set(checked.value);
-  store.addToCollection(c.id, props.soundtrackId);
+  addTo(c.id);
 }
 </script>
 
@@ -60,11 +90,11 @@ function onCreated(c: Collection) {
     <div v-if="open && !showCreate" class="backdrop" @click.self="emit('close')">
       <div class="modal">
         <div class="modal-header">
-          <h2>Add to Collection</h2>
+          <h2>{{ isTrack ? "Add Track to Collection" : "Add to Collection" }}</h2>
           <button class="close-btn" @click="emit('close')">✕</button>
         </div>
 
-        <p class="subtitle">{{ soundtrackTitle }}</p>
+        <p class="subtitle">{{ subtitle }}</p>
 
         <div class="list">
           <div v-if="!user" class="empty">Sign in to use collections.</div>
@@ -81,7 +111,7 @@ function onCreated(c: Collection) {
             <div class="c-info">
               <p class="c-name">{{ c.name }}</p>
               <p class="c-meta">
-                {{ (c.collection_items as any)?.length ?? 0 }} tracks ·
+                {{ itemSummary(c.collection_items) }} ·
                 {{ c.is_public ? "Public" : "Private" }}
               </p>
             </div>

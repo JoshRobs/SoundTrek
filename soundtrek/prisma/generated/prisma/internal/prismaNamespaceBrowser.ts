@@ -56,7 +56,9 @@ export const ModelName = {
   Submission: 'Submission',
   Soundtrack: 'Soundtrack',
   Track: 'Track',
-  UserLike: 'UserLike'
+  UserLike: 'UserLike',
+  Collection: 'Collection',
+  CollectionItem: 'CollectionItem'
 } as const
 
 export type ModelName = (typeof ModelName)[keyof typeof ModelName]
@@ -161,6 +163,34 @@ export const UserLikeScalarFieldEnum = {
 } as const
 
 export type UserLikeScalarFieldEnum = (typeof UserLikeScalarFieldEnum)[keyof typeof UserLikeScalarFieldEnum]
+
+
+export const CollectionScalarFieldEnum = {
+  id: 'id',
+  name: 'name',
+  description: 'description',
+  creator_name: 'creator_name',
+  user_id: 'user_id',
+  is_public: 'is_public',
+  theme_tags: 'theme_tags',
+  created_at: 'created_at',
+  updated_at: 'updated_at'
+} as const
+
+export type CollectionScalarFieldEnum = (typeof CollectionScalarFieldEnum)[keyof typeof CollectionScalarFieldEnum]
+
+
+export const CollectionItemScalarFieldEnum = {
+  id: 'id',
+  collection_id: 'collection_id',
+  soundtrack_id: 'soundtrack_id',
+  video_id: 'video_id',
+  track_title: 'track_title',
+  position: 'position',
+  added_at: 'added_at'
+} as const
+
+export type CollectionItemScalarFieldEnum = (typeof CollectionItemScalarFieldEnum)[keyof typeof CollectionItemScalarFieldEnum]
 
 
 export const SortOrder = {

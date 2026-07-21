@@ -96,3 +96,43 @@ model UserLike {
   @@map("user_likes")
 }
 
+// User-curated collections of soundtracks. Created originally in the Supabase
+// dashboard (hence the legacy "playlist" constraint/index names in Postgres);
+// first captured here alongside migration 012. user_id references
+// auth.users(id) (Supabase Auth) and, as elsewhere in this schema, is kept as a
+// bare column rather than a modeled cross-schema relation.
+model Collection {
+  id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name         String
+  description  String?
+  creator_name String?
+  user_id      String    @db.Uuid
+  is_public    Boolean   @default(true)
+  theme_tags   String[]  @default([])
+  created_at   DateTime? @default(now()) @db.Timestamptz(6)
+  updated_at   DateTime? @default(now()) @db.Timestamptz(6)
+
+  @@map("collections")
+}
+
+// One entry in a collection. Polymorphic (migration 012): video_id NULL → the
+// whole soundtrack (album item); video_id set → a single track from its
+// playlist, with track_title snapshotted at add time. FKs (collection_id,
+// soundtrack_id) are kept as bare columns to match Track/UserLike above.
+//
+// Uniqueness is enforced by two PARTIAL unique indexes — collection_items_album_uniq
+// (collection_id, soundtrack_id) WHERE video_id IS NULL and collection_items_track_uniq
+// (collection_id, video_id) WHERE video_id IS NOT NULL — which Prisma schema
+// cannot express. They live in migration 012; do not replace them with a plain
+// @@unique here, which would forbid multiple tracks from one soundtrack.
+model CollectionItem {
+  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  collection_id String    @db.Uuid
+  soundtrack_id String    @db.Uuid
+  video_id      String?
+  track_title   String?
+  position      Int       @default(0)
+  added_at      DateTime? @default(now()) @db.Timestamptz(6)
+
+  @@map("collection_items")
+}

@@ -15,6 +15,7 @@ import { displayLikes } from "@/utils/likes";
 import AddToCollectionModal from "@/components/AddToCollectionModal.vue";
 import TracklistPanel from "@/components/TracklistPanel.vue";
 import { useAuth } from "@/composables/useAuth";
+import { useQueueActions } from "@/composables/useQueueActions";
 
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -30,6 +31,24 @@ const copied = ref(false);
 const { isLiked, toggleLike: rawToggle } = useLikes();
 const { user } = useAuth();
 const showAddToPlaylist = ref(false);
+// When set, the collection modal opens in track mode for this track; null → the
+// whole-OST "Collection" button.
+const trackToAdd = ref<TracklistEntry | null>(null);
+
+function openAlbumCollect() {
+  trackToAdd.value = null;
+  showAddToPlaylist.value = true;
+}
+
+function onAddTrack(item: TracklistEntry) {
+  trackToAdd.value = item;
+  showAddToPlaylist.value = true;
+}
+
+function closeAddToPlaylist() {
+  showAddToPlaylist.value = false;
+  trackToAdd.value = null;
+}
 
 // Support both slug-based URLs (new) and UUID-based URLs (legacy bookmarks)
 const track = ref<Soundtrack | null>(null);
@@ -321,6 +340,16 @@ function play() {
   if (track.value) store.setNowPlaying(track.value);
 }
 
+// ── Add to queue ──────────────────────────────────────────────────────────────
+const { addSoundtrack } = useQueueActions();
+const queued = ref(false);
+function addToQueue() {
+  if (!track.value) return;
+  addSoundtrack(track.value);
+  queued.value = true;
+  setTimeout(() => (queued.value = false), 1600);
+}
+
 function toggleLike() {
   if (!track.value) return;
   const delta = rawToggle(id.value);
@@ -500,6 +529,44 @@ onUnmounted(() => {
                 </button>
 
                 <button
+                  class="queue-btn"
+                  :class="{ queued }"
+                  @click="addToQueue"
+                >
+                  <svg
+                    v-if="queued"
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2.5"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <polyline points="20 6 9 17 4 12" />
+                  </svg>
+                  <svg
+                    v-else
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <line x1="4" y1="7" x2="15" y2="7" />
+                    <line x1="4" y1="12" x2="15" y2="12" />
+                    <line x1="4" y1="17" x2="11" y2="17" />
+                    <line x1="18" y1="14" x2="18" y2="20" />
+                    <line x1="15" y1="17" x2="21" y2="17" />
+                  </svg>
+                  {{ queued ? "Added!" : "Add to queue" }}
+                </button>
+
+                <button
                   class="like-btn"
                   :class="{ liked: isLiked(id) }"
                   @click="toggleLike"
@@ -525,7 +592,7 @@ onUnmounted(() => {
                   v-if="user"
                   class="save-btn"
                   aria-label="Add to collection"
-                  @click="showAddToPlaylist = true"
+                  @click="openAlbumCollect"
                 >
                   <svg
                     width="16"
@@ -617,7 +684,13 @@ onUnmounted(() => {
         <!-- Tracklist for narrow viewports (the right rail is hidden there) —
          collapsed by default so it doesn't push the page down -->
         <div v-if="tracklist.length && track" class="tracklist-mobile">
-          <TracklistPanel :tracks="tracklist" :soundtrack="track" collapsible />
+          <TracklistPanel
+            :tracks="tracklist"
+            :soundtrack="track"
+            :can-collect="!!user"
+            collapsible
+            @add-to-collection="onAddTrack"
+          />
         </div>
 
         <!-- Amazon disclosure -->
@@ -812,6 +885,8 @@ onUnmounted(() => {
           v-if="tracklist.length && track"
           :tracks="tracklist"
           :soundtrack="track"
+          :can-collect="!!user"
+          @add-to-collection="onAddTrack"
         />
       </div>
     </div>
@@ -831,7 +906,9 @@ onUnmounted(() => {
     :open="showAddToPlaylist"
     :soundtrack-id="id"
     :soundtrack-title="track?.game_title ?? ''"
-    @close="showAddToPlaylist = false"
+    :video-id="trackToAdd?.video_id ?? null"
+    :track-title="trackToAdd?.title ?? null"
+    @close="closeAddToPlaylist"
   />
 </template>
 
@@ -1173,6 +1250,35 @@ onUnmounted(() => {
 
 .play-btn:active {
   transform: scale(0.97);
+}
+
+.queue-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.65rem 1rem;
+  border-radius: 99px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0.88rem;
+  cursor: pointer;
+  transition:
+    border-color 0.15s,
+    color 0.15s,
+    background 0.15s;
+}
+
+.queue-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent-light, var(--accent));
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+}
+
+.queue-btn.queued {
+  color: #1db954;
+  border-color: #1db954;
+  background: rgba(29, 185, 84, 0.08);
 }
 
 .like-btn {
@@ -1587,6 +1693,7 @@ onUnmounted(() => {
   }
 
   .like-btn,
+  .queue-btn,
   .share-btn {
     padding: 0.6rem 0.85rem;
     font-size: 0.82rem;

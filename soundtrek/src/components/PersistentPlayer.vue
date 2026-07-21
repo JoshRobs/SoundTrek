@@ -268,6 +268,7 @@ const {
   currentTrackIndex,
   queue,
   playerVideoIds,
+  canPrev,
   toggleMute,
   togglePlay,
   nextTrack,
@@ -501,6 +502,7 @@ function ctxSwitchSource(src: "youtube" | "spotify") {
           v-if="showTrackNav"
           class="track-nav-btn"
           aria-label="Previous track"
+          :disabled="!canPrev"
           @click="prevTrack"
         >
           <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
@@ -719,7 +721,12 @@ function ctxSwitchSource(src: "youtube" | "spotify") {
       </div>
 
       <div v-if="showTrackNav && hasSource" class="playlist-nav">
-        <button class="playlist-nav-btn" aria-label="Previous track" @click="prevTrack">
+        <button
+          class="playlist-nav-btn"
+          aria-label="Previous track"
+          :disabled="!canPrev"
+          @click="prevTrack"
+        >
           <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
             <path d="M6 6h2v12H6zm3.5 6 8.5 6V6z" />
           </svg>
@@ -1219,11 +1226,25 @@ function ctxSwitchSource(src: "youtube" | "spotify") {
   border-right: 1px solid rgba(255, 255, 255, 0.06);
   background: #111;
   overflow-y: auto;
-  scrollbar-width: none;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
 }
 
 .playlist-panel::-webkit-scrollbar {
-  display: none;
+  width: 8px;
+}
+
+.playlist-panel::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.playlist-panel::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.16);
+  border-radius: 4px;
+}
+
+.playlist-panel::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.3);
 }
 
 .no-source {
@@ -1451,8 +1472,13 @@ function ctxSwitchSource(src: "youtube" | "spotify") {
   flex-shrink: 0;
 }
 
-.track-nav-btn:hover {
+.track-nav-btn:hover:not(:disabled) {
   background: rgba(255, 255, 255, 0.15);
+}
+
+.track-nav-btn:disabled {
+  opacity: 0.3;
+  cursor: default;
 }
 
 .playlist-nav {

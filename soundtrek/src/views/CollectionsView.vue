@@ -3,6 +3,7 @@ import { ref, onMounted } from "vue";
 import { useRouter } from "vue-router";
 import { useHead } from "@unhead/vue";
 import { useCollectionStore } from "@/stores/collections";
+import { itemSummary } from "@/utils/collectionSummary";
 import CreateCollectionModal from "@/components/CreateCollectionModal.vue";
 import PageHero from "@/components/PageHero.vue";
 import type { Collection } from "@/types/collection";
@@ -23,10 +24,6 @@ function coverImages(c: Collection): string[] {
     .map((i: any) => i.soundtrack?.cover_image_url)
     .filter(Boolean)
     .slice(0, 4);
-}
-
-function itemCount(c: Collection): number {
-  return (c.collection_items as any[])?.length ?? 0;
 }
 
 async function deleteCollection(c: Collection) {
@@ -119,7 +116,7 @@ async function deleteCollection(c: Collection) {
           <div class="card-info">
             <p class="card-name">{{ c.name }}</p>
             <p class="card-meta">
-              {{ itemCount(c) }} track{{ itemCount(c) !== 1 ? "s" : "" }} ·
+              {{ itemSummary(c.collection_items) }} ·
               {{ c.is_public ? "Public" : "Private" }}
             </p>
           </div>

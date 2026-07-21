@@ -1,5 +1,5 @@
 import { ref, computed } from "vue";
-import { defineStore } from "pinia";
+import { defineStore, acceptHMRUpdate } from "pinia";
 import { supabase } from "@/lib/supabase";
 import { usePlayerStore } from "@/stores/player";
 import type { Soundtrack, FilterState, ExploreRow } from "@/types/soundtrack";
@@ -305,3 +305,7 @@ export const useSoundtrackStore = defineStore("soundtracks", () => {
     likeSoundtrack,
   };
 });
+
+if (import.meta.hot) {
+  import.meta.hot.accept(acceptHMRUpdate(useSoundtrackStore, import.meta.hot));
+}

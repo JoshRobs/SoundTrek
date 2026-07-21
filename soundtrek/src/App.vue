@@ -5,6 +5,7 @@ import { useRoute, useRouter } from "vue-router";
 import AppHeader from "@/components/AppHeader.vue";
 import PersistentPlayer from "@/components/PersistentPlayer.vue";
 import MobileMiniPlayer from "@/components/MobileMiniPlayer.vue";
+import QueuePanel from "@/components/QueuePanel.vue";
 import { useIsMobile } from "@/composables/useIsMobile";
 import { useSoundtrackStore } from "@/stores/soundtracks";
 import { supabase } from "@/lib/supabase";
@@ -41,6 +42,7 @@ supabase.auth.onAuthStateChange((event) => {
     </div>
     <PersistentPlayer v-if="!isMobile" />
     <MobileMiniPlayer v-else />
+    <QueuePanel />
   </div>
 </template>
 

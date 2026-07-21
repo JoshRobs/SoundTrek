@@ -45,6 +45,7 @@ const {
   currentTrackIndex,
   queue,
   playerVideoIds,
+  canPrev,
   togglePlay,
   nextTrack,
   prevTrack,
@@ -196,10 +197,16 @@ function onTouchMove(e: TouchEvent) {
   }
 }
 
-function onTouchEnd() {
+function onTouchEnd(e: TouchEvent) {
   const delta = touchCurrentY - touchStartY;
   if (sheetEl.value) sheetEl.value.style.transform = "";
-  if (delta > 80) sheetOpen.value = false;
+  if (delta > 80) {
+    // Without this, the browser's post-touch synthetic click fires at the
+    // release point *after* the sheet is gone, hitting whatever page
+    // content was underneath instead of just dismissing the sheet.
+    e.preventDefault();
+    sheetOpen.value = false;
+  }
 }
 
 // ── Spacebar global shortcut ───────────────────────────────────────────────
@@ -325,7 +332,7 @@ function goToPage() {
         class="sheet-backdrop"
         :class="{ 'sheet-backdrop--open': sheetOpen }"
         @click.self="sheetOpen = false"
-        @touchstart.self.stop="sheetOpen = false"
+        @touchstart.self.stop.prevent="sheetOpen = false"
         @touchmove.stop
       >
         <div
@@ -610,6 +617,7 @@ function goToPage() {
                 v-if="isPlaylist"
                 class="ctrl-btn"
                 aria-label="Previous track"
+                :disabled="!canPrev"
                 @click="prevTrack"
               >
                 <svg
@@ -693,7 +701,7 @@ function goToPage() {
                       stroke-linecap="round"
                       stroke-linejoin="round"
                     >
-                      <path d="M18 15l-6 6-6-6" />
+                      <path d="M18 9l-6 6-6-6" />
                     </svg>
                   </button>
                 </div>
@@ -1196,6 +1204,10 @@ function goToPage() {
 
 .ctrl-btn:active {
   color: rgba(255, 255, 255, 0.9);
+}
+
+.ctrl-btn:disabled {
+  opacity: 0.3;
 }
 
 .ctrl-play {

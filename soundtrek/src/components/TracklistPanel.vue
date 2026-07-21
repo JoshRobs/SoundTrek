@@ -3,6 +3,7 @@ import { ref, computed } from "vue";
 import type { TracklistEntry } from "@/types/track";
 import type { Soundtrack } from "@/types/soundtrack";
 import { usePlayerStore } from "@/stores/player";
+import { useQueueStore } from "@/stores/queue";
 import { storeToRefs } from "pinia";
 
 const props = defineProps<{
@@ -11,12 +12,19 @@ const props = defineProps<{
   soundtrack: Soundtrack;
   /** Accordion mode for narrow viewports: header toggles the list. */
   collapsible?: boolean;
+  /** Show the "add to collection" action (only for signed-in users). */
+  canCollect?: boolean;
 }>();
+
+// Bubbles a track up so the owning view can open the collection modal in
+// track mode (this panel doesn't own the modal).
+const emit = defineEmits<{ "add-to-collection": [TracklistEntry] }>();
 
 const open = ref(!props.collapsible);
 
 // ── Playback ─────────────────────────────────────────────────────────────────
 const player = usePlayerStore();
+const itemQueue = useQueueStore();
 const { nowPlaying, currentVideoId, queue } = storeToRefs(player);
 
 function playTrack(item: TracklistEntry) {
@@ -40,11 +48,21 @@ const activeVideoId = computed<string | null>(() =>
 const added = ref(new Set<number>());
 
 function addToQueue(item: TracklistEntry) {
-  player.enqueueTrack(props.soundtrack, {
-    videoId: item.video_id,
-    title: item.title,
-    unavailable: item.unavailable,
-  });
+  // With an item queue running, it's "the queue" the user sees — append there
+  // (as a track item) so the panel stays the single source of truth. Otherwise
+  // fall back to the ad-hoc player track queue.
+  if (itemQueue.isActive) {
+    itemQueue.addTrack(props.soundtrack, {
+      videoId: item.video_id,
+      title: item.title,
+    });
+  } else {
+    player.enqueueTrack(props.soundtrack, {
+      videoId: item.video_id,
+      title: item.title,
+      unavailable: item.unavailable,
+    });
+  }
   added.value.add(item.position);
   setTimeout(() => added.value.delete(item.position), 1600);
 }
@@ -131,10 +149,12 @@ function addToQueue(item: TracklistEntry) {
             </svg>
           </button>
           <button
+            v-if="canCollect"
             type="button"
             class="track-action"
             aria-label="Add to collection"
             title="Add to collection"
+            @click="emit('add-to-collection', item)"
           >
             <svg
               width="15"

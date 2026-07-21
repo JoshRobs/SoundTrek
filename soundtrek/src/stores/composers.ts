@@ -1,5 +1,5 @@
 import { ref } from "vue";
-import { defineStore } from "pinia";
+import { defineStore, acceptHMRUpdate } from "pinia";
 import { supabase } from "@/lib/supabase";
 import type { Composer } from "@/types/soundtrack";
 
@@ -53,3 +53,7 @@ export const useComposerStore = defineStore("composers", () => {
 
   return { cache, fetchComposer, fetchMany };
 });
+
+if (import.meta.hot) {
+  import.meta.hot.accept(acceptHMRUpdate(useComposerStore, import.meta.hot));
+}

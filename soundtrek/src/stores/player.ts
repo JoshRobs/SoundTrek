@@ -1,5 +1,5 @@
 import { ref, computed, watch } from "vue";
-import { defineStore } from "pinia";
+import { defineStore, acceptHMRUpdate } from "pinia";
 import type { Soundtrack } from "@/types/soundtrack";
 
 // One entry in the player's playback queue.
@@ -138,6 +138,20 @@ export const usePlayerStore = defineStore("player", () => {
     queue.value.push(item);
   }
 
+  // Replaces the queue with a fully-built list and starts playback from the
+  // first available track — used to play a whole collection (album items
+  // expanded to their tracks, track items as single entries). Like any custom
+  // queue it persists and survives source switches.
+  function playQueue(items: QueueItem[]) {
+    if (items.length === 0) return;
+    const firstAvailable = items.findIndex((i) => !i.unavailable);
+    queue.value = items;
+    currentTrackIndex.value = firstAvailable === -1 ? 0 : firstAvailable;
+    isCustomQueue.value = true;
+    activeSoundtrack.value = items[currentTrackIndex.value].soundtrack;
+    playRequestId.value++;
+  }
+
   // ── Persistence ───────────────────────────────────────────────────────────
   // Only custom queues are persisted; OST queues restore via the existing
   // player-track + player-video-id path (refetched from the proxy).
@@ -224,6 +238,11 @@ export const usePlayerStore = defineStore("player", () => {
     playFromTrack,
     seekToQueueIndex,
     enqueueTrack,
+    playQueue,
     restoreQueue,
   };
 });
+
+if (import.meta.hot) {
+  import.meta.hot.accept(acceptHMRUpdate(usePlayerStore, import.meta.hot));
+}

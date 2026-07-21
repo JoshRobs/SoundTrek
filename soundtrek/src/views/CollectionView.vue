@@ -4,7 +4,10 @@ import { useRoute, useRouter } from "vue-router";
 import { useHead } from "@unhead/vue";
 import { useCollectionStore } from "@/stores/collections";
 import { useSoundtrackStore } from "@/stores/soundtracks";
+import { usePlayerStore } from "@/stores/player";
+import { useQueueStore } from "@/stores/queue";
 import { useAuth } from "@/composables/useAuth";
+import { itemSummary } from "@/utils/collectionSummary";
 import CreateCollectionModal from "@/components/CreateCollectionModal.vue";
 import CollectionTrackCard from "@/components/CollectionTrackCard.vue";
 import type { Collection, CollectionItem } from "@/types/collection";
@@ -13,6 +16,8 @@ const route = useRoute();
 const router = useRouter();
 const cStore = useCollectionStore();
 const sStore = useSoundtrackStore();
+const player = usePlayerStore();
+const itemQueue = useQueueStore();
 const { user } = useAuth();
 
 const collection = ref<Collection | null>(null);
@@ -21,6 +26,28 @@ const notFound = ref(false);
 const copied = ref(false);
 const showEdit = ref(false);
 const editMode = ref(false);
+
+type ViewMode = "grid" | "list";
+const viewMode = ref<ViewMode>(
+  (localStorage.getItem("collectionViewMode") as ViewMode) || "grid",
+);
+function setViewMode(mode: ViewMode) {
+  viewMode.value = mode;
+  localStorage.setItem("collectionViewMode", mode);
+}
+
+function itemTitle(item: CollectionItem): string {
+  return item.video_id
+    ? (item.track_title ?? "")
+    : (item.soundtrack?.game_title ?? "");
+}
+
+function itemSubtitle(item: CollectionItem): string {
+  if (!item.soundtrack) return "";
+  return item.video_id
+    ? item.soundtrack.game_title
+    : (item.soundtrack.composers?.join(", ") ?? "");
+}
 
 useHead(
   computed(() => ({
@@ -58,25 +85,43 @@ const tracks = computed(() =>
   items.value.map((i) => i.soundtrack).filter(Boolean),
 );
 
-const activeIndex = computed(() =>
-  items.value.findIndex((i) => i.soundtrack_id === sStore.nowPlaying?.id),
-);
+// A track item highlights when its video is the one playing; an album item
+// highlights when its soundtrack is playing and the queue isn't focused on a
+// specific track (so a track item of the same OST doesn't also light up).
+function isActive(item: CollectionItem): boolean {
+  if (item.video_id) return player.currentVideoId === item.video_id;
+  return (
+    sStore.nowPlaying?.id === item.soundtrack_id && !player.currentVideoId
+  );
+}
+
+const summary = computed(() => itemSummary(items.value));
 
 function navigate(item: CollectionItem) {
   if (item.soundtrack)
     router.push(`/soundtrack/${item.soundtrack.slug ?? item.soundtrack.id}`);
 }
 
+// Playing any item seeds the item queue with this collection starting at that
+// item, so the queue panel appears and playback flows item-to-item from there.
 function play(item: CollectionItem) {
-  if (item.soundtrack) sStore.setNowPlaying(item.soundtrack);
+  if (!collection.value) return;
+  const index = items.value.findIndex((i) => i.id === item.id);
+  if (index !== -1)
+    itemQueue.startCollection(collection.value, items.value, index);
+}
+
+// Plays the whole collection from the top: each item drives its own track
+// queue (albums play their playlist, tracks play as a single entry), advancing
+// item-to-item via the item queue.
+function playAll() {
+  if (!collection.value || !items.value.length) return;
+  itemQueue.startCollection(collection.value, items.value, 0);
 }
 
 async function removeItem(item: CollectionItem) {
   if (!collection.value) return;
-  const ok = await cStore.removeFromCollection(
-    collection.value.id,
-    item.soundtrack_id,
-  );
+  const ok = await cStore.removeItemById(item.id);
   if (ok && collection?.value?.collection_items !== undefined) {
     collection.value.collection_items =
       collection.value.collection_items.filter((i) => i.id !== item.id);
@@ -175,8 +220,7 @@ function onUpdated() {
             {{ collection.description }}
           </p>
           <p class="hero-meta">
-            By {{ collection.creator_name ?? "Unknown" }} ·
-            {{ items.length }} track{{ items.length !== 1 ? "s" : "" }}
+            By {{ collection.creator_name ?? "Unknown" }} · {{ summary }}
           </p>
           <div v-if="collection.theme_tags?.length" class="tags">
             <span v-for="t in collection.theme_tags" :key="t" class="tag">{{
@@ -185,6 +229,16 @@ function onUpdated() {
           </div>
 
           <div class="hero-actions">
+            <button
+              v-if="items.length"
+              class="btn-action btn-action--play"
+              @click="playAll"
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M8 5v14l11-7z" />
+              </svg>
+              Play
+            </button>
             <button class="btn-action" @click="copyLink">
               {{ copied ? "Copied!" : "Copy Link" }}
             </button>
@@ -212,21 +266,131 @@ function onUpdated() {
 
       <div class="separator" />
 
-      <div v-if="items.length" class="track-grid">
+      <div v-if="items.length" class="list-header">
+        <div class="view-toggle" role="group" aria-label="View mode">
+          <button
+            class="view-toggle-btn"
+            :class="{ 'view-toggle-btn--active': viewMode === 'grid' }"
+            aria-label="Grid view"
+            :aria-pressed="viewMode === 'grid'"
+            @click="setViewMode('grid')"
+          >
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="currentColor"
+            >
+              <rect x="3" y="3" width="7" height="7" rx="1.5" />
+              <rect x="14" y="3" width="7" height="7" rx="1.5" />
+              <rect x="3" y="14" width="7" height="7" rx="1.5" />
+              <rect x="14" y="14" width="7" height="7" rx="1.5" />
+            </svg>
+          </button>
+          <button
+            class="view-toggle-btn"
+            :class="{ 'view-toggle-btn--active': viewMode === 'list' }"
+            aria-label="List view"
+            :aria-pressed="viewMode === 'list'"
+            @click="setViewMode('list')"
+          >
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+            >
+              <path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01" />
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <div v-if="items.length && viewMode === 'grid'" class="track-grid">
         <div
-          v-for="(item, index) in items"
+          v-for="item in items"
           :key="item.id"
           class="track-card"
-          :class="{ active: activeIndex === index }"
+          :class="{ active: isActive(item) }"
         >
           <CollectionTrackCard
             v-if="item.soundtrack"
             :soundtrack="item.soundtrack"
+            :track="item.video_id ? { title: item.track_title ?? '' } : null"
             :edit-mode="editMode"
             @click="navigate(item)"
             @play="play(item)"
             @remove="removeItem(item)"
           />
+        </div>
+      </div>
+
+      <div v-else-if="items.length" class="track-list">
+        <div
+          v-for="item in items"
+          :key="item.id"
+          class="list-row"
+          :class="{ active: isActive(item) }"
+          @click="!editMode && navigate(item)"
+        >
+          <div class="list-thumb">
+            <img
+              v-if="item.soundtrack?.cover_image_url"
+              :src="item.soundtrack.cover_image_url"
+              :alt="item.soundtrack.game_title"
+            />
+            <div v-else class="list-thumb-empty">🎮</div>
+          </div>
+
+          <div class="list-main">
+            <p class="list-title">{{ itemTitle(item) }}</p>
+            <p v-if="itemSubtitle(item)" class="list-sub">
+              {{ itemSubtitle(item) }}
+            </p>
+          </div>
+
+          <span
+            class="list-badge"
+            :class="item.video_id ? 'list-badge--track' : 'list-badge--album'"
+            >{{ item.video_id ? "Track" : "Album" }}</span
+          >
+
+          <span class="list-year">{{ item.soundtrack?.release_year }}</span>
+
+          <button
+            v-if="!editMode"
+            class="list-action"
+            aria-label="Play"
+            @click.stop="play(item)"
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M8 5v14l11-7z" />
+            </svg>
+          </button>
+          <button
+            v-else
+            class="list-action list-action--remove"
+            aria-label="Remove from collection"
+            @click.stop="removeItem(item)"
+          >
+            <svg
+              width="18"
+              height="18"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path
+                d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m3 0-1 14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2L4 6"
+              />
+            </svg>
+          </button>
         </div>
       </div>
       <p v-else class="empty">No tracks in this collection yet.</p>
@@ -422,6 +586,42 @@ function onUpdated() {
   border-color: var(--text-muted);
   color: var(--text-primary);
 }
+
+.btn-action--play {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding-left: 0.85rem;
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+.btn-action--play:hover {
+  background: var(--accent-hover, var(--accent));
+  border-color: var(--accent-hover, var(--accent));
+  color: #fff;
+}
+
+.btn-action--play:disabled {
+  opacity: 0.7;
+  cursor: default;
+}
+
+.btn-spinner {
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.4);
+  border-top-color: #fff;
+  animation: btn-spin 0.7s linear infinite;
+}
+
+@keyframes btn-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
 .btn-action--active {
   background: var(--accent);
   border-color: var(--accent);
@@ -447,15 +647,174 @@ function onUpdated() {
   background: var(--border);
 }
 
+/* View toggle header */
+.list-header {
+  position: relative;
+  max-width: 1100px;
+  margin: 0 auto 1.25rem;
+  padding: 0 3rem;
+  display: flex;
+  justify-content: flex-end;
+}
+.view-toggle {
+  display: inline-flex;
+  gap: 0.15rem;
+  padding: 0.2rem;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: var(--surface-2);
+}
+.view-toggle-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 30px;
+  border: none;
+  border-radius: 6px;
+  background: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition:
+    color 0.12s,
+    background 0.12s;
+}
+.view-toggle-btn:hover {
+  color: var(--text-primary);
+}
+.view-toggle-btn--active {
+  background: var(--accent);
+  color: #fff;
+}
+.view-toggle-btn--active:hover {
+  color: #fff;
+}
+
 /* Track grid */
 .track-grid {
   position: relative;
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(185px, 1fr));
   gap: 1.25rem;
   max-width: 1100px;
   margin: 0 auto;
   padding: 0 3rem 6rem;
+}
+
+/* Track list */
+.track-list {
+  position: relative;
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 0 3rem 6rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+.list-row {
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr) auto auto 40px;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.12s;
+}
+.list-row:hover {
+  background: var(--surface-2);
+}
+.list-row.active {
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+}
+.list-row.active .list-title {
+  color: var(--accent);
+}
+.list-thumb {
+  width: 48px;
+  height: 48px;
+  border-radius: 6px;
+  overflow: hidden;
+  background: var(--surface-2);
+  flex-shrink: 0;
+}
+.list-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.list-thumb-empty {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.4rem;
+}
+.list-main {
+  min-width: 0;
+}
+.list-title {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.list-sub {
+  margin: 0.1rem 0 0;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.list-badge {
+  padding: 0.15rem 0.5rem;
+  border-radius: 5px;
+  font-size: 0.62rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.list-badge--track {
+  background: color-mix(in srgb, var(--accent) 85%, black);
+  color: #fff;
+}
+.list-badge--album {
+  background: var(--surface-2);
+  color: var(--text-secondary);
+}
+.list-year {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+.list-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: none;
+  background: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition:
+    background 0.12s,
+    color 0.12s;
+}
+.list-action:hover {
+  background: var(--accent);
+  color: #fff;
+}
+.list-action--remove:hover {
+  background: color-mix(in srgb, #f87171 25%, transparent);
+  color: #f87171;
 }
 
 .track-card {
@@ -501,6 +860,24 @@ function onUpdated() {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 0.75rem;
     padding: 0 1rem 5rem;
+  }
+  .list-header {
+    padding: 0 1rem;
+  }
+  .track-list {
+    padding: 0 1rem 5rem;
+  }
+  .list-row {
+    grid-template-columns: 44px minmax(0, 1fr) auto 36px;
+    gap: 0.6rem;
+    padding: 0.4rem 0.5rem;
+  }
+  .list-thumb {
+    width: 44px;
+    height: 44px;
+  }
+  .list-year {
+    display: none;
   }
 }
 </style>
