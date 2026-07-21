@@ -3,6 +3,7 @@ import { ref, computed, watch, onMounted, onUnmounted } from "vue";
 import { storeToRefs } from "pinia";
 import { useQueueStore } from "@/stores/queue";
 import { useIsMobile } from "@/composables/useIsMobile";
+import AppIcon from "@/components/AppIcon.vue";
 import type { CollectionItem } from "@/types/collection";
 
 const queue = useQueueStore();
@@ -215,6 +216,7 @@ function itemSubtitle(item: CollectionItem): string {
           <!-- Resize handle — drag left/right to change the drawer width -->
           <div
             class="queue-resize"
+            :class="{ resizing }"
             aria-label="Resize queue"
             @pointerdown="onResizeDown"
           />
@@ -249,18 +251,7 @@ function itemSubtitle(item: CollectionItem): string {
               aria-label="Close queue"
               @click="queue.close()"
             >
-              <svg
-                width="18"
-                height="18"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2.5"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-              >
-                <path d="M18 6 6 18M6 6l12 12" />
-              </svg>
+              <AppIcon name="close-icon" :size="18" />
             </button>
           </header>
 
@@ -314,7 +305,12 @@ function itemSubtitle(item: CollectionItem): string {
                 @pointerdown.stop.prevent="onHandleDown($event, i)"
                 @click.stop
               >
-                <svg width="10" height="16" viewBox="0 0 10 16" fill="currentColor">
+                <svg
+                  width="10"
+                  height="16"
+                  viewBox="0 0 10 16"
+                  fill="currentColor"
+                >
                   <circle cx="2.5" cy="3" r="1.3" />
                   <circle cx="7.5" cy="3" r="1.3" />
                   <circle cx="2.5" cy="8" r="1.3" />
@@ -357,18 +353,7 @@ function itemSubtitle(item: CollectionItem): string {
                 aria-label="Remove from queue"
                 @click.stop="queue.removeItem(i)"
               >
-                <svg
-                  width="13"
-                  height="13"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2.5"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                >
-                  <path d="M18 6 6 18M6 6l12 12" />
-                </svg>
+                <AppIcon name="close-icon" :size="13" />
               </button>
             </li>
           </TransitionGroup>
@@ -443,18 +428,7 @@ function itemSubtitle(item: CollectionItem): string {
                 aria-label="Close queue"
                 @click="queue.close()"
               >
-                <svg
-                  width="20"
-                  height="20"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2.5"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                >
-                  <path d="M18 6 6 18M6 6l12 12" />
-                </svg>
+                <AppIcon name="close-icon" :size="20" />
               </button>
             </header>
             <TransitionGroup tag="ol" name="cq" class="cq-list">
@@ -462,7 +436,10 @@ function itemSubtitle(item: CollectionItem): string {
                 v-for="(item, i) in items"
                 :key="item.id"
                 class="cq-item"
-                :class="{ active: i === currentIndex, dragging: dragIndex === i }"
+                :class="{
+                  active: i === currentIndex,
+                  dragging: dragIndex === i,
+                }"
                 @click="queue.playItem(i)"
               >
                 <button
@@ -519,18 +496,7 @@ function itemSubtitle(item: CollectionItem): string {
                   aria-label="Remove from queue"
                   @click.stop="queue.removeItem(i)"
                 >
-                  <svg
-                    width="13"
-                    height="13"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="2.5"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                  >
-                    <path d="M18 6 6 18M6 6l12 12" />
-                  </svg>
+                  <AppIcon name="close-icon" :size="13" />
                 </button>
               </li>
             </TransitionGroup>
@@ -597,21 +563,19 @@ function itemSubtitle(item: CollectionItem): string {
 .queue-resize::after {
   content: "";
   position: absolute;
-  left: 2px;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 3px;
-  height: 44px;
-  border-radius: 2px;
-  background: var(--border);
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--accent-light);
   opacity: 0;
-  transition:
-    opacity 0.15s,
-    background 0.15s;
+  transition: opacity 0.15s;
 }
 .queue-resize:hover::after {
-  opacity: 1;
-  background: var(--accent);
+  opacity: 0.55;
+}
+.queue-resize.resizing::after {
+  opacity: 0.9;
 }
 .queue-drawer:not(.open) .queue-resize {
   display: none;
@@ -786,7 +750,7 @@ function itemSubtitle(item: CollectionItem): string {
 }
 .cq-item {
   display: grid;
-  grid-template-columns: 16px 1.5rem 40px minmax(0, 1fr) auto 24px;
+  grid-template-columns: 16px 1.5rem 50px minmax(0, 1fr) auto 24px;
   align-items: center;
   gap: 0.6rem;
   padding: 0.7rem 0.5rem;
@@ -869,8 +833,8 @@ function itemSubtitle(item: CollectionItem): string {
   font-variant-numeric: tabular-nums;
 }
 .cq-thumb {
-  width: 40px;
-  height: 40px;
+  width: 50px;
+  height: 50px;
   border-radius: 5px;
   overflow: hidden;
   background: var(--surface-2);
@@ -1013,8 +977,8 @@ function itemSubtitle(item: CollectionItem): string {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 40px;
-  height: 40px;
+  width: 50px;
+  height: 50px;
   border-radius: 50%;
   border: none;
   background: transparent;

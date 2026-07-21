@@ -10,6 +10,7 @@ import { useAuth } from "@/composables/useAuth";
 import { itemSummary } from "@/utils/collectionSummary";
 import CreateCollectionModal from "@/components/CreateCollectionModal.vue";
 import CollectionTrackCard from "@/components/CollectionTrackCard.vue";
+import AppIcon from "@/components/AppIcon.vue";
 import type { Collection, CollectionItem } from "@/types/collection";
 
 const route = useRoute();
@@ -90,9 +91,7 @@ const tracks = computed(() =>
 // specific track (so a track item of the same OST doesn't also light up).
 function isActive(item: CollectionItem): boolean {
   if (item.video_id) return player.currentVideoId === item.video_id;
-  return (
-    sStore.nowPlaying?.id === item.soundtrack_id && !player.currentVideoId
-  );
+  return sStore.nowPlaying?.id === item.soundtrack_id && !player.currentVideoId;
 }
 
 const summary = computed(() => itemSummary(items.value));
@@ -235,7 +234,9 @@ function onDragUp() {
     items.value.some((it, i) => dragOrigOrder[i] !== it.id);
   dragIndex.value = null;
   if (moved && collection.value) {
-    cStore.reorderItems(items.value.map((it, i) => ({ id: it.id, position: i })));
+    cStore.reorderItems(
+      items.value.map((it, i) => ({ id: it.id, position: i })),
+    );
   }
 }
 
@@ -345,9 +346,7 @@ function onUpdated() {
               class="btn-action btn-action--play"
               @click="playAll"
             >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M8 5v14l11-7z" />
-              </svg>
+              <AppIcon name="play-icon" :size="18" />
               Play
             </button>
             <button class="btn-action" @click="copyLink">
@@ -386,12 +385,7 @@ function onUpdated() {
             :aria-pressed="viewMode === 'grid'"
             @click="setViewMode('grid')"
           >
-            <svg
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              fill="currentColor"
-            >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
               <rect x="3" y="3" width="7" height="7" rx="1.5" />
               <rect x="14" y="3" width="7" height="7" rx="1.5" />
               <rect x="3" y="14" width="7" height="7" rx="1.5" />
@@ -523,9 +517,7 @@ function onUpdated() {
             aria-label="Play"
             @click.stop="play(item)"
           >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M8 5v14l11-7z" />
-            </svg>
+            <AppIcon name="play-icon" :size="18" />
           </button>
           <button
             v-else
@@ -912,7 +904,7 @@ function onUpdated() {
 }
 /* Zebra striping — kept before :hover/.active so those still win on equal
    specificity. */
-.list-row:nth-child(even) {
+.list-row:nth-child(odd) {
   background: color-mix(in srgb, var(--text-primary) 4%, transparent);
 }
 .list-row:hover {

@@ -8,6 +8,7 @@ import RandomizeHeaderButton from "./RandomizeHeaderButton.vue";
 import ExploreMenu from "./ExploreMenu.vue";
 import GameSearchBox from "./GameSearchBox.vue";
 import MobileDrawer from "./MobileDrawer.vue";
+import AppIcon from "@/components/AppIcon.vue";
 
 const router = useRouter();
 const route = useRoute();
@@ -106,20 +107,7 @@ function onAvatarBlur(e: FocusEvent) {
         </RouterLink>
 
         <RouterLink to="/liked" class="icon-btn" aria-label="Liked soundtracks">
-          <svg
-            width="16"
-            height="16"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          >
-            <path
-              d="M19.5 12.572l-7.5 7.428-7.5-7.428a5 5 0 1 1 7.5-6.566 5 5 0 1 1 7.5 6.572"
-            />
-          </svg>
+          <AppIcon name="heart-outline-icon" :size="16" />
           Liked Soundtracks
         </RouterLink>
 
@@ -161,20 +149,7 @@ function onAvatarBlur(e: FocusEvent) {
                 class="dropdown-item"
                 @click="menuOpen = false"
               >
-                <svg
-                  width="15"
-                  height="15"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                >
-                  <path
-                    d="M19.5 12.572l-7.5 7.428-7.5-7.428a5 5 0 1 1 7.5-6.566 5 5 0 1 1 7.5 6.572"
-                  />
-                </svg>
+                <AppIcon name="heart-outline-icon" :size="15" />
                 Liked
               </RouterLink>
               <RouterLink

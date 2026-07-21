@@ -1,8 +1,19 @@
 <script setup lang="ts">
+import { ref } from "vue";
 import type { Soundtrack } from "@/types/soundtrack";
+import { useQueueActions } from "@/composables/useQueueActions";
+import AppIcon from "@/components/AppIcon.vue";
 
-defineProps<{ soundtrack: Soundtrack; showInfo?: boolean }>();
+const props = defineProps<{ soundtrack: Soundtrack; showInfo?: boolean }>();
 defineEmits<{ click: []; play: [] }>();
+
+const { addSoundtrack } = useQueueActions();
+const queued = ref(false);
+function addToQueue() {
+  addSoundtrack(props.soundtrack);
+  queued.value = true;
+  setTimeout(() => (queued.value = false), 1500);
+}
 </script>
 
 <template>
@@ -19,11 +30,20 @@ defineEmits<{ click: []; play: [] }>();
         class="cover-img"
       />
       <div v-else class="cover-fallback">🎮</div>
+
+      <button
+        class="queue-btn"
+        :class="{ queued }"
+        :aria-label="queued ? 'Added to queue' : 'Add to queue'"
+        @click.stop="addToQueue"
+      >
+        <AppIcon v-if="queued" name="check-icon" :size="24" />
+        <AppIcon v-else name="add-to-queue-icon" :size="24" />
+      </button>
+
       <div class="cover-overlay">
         <button class="overlay-play" @click.stop="$emit('play')">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M8 5v14l11-7z" />
-          </svg>
+          <AppIcon name="play-icon" :size="24" />
         </button>
         <span class="cover-title">{{ soundtrack.game_title }}</span>
       </div>
@@ -88,6 +108,50 @@ defineEmits<{ click: []; play: [] }>();
   align-items: center;
   justify-content: center;
   font-size: 3rem;
+}
+
+.queue-btn {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 7px;
+  background: rgba(17, 17, 17, 0.75);
+  color: #fff;
+  cursor: pointer;
+  opacity: 0;
+  transition:
+    opacity 0.18s,
+    background 0.15s,
+    color 0.15s,
+    transform 0.15s;
+}
+
+.cover-card:hover .queue-btn {
+  opacity: 1;
+}
+
+.queue-btn:hover {
+  background: rgba(40, 40, 40, 0.9);
+  transform: scale(1.12);
+}
+
+.queue-btn.queued {
+  opacity: 1;
+  color: #1db954;
+}
+
+/* Touch devices have no hover — keep the action reachable. */
+@media (hover: none) {
+  .queue-btn {
+    opacity: 1;
+  }
 }
 
 .cover-overlay {

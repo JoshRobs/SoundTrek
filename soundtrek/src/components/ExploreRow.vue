@@ -2,7 +2,8 @@
 import { ref, onMounted, onUnmounted } from "vue";
 import { useRouter } from "vue-router";
 import { toSlug } from "@/utils/slug";
-import ExploreCard from "./ExploreCard.vue";
+import CoverCard from "@/components/CoverCard.vue";
+import { useSoundtrackStore } from "@/stores/soundtracks";
 import type { Soundtrack } from "@/types/soundtrack";
 
 const props = defineProps<{
@@ -12,6 +13,14 @@ const props = defineProps<{
 }>();
 
 const router = useRouter();
+const store = useSoundtrackStore();
+
+function navigate(s: Soundtrack) {
+  router.push(`/soundtrack/${s.slug ?? s.id}`);
+}
+function play(s: Soundtrack) {
+  store.setNowPlaying(s);
+}
 const trackRef = ref<HTMLElement | null>(null);
 const canScrollLeft = ref(false);
 const canScrollRight = ref(true);
@@ -74,7 +83,14 @@ function seeAll() {
 
     <div class="track-wrap">
       <div ref="trackRef" class="scroll-track">
-        <ExploreCard v-for="s in items" :key="s.id" :soundtrack="s" />
+        <div v-for="s in items" :key="s.id" class="card-slot">
+          <CoverCard
+            :soundtrack="s"
+            show-info
+            @click="navigate(s)"
+            @play="play(s)"
+          />
+        </div>
       </div>
 
       <Transition name="fade">
@@ -191,6 +207,16 @@ function seeAll() {
   display: none;
 }
 
+.card-slot {
+  width: 220px;
+  flex-shrink: 0;
+}
+
+/* Keep the cover a consistent 3/4 regardless of image aspect. */
+.card-slot :deep(.cover-wrap) {
+  aspect-ratio: 3 / 4;
+}
+
 .nav-edge {
   position: absolute;
   top: 0;
@@ -230,6 +256,10 @@ function seeAll() {
 @media (max-width: 768px) {
   .row-label {
     font-size: 1.35rem;
+  }
+
+  .card-slot {
+    width: 140px;
   }
 
   .nav-edge {

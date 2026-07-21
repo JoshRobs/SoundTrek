@@ -10,6 +10,7 @@ import { usePlayerControls } from "@/composables/usePlayerControls";
 import { useLikes } from "@/composables/useLikes";
 import SpotifyEmbed from "./SpotifyEmbed.vue";
 import PlayerQueue from "./PlayerQueue.vue";
+import AppIcon from "@/components/AppIcon.vue";
 
 const router = useRouter();
 
@@ -523,16 +524,7 @@ function ctxSwitchSource(src: "youtube" | "spotify") {
           >
             <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" />
           </svg>
-          <svg
-            v-else
-            width="24"
-            height="24"
-            viewBox="0 0 24 24"
-            fill="currentColor"
-            style="padding-left: 2px"
-          >
-            <path d="M8 5v14l11-7z" />
-          </svg>
+          <AppIcon v-else name="play-icon" :size="24" />
         </button>
         <button
           v-if="showTrackNav"
@@ -552,20 +544,14 @@ function ctxSwitchSource(src: "youtube" | "spotify") {
           :aria-label="nowPlaying && isLiked(nowPlaying.id) ? 'Unlike' : 'Like'"
           @click="toggleLike"
         >
-          <svg
-            width="18"
-            height="18"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          >
-            <path
-              d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"
-            />
-          </svg>
+          <AppIcon
+            :name="
+              nowPlaying && isLiked(nowPlaying.id)
+                ? 'heart-filled-icon'
+                : 'heart-outline-icon'
+            "
+            :size="18"
+          />
         </button>
         <div v-if="activeSource === 'youtube'" class="volume-control">
           <button
@@ -636,18 +622,7 @@ function ctxSwitchSource(src: "youtube" | "spotify") {
           aria-label="Close player"
           @click="store.setNowPlaying(null)"
         >
-          <svg
-            width="20"
-            height="20"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2.5"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          >
-            <path d="M18 6 6 18M6 6l12 12" />
-          </svg>
+          <AppIcon name="close-icon" :size="20" />
         </button>
       </div>
     </div>
@@ -796,18 +771,7 @@ function ctxSwitchSource(src: "youtube" | "spotify") {
           aria-label="Dismiss"
           @click="dismissSpotifyHint"
         >
-          <svg
-            width="11"
-            height="11"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2.5"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          >
-            <path d="M18 6 6 18M6 6l12 12" />
-          </svg>
+          <AppIcon name="close-icon" :size="11" />
         </button>
       </div>
 
@@ -916,18 +880,7 @@ function ctxSwitchSource(src: "youtube" | "spotify") {
         {{ minimized ? "Expand" : "Minimize" }}
       </button>
       <button class="ctx-item" @click="ctxClose">
-        <svg
-          width="14"
-          height="14"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-        >
-          <path d="M18 6 6 18M6 6l12 12" />
-        </svg>
+        <AppIcon name="close-icon" :size="14" />
         Close player
       </button>
 
@@ -951,7 +904,9 @@ function ctxSwitchSource(src: "youtube" | "spotify") {
         Go to soundtrack page
       </button>
       <button class="ctx-item" @click="copyLink">
+        <AppIcon v-if="linkCopied" name="check-icon" :size="14" />
         <svg
+          v-else
           width="14"
           height="14"
           viewBox="0 0 24 24"
@@ -961,11 +916,8 @@ function ctxSwitchSource(src: "youtube" | "spotify") {
           stroke-linecap="round"
           stroke-linejoin="round"
         >
-          <path v-if="linkCopied" d="M20 6 9 17l-5-5" />
-          <template v-else>
-            <rect x="9" y="9" width="13" height="13" rx="2" />
-            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
-          </template>
+          <rect x="9" y="9" width="13" height="13" rx="2" />
+          <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
         </svg>
         {{ linkCopied ? "Copied!" : "Copy link" }}
       </button>

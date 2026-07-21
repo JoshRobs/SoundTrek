@@ -5,6 +5,7 @@ import type { Soundtrack } from "@/types/soundtrack";
 import { usePlayerStore } from "@/stores/player";
 import { useQueueStore } from "@/stores/queue";
 import { storeToRefs } from "pinia";
+import AppIcon from "@/components/AppIcon.vue";
 
 const props = defineProps<{
   tracks: TracklistEntry[];
@@ -128,25 +129,8 @@ function addToQueue(item: TracklistEntry) {
             :title="added.has(item.position) ? 'Added!' : 'Add to queue'"
             @click="addToQueue(item)"
           >
-            <svg
-              width="15"
-              height="15"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            >
-              <path v-if="added.has(item.position)" d="M20 6 9 17l-5-5" />
-              <template v-else>
-                <line x1="4" y1="7" x2="15" y2="7" />
-                <line x1="4" y1="12" x2="15" y2="12" />
-                <line x1="4" y1="17" x2="11" y2="17" />
-                <line x1="18" y1="14" x2="18" y2="20" />
-                <line x1="15" y1="17" x2="21" y2="17" />
-              </template>
-            </svg>
+            <AppIcon v-if="added.has(item.position)" name="check-icon" :size="15" />
+            <AppIcon v-else name="add-to-queue-icon" :size="15" />
           </button>
           <button
             v-if="canCollect"
@@ -156,19 +140,7 @@ function addToQueue(item: TracklistEntry) {
             title="Add to collection"
             @click="emit('add-to-collection', item)"
           >
-            <svg
-              width="15"
-              height="15"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            >
-              <line x1="12" y1="5" x2="12" y2="19" />
-              <line x1="5" y1="12" x2="19" y2="12" />
-            </svg>
+            <AppIcon name="plus-icon" :size="15" />
           </button>
         </div>
       </li>

@@ -3,6 +3,7 @@ import { ref, computed } from "vue";
 import { RouterLink } from "vue-router";
 import type { Soundtrack } from "@/types/soundtrack";
 import CardInfoSheet from "./CardInfoSheet.vue";
+import AppIcon from "@/components/AppIcon.vue";
 import { toSlug } from "@/utils/slug";
 import { useSoundtrackStore } from "@/stores/soundtracks";
 import { useLikes } from "@/composables/useLikes";
@@ -101,9 +102,7 @@ const consoleSticker = computed(() =>
           <div v-else class="cover-fallback">🎮</div>
 
           <div class="play-overlay">
-            <svg width="48" height="48" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M8 5v14l11-7z" />
-            </svg>
+            <AppIcon name="play-icon" :size="48" />
           </div>
         </div>
 
@@ -142,23 +141,14 @@ const consoleSticker = computed(() =>
           :aria-label="isLiked(props.soundtrack.id) ? 'Unlike' : 'Like'"
           @click="toggleLike"
         >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            width="36"
-            height="36"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            class="icon icon-tabler icons-tabler-outline icon-tabler-heart"
-          >
-            <path stroke="none" d="M0 0h24v24H0z" fill="none" />
-            <path
-              d="M19.5 12.572l-7.5 7.428l-7.5 -7.428a5 5 0 1 1 7.5 -6.566a5 5 0 1 1 7.5 6.572"
-            />
-          </svg>
+          <AppIcon
+            :name="
+              isLiked(props.soundtrack.id)
+                ? 'heart-filled-icon'
+                : 'heart-outline-icon'
+            "
+            :size="36"
+          />
           <span class="like-tooltip"
             >{{ displayLikes(soundtrack) }} others liked this OST</span
           >
@@ -564,7 +554,7 @@ const consoleSticker = computed(() =>
     padding: 0.25rem 0.4rem;
   }
 
-  .like-btn svg {
+  .like-btn :deep(.app-icon) {
     width: 22px;
     height: 22px;
   }

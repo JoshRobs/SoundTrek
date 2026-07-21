@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { Soundtrack } from "@/types/soundtrack";
+import AppIcon from "@/components/AppIcon.vue";
 
 // When `track` is set the card represents a single track from the soundtrack
 // (title = the track name, art = the OST cover, with a TRACK badge); otherwise
@@ -31,9 +32,7 @@ defineEmits<{ click: []; play: []; remove: [] }>();
           class="overlay-play"
           @click.stop="$emit('play')"
         >
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M8 5v14l11-7z" />
-          </svg>
+          <AppIcon name="play-icon" :size="22" />
         </button>
         <span class="cover-title">{{ track ? track.title : soundtrack.game_title }}</span>
       </div>

@@ -2,6 +2,7 @@
 import { useRouter } from "vue-router";
 import { useSoundtrackStore } from "@/stores/soundtracks";
 import { displayLikes } from "@/utils/likes";
+import AppIcon from "@/components/AppIcon.vue";
 import type { Soundtrack } from "@/types/soundtrack";
 
 const props = defineProps<{ rank: number; soundtrack: Soundtrack }>();
@@ -53,9 +54,7 @@ function goToSoundtrack() {
       aria-label="Play"
       @click.stop="store.setNowPlaying(props.soundtrack)"
     >
-      <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
-        <path d="M8 5v14l11-7z" />
-      </svg>
+      <AppIcon name="play-icon" :size="13" />
     </button>
   </li>
 </template>

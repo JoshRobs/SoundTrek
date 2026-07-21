@@ -5,6 +5,7 @@ import { useRouter } from "vue-router";
 import { useSoundtrackStore } from "@/stores/soundtracks";
 import { useAuth } from "@/composables/useAuth";
 import GameSearchBox from "./GameSearchBox.vue";
+import AppIcon from "@/components/AppIcon.vue";
 import { toSlug } from "@/utils/slug";
 
 const emit = defineEmits<{ close: [] }>();
@@ -145,20 +146,7 @@ async function handleSignOut() {
             My Collections
           </button>
           <button class="nav-item" @click="navigate('/liked')">
-            <svg
-              width="14"
-              height="14"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            >
-              <path
-                d="M19.5 12.572l-7.5 7.428-7.5-7.428a5 5 0 1 1 7.5-6.566 5 5 0 1 1 7.5 6.572"
-              />
-            </svg>
+            <AppIcon name="heart-outline-icon" :size="14" />
             Liked Soundtracks
           </button>
           <button v-if="!user" class="nav-item" @click="navigate('/login')">

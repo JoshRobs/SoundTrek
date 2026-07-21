@@ -8,6 +8,7 @@ import { usePlayerControls } from "@/composables/usePlayerControls";
 import { useLikes } from "@/composables/useLikes";
 import SpotifyEmbed from "./SpotifyEmbed.vue";
 import PlayerQueue from "./PlayerQueue.vue";
+import AppIcon from "@/components/AppIcon.vue";
 
 const router = useRouter();
 const store = useSoundtrackStore();
@@ -271,16 +272,7 @@ function goToPage() {
         >
           <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" />
         </svg>
-        <svg
-          v-else
-          width="22"
-          height="22"
-          viewBox="0 0 24 24"
-          fill="currentColor"
-          style="padding-left: 2px"
-        >
-          <path d="M8 5v14l11-7z" />
-        </svg>
+        <AppIcon v-else name="play-icon" :size="22" />
       </button>
 
       <button
@@ -289,20 +281,12 @@ function goToPage() {
         :aria-label="isLiked(nowPlaying.id) ? 'Unlike' : 'Like'"
         @click.stop="toggleLike"
       >
-        <svg
-          width="20"
-          height="20"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-        >
-          <path
-            d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"
-          />
-        </svg>
+        <AppIcon
+          :name="
+            isLiked(nowPlaying.id) ? 'heart-filled-icon' : 'heart-outline-icon'
+          "
+          :size="20"
+        />
       </button>
 
       <button
@@ -310,18 +294,7 @@ function goToPage() {
         aria-label="Close player"
         @click.stop="store.setNowPlaying(null)"
       >
-        <svg
-          width="18"
-          height="18"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2.5"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-        >
-          <path d="M18 6 6 18M6 6l12 12" />
-        </svg>
+        <AppIcon name="close-icon" :size="18" />
       </button>
     </div>
 
@@ -379,18 +352,7 @@ function goToPage() {
               aria-label="Close"
               @click="sheetOpen = false"
             >
-              <svg
-                width="20"
-                height="20"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2.5"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-              >
-                <path d="M18 6 6 18M6 6l12 12" />
-              </svg>
+              <AppIcon name="close-icon" :size="20" />
             </button>
           </div>
 
@@ -489,15 +451,7 @@ function goToPage() {
                 class="mode-btn mode-btn--yt"
                 @click="togglePlaylistMode"
               >
-                <svg
-                  v-if="ytPlaylistMode"
-                  width="11"
-                  height="11"
-                  viewBox="0 0 24 24"
-                  fill="currentColor"
-                >
-                  <path d="M8 5v14l11-7z" />
-                </svg>
+                <AppIcon v-if="ytPlaylistMode" name="play-icon" :size="11" />
                 <svg
                   v-else
                   width="11"
@@ -594,20 +548,14 @@ function goToPage() {
                 :aria-label="isLiked(nowPlaying.id) ? 'Unlike' : 'Like'"
                 @click="toggleLike"
               >
-                <svg
-                  width="22"
-                  height="22"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                >
-                  <path
-                    d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"
-                  />
-                </svg>
+                <AppIcon
+                  :name="
+                    isLiked(nowPlaying.id)
+                      ? 'heart-filled-icon'
+                      : 'heart-outline-icon'
+                  "
+                  :size="22"
+                />
               </button>
             </div>
 
@@ -643,16 +591,7 @@ function goToPage() {
                 >
                   <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" />
                 </svg>
-                <svg
-                  v-else
-                  width="32"
-                  height="32"
-                  viewBox="0 0 24 24"
-                  fill="currentColor"
-                  style="padding-left: 3px"
-                >
-                  <path d="M8 5v14l11-7z" />
-                </svg>
+                <AppIcon v-else name="play-icon" :size="32" />
               </button>
               <button
                 v-if="isPlaylist"
@@ -811,9 +750,8 @@ function goToPage() {
     stroke 0.15s;
 }
 
-.mini-like-btn.liked svg {
-  fill: #e53e3e;
-  stroke: #e53e3e;
+.mini-like-btn.liked {
+  color: #e53e3e;
 }
 
 /* ── Sheet backdrop ───────────────────────────────────────────────────────── */

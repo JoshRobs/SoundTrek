@@ -2,6 +2,7 @@
 import { useRouter } from "vue-router";
 import { useSoundtrackStore } from "@/stores/soundtracks";
 import { displayLikes } from "@/utils/likes";
+import AppIcon from "@/components/AppIcon.vue";
 import type { Soundtrack } from "@/types/soundtrack";
 
 const props = defineProps<{ soundtrack: Soundtrack }>();
@@ -24,9 +25,7 @@ const store = useSoundtrackStore();
           class="cover-overlay"
           @click.stop="store.setNowPlaying(props.soundtrack)"
         >
-          <svg width="36" height="36" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M8 5v14l11-7z" />
-          </svg>
+          <AppIcon name="play-icon" :size="36" />
         </div>
       </div>
 
@@ -61,9 +60,7 @@ const store = useSoundtrackStore();
         aria-label="Play"
         @click.stop="store.setNowPlaying(props.soundtrack)"
       >
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-          <path d="M8 5v14l11-7z" />
-        </svg>
+        <AppIcon name="play-icon" :size="14" />
       </button>
     </div>
   </div>

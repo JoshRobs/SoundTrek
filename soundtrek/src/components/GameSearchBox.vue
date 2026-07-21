@@ -5,6 +5,7 @@ import { storeToRefs } from "pinia";
 import { supabase } from "@/lib/supabase";
 import { useComposerStore } from "@/stores/composers";
 import { toSlug } from "@/utils/slug";
+import AppIcon from "@/components/AppIcon.vue";
 import type { Soundtrack } from "@/types/soundtrack";
 
 const props = withDefaults(
@@ -218,18 +219,7 @@ onUnmounted(() => {
           inputEl?.focus();
         "
       >
-        <svg
-          width="14"
-          height="14"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2.5"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-        >
-          <path d="M18 6 6 18M6 6l12 12" />
-        </svg>
+        <AppIcon name="close-icon" :size="14" />
       </button>
     </div>
 

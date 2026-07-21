@@ -3,6 +3,7 @@ import { ref, computed } from "vue";
 import { useHead } from "@unhead/vue";
 import { useRouter } from "vue-router";
 import { supabase } from "@/lib/supabase";
+import AppIcon from "@/components/AppIcon.vue";
 
 const router = useRouter();
 
@@ -76,18 +77,7 @@ function reset() {
 
       <div v-if="state === 'success'" class="success-card">
         <div class="success-icon">
-          <svg
-            width="28"
-            height="28"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2.5"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          >
-            <polyline points="20 6 9 17 4 12" />
-          </svg>
+          <AppIcon name="check-icon" :size="28" />
         </div>
         <h2 class="success-title">Message sent!</h2>
         <p class="success-sub">Thanks for reaching out. We'll get back to you soon.</p>

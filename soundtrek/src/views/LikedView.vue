@@ -6,12 +6,22 @@ import { supabase, SOUNDTRACK_LIST_COLUMNS } from "@/lib/supabase";
 import { useSoundtrackStore } from "@/stores/soundtracks";
 import { useLikes } from "@/composables/useLikes";
 import { useAuth } from "@/composables/useAuth";
+import { useQueueActions } from "@/composables/useQueueActions";
 import PageHero from "@/components/PageHero.vue";
+import AppIcon from "@/components/AppIcon.vue";
 import type { Soundtrack } from "@/types/soundtrack";
 
 const store = useSoundtrackStore();
 const { likedIds, likedOrder } = useLikes();
 const { user } = useAuth();
+
+const { addSoundtrack } = useQueueActions();
+const queuedIds = ref(new Set<string>());
+function addToQueue(s: Soundtrack) {
+  addSoundtrack(s);
+  queuedIds.value.add(s.id);
+  setTimeout(() => queuedIds.value.delete(s.id), 1500);
+}
 
 const likedSoundtracksRaw = ref<Soundtrack[]>([]);
 const loading = ref(true);
@@ -46,14 +56,24 @@ function extractCoverColor(img: HTMLImageElement, id: string) {
     if (!ctx) return;
     ctx.drawImage(img, 0, 0, 50, 50);
     const { data } = ctx.getImageData(0, 0, 50, 50);
-    let r = 0, g = 0, b = 0, count = 0;
+    let r = 0,
+      g = 0,
+      b = 0,
+      count = 0;
     for (let i = 0; i < data.length; i += 4) {
       if (data[i + 3] < 128) continue;
-      r += data[i]; g += data[i + 1]; b += data[i + 2]; count++;
+      r += data[i];
+      g += data[i + 1];
+      b += data[i + 2];
+      count++;
     }
     if (!count) return;
-    const nr = r / count / 255, ng = g / count / 255, nb = b / count / 255;
-    const max = Math.max(nr, ng, nb), min = Math.min(nr, ng, nb), d = max - min;
+    const nr = r / count / 255,
+      ng = g / count / 255,
+      nb = b / count / 255;
+    const max = Math.max(nr, ng, nb),
+      min = Math.min(nr, ng, nb),
+      d = max - min;
     let h = 0;
     if (d > 0) {
       if (max === nr) h = ((ng - nb) / d + 6) % 6;
@@ -63,8 +83,11 @@ function extractCoverColor(img: HTMLImageElement, id: string) {
     }
     const l = (max + min) / 2;
     const s = d === 0 ? 0 : d / (1 - Math.abs(2 * l - 1));
-    coverColors.value[id] = `hsl(${Math.round(h * 360)}, ${Math.round(Math.min(1, s * 2.5) * 100)}%, 60%)`;
-  } catch { /* cross-origin — falls back to accent */ }
+    coverColors.value[id] =
+      `hsl(${Math.round(h * 360)}, ${Math.round(Math.min(1, s * 2.5) * 100)}%, 60%)`;
+  } catch {
+    /* cross-origin — falls back to accent */
+  }
 }
 
 useHead({
@@ -74,15 +97,21 @@ useHead({
   ],
 });
 
-type SortKey = "recent" | "release-desc" | "release-asc" | "title" | "studio" | "theme";
+type SortKey =
+  | "recent"
+  | "release-desc"
+  | "release-asc"
+  | "title"
+  | "studio"
+  | "theme";
 const sortBy = ref<SortKey>("recent");
 
 const sortOptions: { value: SortKey; label: string }[] = [
-  { value: "recent",       label: "Recently Added" },
+  { value: "recent", label: "Recently Added" },
   { value: "release-desc", label: "Release Date" },
-  { value: "title",        label: "Title A–Z" },
-  { value: "studio",       label: "Studio" },
-  { value: "theme",        label: "Theme" },
+  { value: "title", label: "Title A–Z" },
+  { value: "studio", label: "Studio" },
+  { value: "theme", label: "Theme" },
 ];
 
 function handleSortClick(value: SortKey) {
@@ -100,14 +129,22 @@ const likedSoundtracks = computed(() => {
   switch (sortBy.value) {
     case "recent": {
       const idx = new Map(likedOrder.value.map((id, i) => [id, i]));
-      return [...liked].sort((a, b) => (idx.get(a.id) ?? 9999) - (idx.get(b.id) ?? 9999));
+      return [...liked].sort(
+        (a, b) => (idx.get(a.id) ?? 9999) - (idx.get(b.id) ?? 9999),
+      );
     }
     case "release-desc":
-      return [...liked].sort((a, b) => (b.release_year ?? 0) - (a.release_year ?? 0));
+      return [...liked].sort(
+        (a, b) => (b.release_year ?? 0) - (a.release_year ?? 0),
+      );
     case "release-asc":
-      return [...liked].sort((a, b) => (a.release_year ?? 0) - (b.release_year ?? 0));
+      return [...liked].sort(
+        (a, b) => (a.release_year ?? 0) - (b.release_year ?? 0),
+      );
     case "title":
-      return [...liked].sort((a, b) => a.game_title.localeCompare(b.game_title));
+      return [...liked].sort((a, b) =>
+        a.game_title.localeCompare(b.game_title),
+      );
     case "studio":
       return [...liked].sort((a, b) => a.studio.localeCompare(b.studio));
     case "theme":
@@ -144,7 +181,9 @@ const likedSoundtracks = computed(() => {
           <circle cx="12" cy="7" r="4" />
         </svg>
         <span>
-          <RouterLink to="/login" class="sign-in-link">Create an account</RouterLink>
+          <RouterLink to="/login" class="sign-in-link"
+            >Create an account</RouterLink
+          >
           to sync across devices.
         </span>
       </div>
@@ -154,12 +193,21 @@ const likedSoundtracks = computed(() => {
           v-for="opt in sortOptions"
           :key="opt.value"
           class="sort-pill"
-          :class="{ active: sortBy === opt.value || (opt.value === 'release-desc' && sortBy === 'release-asc') }"
+          :class="{
+            active:
+              sortBy === opt.value ||
+              (opt.value === 'release-desc' && sortBy === 'release-asc'),
+          }"
           @click="handleSortClick(opt.value)"
         >
           {{ opt.label }}
-          <template v-if="opt.value === 'release-desc' && (sortBy === 'release-desc' || sortBy === 'release-asc')">
-            {{ sortBy === 'release-desc' ? '↓' : '↑' }}
+          <template
+            v-if="
+              opt.value === 'release-desc' &&
+              (sortBy === 'release-desc' || sortBy === 'release-asc')
+            "
+          >
+            {{ sortBy === "release-desc" ? "↓" : "↑" }}
           </template>
         </button>
       </div>
@@ -174,7 +222,9 @@ const likedSoundtracks = computed(() => {
           <RouterLink
             :to="`/soundtrack/${s.slug ?? s.id}`"
             class="cover"
-            :style="coverColors[s.id] ? { '--cover-color': coverColors[s.id] } : {}"
+            :style="
+              coverColors[s.id] ? { '--cover-color': coverColors[s.id] } : {}
+            "
           >
             <img
               v-if="s.cover_image_url"
@@ -184,14 +234,24 @@ const likedSoundtracks = computed(() => {
               @load="extractCoverColor($event.target as HTMLImageElement, s.id)"
             />
             <span v-else class="cover-fallback">🎮</span>
+            <span class="cover-scrim" aria-hidden="true" />
+            <button
+              class="queue-btn"
+              :class="{ queued: queuedIds.has(s.id) }"
+              :aria-label="
+                queuedIds.has(s.id) ? 'Added to queue' : 'Add to queue'
+              "
+              @click.prevent.stop="addToQueue(s)"
+            >
+              <AppIcon v-if="queuedIds.has(s.id)" name="check-icon" :size="20" />
+              <AppIcon v-else name="add-to-queue-icon" :size="20" />
+            </button>
             <button
               class="play-btn-overlay"
               :aria-label="`Play ${s.game_title}`"
               @click.prevent.stop="store.setNowPlaying(s)"
             >
-              <svg width="40" height="40" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M8 5v14l11-7z" />
-              </svg>
+              <AppIcon name="play-icon" :size="40" />
             </button>
           </RouterLink>
           <div class="card-info">
@@ -217,21 +277,11 @@ const likedSoundtracks = computed(() => {
         <p>No liked soundtracks yet.</p>
         <p class="empty-sub">
           Like soundtracks using the
-          <svg
-            width="13"
-            height="13"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            style="display: inline; vertical-align: -2px"
-          >
-            <path
-              d="M19.5 12.572l-7.5 7.428-7.5-7.428a5 5 0 1 1 7.5-6.566 5 5 0 1 1 7.5 6.572"
-            />
-          </svg>
+          <AppIcon
+            name="heart-outline-icon"
+            :size="13"
+            style="vertical-align: -2px"
+          />
           button on any soundtrack page.
         </p>
         <RouterLink to="/discover" class="browse-link"
@@ -293,7 +343,10 @@ const likedSoundtracks = computed(() => {
   font-size: 0.8rem;
   font-weight: 500;
   cursor: pointer;
-  transition: background 0.12s, color 0.12s, border-color 0.12s;
+  transition:
+    background 0.12s,
+    color 0.12s,
+    border-color 0.12s;
 }
 
 .sort-pill:hover {
@@ -355,8 +408,10 @@ const likedSoundtracks = computed(() => {
 
 .cover:hover {
   box-shadow:
-    0 0 0 2px color-mix(in srgb, var(--cover-color, var(--accent)) 75%, transparent),
-    0 0px 40px color-mix(in srgb, var(--cover-color, #000) 25%, rgba(0, 0, 0, 0.75));
+    0 0 0 2px
+      color-mix(in srgb, var(--cover-color, var(--accent)) 75%, transparent),
+    0 0px 40px
+      color-mix(in srgb, var(--cover-color, #000) 25%, rgba(0, 0, 0, 0.75));
 }
 
 .cover img {
@@ -375,8 +430,68 @@ const likedSoundtracks = computed(() => {
   font-size: 2.5rem;
 }
 
+/* Full-cover darkening scrim (non-interactive — clicks pass through to the
+   cover link) that fades in on hover, mirroring the soundtrack page. */
+.cover-scrim {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background: rgba(0, 0, 0, 0.4);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+}
+
+.cover:hover .cover-scrim {
+  opacity: 1;
+}
+
+/* Add-to-queue button, top-right of the cover. */
+.queue-btn {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border: none;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  cursor: pointer;
+  opacity: 0;
+  transition:
+    opacity 0.18s ease,
+    background 0.15s,
+    color 0.15s,
+    transform 0.15s;
+}
+
+.cover:hover .queue-btn {
+  opacity: 1;
+}
+
+.queue-btn:hover {
+  background: rgba(0, 0, 0, 0.8);
+  transform: scale(1.12);
+}
+
+.queue-btn.queued {
+  opacity: 1;
+  color: #1db954;
+}
+
+/* Circular play button centered over the scrim; clicking it plays, clicking
+   the rest of the cover still navigates. */
 .play-btn-overlay {
   position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) scale(0.85);
+  z-index: 2;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -389,18 +504,22 @@ const likedSoundtracks = computed(() => {
   color: #fff;
   cursor: pointer;
   opacity: 0;
-  transform: scale(0.85);
-  transition: opacity 0.2s ease, transform 0.2s ease, background 0.15s;
+  transition:
+    opacity 0.2s ease,
+    transform 0.2s ease,
+    background 0.15s;
 }
 
 .cover:hover .play-btn-overlay {
   opacity: 1;
-  transform: scale(1);
+  transform: translate(-50%, -50%) scale(1);
 }
 
-.play-btn-overlay:hover {
+/* Qualified with .cover:hover so it out-specifies the `.cover:hover
+   .play-btn-overlay` rule above (which would otherwise pin the scale to 1). */
+.cover:hover .play-btn-overlay:hover {
   background: rgba(0, 0, 0, 0.8);
-  transform: scale(1.08) !important;
+  transform: translate(-50%, -50%) scale(1.08);
 }
 
 .card-info {
@@ -532,14 +651,19 @@ const likedSoundtracks = computed(() => {
   }
 }
 
-/* Always show play button on touch devices */
+/* Touch devices have no hover — keep the play button visible (and at full
+   size) but skip the permanent scrim so covers aren't darkened. */
 @media (hover: none) {
   .play-btn-overlay {
     opacity: 1;
-    transform: scale(1);
+    transform: translate(-50%, -50%) scale(1);
     background: rgba(0, 0, 0, 0.45);
     width: 48px;
     height: 48px;
+  }
+
+  .queue-btn {
+    opacity: 1;
   }
 
   .cover img {

@@ -16,6 +16,7 @@ import AddToCollectionModal from "@/components/AddToCollectionModal.vue";
 import TracklistPanel from "@/components/TracklistPanel.vue";
 import { useAuth } from "@/composables/useAuth";
 import { useQueueActions } from "@/composables/useQueueActions";
+import AppIcon from "@/components/AppIcon.vue";
 
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -477,14 +478,7 @@ onUnmounted(() => {
               />
               <div v-else class="cover-fallback">🎮</div>
               <div class="cover-play-overlay">
-                <svg
-                  width="56"
-                  height="56"
-                  viewBox="0 0 24 24"
-                  fill="currentColor"
-                >
-                  <path d="M8 5v14l11-7z" />
-                </svg>
+                <AppIcon name="play-icon" :size="56" />
               </div>
             </div>
 
@@ -516,15 +510,7 @@ onUnmounted(() => {
 
               <div class="actions">
                 <button class="play-btn" @click="play">
-                  <svg
-                    width="20"
-                    height="20"
-                    viewBox="0 0 24 24"
-                    fill="currentColor"
-                    style="padding-left: 2px"
-                  >
-                    <path d="M8 5v14l11-7z" />
-                  </svg>
+                  <AppIcon name="play-icon" :size="20" />
                   Play
                 </button>
 
@@ -533,36 +519,8 @@ onUnmounted(() => {
                   :class="{ queued }"
                   @click="addToQueue"
                 >
-                  <svg
-                    v-if="queued"
-                    width="16"
-                    height="16"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="2.5"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                  >
-                    <polyline points="20 6 9 17 4 12" />
-                  </svg>
-                  <svg
-                    v-else
-                    width="16"
-                    height="16"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="2"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                  >
-                    <line x1="4" y1="7" x2="15" y2="7" />
-                    <line x1="4" y1="12" x2="15" y2="12" />
-                    <line x1="4" y1="17" x2="11" y2="17" />
-                    <line x1="18" y1="14" x2="18" y2="20" />
-                    <line x1="15" y1="17" x2="21" y2="17" />
-                  </svg>
+                  <AppIcon v-if="queued" name="check-icon" :size="16" />
+                  <AppIcon v-else name="add-to-queue-icon" :size="16" />
                   {{ queued ? "Added!" : "Add to queue" }}
                 </button>
 
@@ -571,20 +529,10 @@ onUnmounted(() => {
                   :class="{ liked: isLiked(id) }"
                   @click="toggleLike"
                 >
-                  <svg
-                    width="18"
-                    height="18"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="2"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                  >
-                    <path
-                      d="M19.5 12.572l-7.5 7.428-7.5-7.428a5 5 0 1 1 7.5-6.566 5 5 0 1 1 7.5 6.572"
-                    />
-                  </svg>
+                  <AppIcon
+                    :name="isLiked(id) ? 'heart-filled-icon' : 'heart-outline-icon'"
+                    :size="18"
+                  />
                   {{ displayLikes(track) }}
                 </button>
 
@@ -594,53 +542,13 @@ onUnmounted(() => {
                   aria-label="Add to collection"
                   @click="openAlbumCollect"
                 >
-                  <svg
-                    width="16"
-                    height="16"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="2"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                  >
-                    <line x1="12" y1="5" x2="12" y2="19" />
-                    <line x1="5" y1="12" x2="19" y2="12" />
-                  </svg>
+                  <AppIcon name="plus-icon" :size="16" />
                   Collection
                 </button>
 
                 <button class="share-btn" @click="share">
-                  <svg
-                    v-if="!copied"
-                    width="16"
-                    height="16"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="2"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                  >
-                    <circle cx="18" cy="5" r="3" />
-                    <circle cx="6" cy="12" r="3" />
-                    <circle cx="18" cy="19" r="3" />
-                    <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" />
-                    <line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
-                  </svg>
-                  <svg
-                    v-else
-                    width="16"
-                    height="16"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="2.5"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                  >
-                    <polyline points="20 6 9 17 4 12" />
-                  </svg>
+                  <AppIcon v-if="!copied" name="share-icon" :size="16" />
+                  <AppIcon v-else name="check-icon" :size="16" />
                   {{ copied ? "Copied!" : "Share" }}
                 </button>
               </div>
