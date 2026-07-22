@@ -814,6 +814,7 @@ onUnmounted(() => {
     :open="showAddToPlaylist"
     :soundtrack-id="id"
     :soundtrack-title="track?.game_title ?? ''"
+    :cover-image="track?.cover_image_url ?? null"
     :video-id="trackToAdd?.video_id ?? null"
     :track-title="trackToAdd?.title ?? null"
     @close="closeAddToPlaylist"

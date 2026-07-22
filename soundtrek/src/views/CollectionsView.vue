@@ -335,6 +335,9 @@ async function deleteCollection(c: Collection) {
   .card-meta {
     font-size: 0.8rem;
   }
+  .hero-row {
+    margin-bottom: 2rem;
+  }
 }
 
 /* Touch devices can't hover — keep the overlay (and its Quick Edit /

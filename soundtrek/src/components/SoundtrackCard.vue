@@ -3,10 +3,13 @@ import { ref, computed } from "vue";
 import { RouterLink } from "vue-router";
 import type { Soundtrack } from "@/types/soundtrack";
 import CardInfoSheet from "./CardInfoSheet.vue";
+import AddToCollectionModal from "./AddToCollectionModal.vue";
 import AppIcon from "@/components/AppIcon.vue";
 import { toSlug } from "@/utils/slug";
 import { useSoundtrackStore } from "@/stores/soundtracks";
 import { useLikes } from "@/composables/useLikes";
+import { useQueueActions } from "@/composables/useQueueActions";
+import { useAuth } from "@/composables/useAuth";
 import { displayLikes } from "@/utils/likes";
 
 const props = defineProps<{ soundtrack: Soundtrack }>();
@@ -15,11 +18,24 @@ defineEmits<{ next: [] }>();
 const store = useSoundtrackStore();
 const showSheet = ref(false);
 const { isLiked, toggleLike: rawToggle } = useLikes();
+const { addSoundtrack } = useQueueActions();
+const { user } = useAuth();
 
 function toggleLike() {
   const delta = rawToggle(props.soundtrack.id);
   store.likeSoundtrack(props.soundtrack.id, delta);
 }
+
+// ── Add to queue (mirrors CoverCard) ────────────────────────────────────────
+const queued = ref(false);
+function addToQueue() {
+  addSoundtrack(props.soundtrack);
+  queued.value = true;
+  setTimeout(() => (queued.value = false), 1500);
+}
+
+// ── Add to collection ───────────────────────────────────────────────────────
+const showAddToCollection = ref(false);
 
 function getConsoleSticker(console: string): string | null {
   const c = console.toLowerCase();
@@ -100,6 +116,26 @@ const consoleSticker = computed(() =>
             class="cover-img"
           />
           <div v-else class="cover-fallback">🎮</div>
+
+          <div class="cover-actions" @click.stop>
+            <button
+              v-if="user"
+              class="cover-action-btn"
+              aria-label="Add to collection"
+              @click.stop="showAddToCollection = true"
+            >
+              <AppIcon name="plus-icon" :size="22" />
+            </button>
+            <button
+              class="cover-action-btn"
+              :class="{ queued }"
+              :aria-label="queued ? 'Added to queue' : 'Add to queue'"
+              @click.stop="addToQueue"
+            >
+              <AppIcon v-if="queued" name="check-icon" :size="22" />
+              <AppIcon v-else name="add-to-queue-icon" :size="22" />
+            </button>
+          </div>
 
           <div class="play-overlay">
             <AppIcon name="play-icon" :size="48" />
@@ -193,6 +229,14 @@ const consoleSticker = computed(() =>
       :soundtrack="soundtrack"
       @next="$emit('next')"
     />
+
+    <AddToCollectionModal
+      :open="showAddToCollection"
+      :soundtrack-id="soundtrack.id"
+      :soundtrack-title="soundtrack.game_title"
+      :cover-image="soundtrack.cover_image_url"
+      @close="showAddToCollection = false"
+    />
   </div>
 </template>
 
@@ -211,23 +255,6 @@ const consoleSticker = computed(() =>
   position: relative;
   z-index: 1;
   border-radius: 8px;
-  border-top: 15px solid transparent;
-  border-right: 8px solid transparent;
-  border-bottom: 15px solid transparent;
-  background:
-    linear-gradient(var(--bg, #0b0b12), var(--bg, #0b0b12)) padding-box,
-    linear-gradient(
-        145deg,
-        color-mix(in srgb, var(--console-color, #fff) 95%, white) 0%,
-        color-mix(in srgb, var(--console-color, #fff) 60%, var(--bg, #0b0b12))
-          30%,
-        color-mix(in srgb, var(--console-color, #fff) 60%, var(--bg, #0b0b12))
-          50%,
-        color-mix(in srgb, var(--console-color, #fff) 60%, var(--bg, #0b0b12))
-          70%,
-        color-mix(in srgb, var(--console-color, #fff) 90%, white) 100%
-      )
-      border-box;
   transform: translate(6px, 6px);
   transition: transform 0.35s ease;
 }
@@ -276,7 +303,7 @@ const consoleSticker = computed(() =>
   overflow: hidden;
   background: var(--surface-2);
   cursor: pointer;
-  border-radius: 0px;
+  border-radius: 8px;
 }
 
 .cover-wrap:hover .play-overlay {
@@ -294,6 +321,57 @@ const consoleSticker = computed(() =>
   z-index: 2;
   pointer-events: none;
   opacity: 0.9;
+}
+
+/* ── Top-right actions (add to collection / add to queue) ─────────────────── */
+.cover-actions {
+  position: absolute;
+  top: 0.6rem;
+  right: 0.6rem;
+  z-index: 3;
+  display: flex;
+  gap: 0.4rem;
+}
+
+.cover-action-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border: none;
+  border-radius: 8px;
+  background: rgba(17, 17, 17, 0.75);
+  color: #fff;
+  cursor: pointer;
+  opacity: 0;
+  transition:
+    opacity 0.18s,
+    background 0.15s,
+    color 0.15s,
+    transform 0.15s;
+}
+
+.card:hover .cover-action-btn,
+.cover-action-btn:focus-visible {
+  opacity: 1;
+}
+
+.cover-action-btn:hover {
+  background: rgba(40, 40, 40, 0.9);
+  transform: scale(1.12);
+}
+
+.cover-action-btn.queued {
+  opacity: 1;
+  color: #1db954;
+}
+
+/* Touch devices have no hover — keep the actions reachable. */
+@media (hover: none) {
+  .cover-action-btn {
+    opacity: 1;
+  }
 }
 
 .play-overlay {

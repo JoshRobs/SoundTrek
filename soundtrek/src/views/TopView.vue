@@ -70,7 +70,10 @@ const { loading, exhausted } = useInfiniteScroll(sentinelEl, async () => {
 
       <div class="track-grid">
         <div v-for="(s, i) in items" :key="s.id" class="track-item">
-          <span class="rank" :class="{ gold: i === 0, silver: i === 1, bronze: i === 2 }">
+          <span
+            class="rank"
+            :class="{ gold: i === 0, silver: i === 1, bronze: i === 2 }"
+          >
             {{ i + 1 }}
           </span>
           <CoverCard
@@ -110,7 +113,7 @@ const { loading, exhausted } = useInfiniteScroll(sentinelEl, async () => {
 .track-grid {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 2rem;
+  gap: 1.2rem;
 }
 
 .track-item {
@@ -124,8 +127,8 @@ const { loading, exhausted } = useInfiniteScroll(sentinelEl, async () => {
   z-index: 1;
   font-size: 0.85rem;
   font-weight: 800;
-  background: rgba(0,0,0,0.55);
-  color: rgba(255,255,255,0.8);
+  background: rgba(0, 0, 0, 0.55);
+  color: rgba(255, 255, 255, 0.8);
   width: 26px;
   height: 26px;
   border-radius: 50%;
@@ -136,21 +139,36 @@ const { loading, exhausted } = useInfiniteScroll(sentinelEl, async () => {
   backdrop-filter: blur(4px);
 }
 
-.rank.gold   { color: #f59e0b; }
-.rank.silver { color: #94a3b8; }
-.rank.bronze { color: #cd7f32; }
+.rank.gold {
+  color: #f59e0b;
+}
+.rank.silver {
+  color: #94a3b8;
+}
+.rank.bronze {
+  color: #cd7f32;
+}
 
 @media (max-width: 1024px) {
-  .track-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .track-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 768px) {
-  .page-inner { padding: 0 1rem 3rem; }
-  .track-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1rem; }
+  .page-inner {
+    padding: 0 1rem 3rem;
+  }
+  .track-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 1rem;
+  }
 }
 
 @media (max-width: 480px) {
-  .track-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .track-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 .sentinel {

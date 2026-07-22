@@ -525,12 +525,12 @@ onMounted(() => {
 
 /* ── Section 1: Now Listening row ─────────────────────────────────────── */
 .cover-row {
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(160px, 100%), 1fr));
   gap: 1rem;
 }
 
 .cover-row .cover-card {
-  flex: 1;
   aspect-ratio: 3/4;
 }
 
@@ -741,6 +741,7 @@ onMounted(() => {
 
   .cover-row {
     gap: 0.6rem;
+    grid-template-columns: repeat(auto-fit, minmax(min(120px, 100%), 1fr));
   }
 
   .cover-row .cover-card,

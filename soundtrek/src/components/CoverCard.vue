@@ -2,13 +2,17 @@
 import { ref } from "vue";
 import type { Soundtrack } from "@/types/soundtrack";
 import { useQueueActions } from "@/composables/useQueueActions";
+import { useAuth } from "@/composables/useAuth";
 import AppIcon from "@/components/AppIcon.vue";
+import AddToCollectionModal from "@/components/AddToCollectionModal.vue";
 
 const props = defineProps<{ soundtrack: Soundtrack; showInfo?: boolean }>();
 defineEmits<{ click: []; play: [] }>();
 
 const { addSoundtrack } = useQueueActions();
+const { user } = useAuth();
 const queued = ref(false);
+const showAddToCollection = ref(false);
 function addToQueue() {
   addSoundtrack(props.soundtrack);
   queued.value = true;
@@ -17,10 +21,14 @@ function addToQueue() {
 </script>
 
 <template>
-  <button
+  <div
     class="cover-card"
     :class="{ 'cover-card--with-info': showInfo }"
+    role="button"
+    tabindex="0"
     @click="$emit('click')"
+    @keydown.enter.prevent="$emit('click')"
+    @keydown.space.prevent="$emit('click')"
   >
     <div class="cover-wrap">
       <img
@@ -31,15 +39,25 @@ function addToQueue() {
       />
       <div v-else class="cover-fallback">🎮</div>
 
-      <button
-        class="queue-btn"
-        :class="{ queued }"
-        :aria-label="queued ? 'Added to queue' : 'Add to queue'"
-        @click.stop="addToQueue"
-      >
-        <AppIcon v-if="queued" name="check-icon" :size="24" />
-        <AppIcon v-else name="add-to-queue-icon" :size="24" />
-      </button>
+      <div class="cover-actions">
+        <button
+          v-if="user"
+          class="action-btn"
+          aria-label="Add to collection"
+          @click.stop="showAddToCollection = true"
+        >
+          <AppIcon name="plus-icon" :size="22" />
+        </button>
+        <button
+          class="action-btn"
+          :class="{ queued }"
+          :aria-label="queued ? 'Added to queue' : 'Add to queue'"
+          @click.stop="addToQueue"
+        >
+          <AppIcon v-if="queued" name="check-icon" :size="24" />
+          <AppIcon v-else name="add-to-queue-icon" :size="24" />
+        </button>
+      </div>
 
       <div class="cover-overlay">
         <button class="overlay-play" @click.stop="$emit('play')">
@@ -57,7 +75,15 @@ function addToQueue() {
         <span>{{ soundtrack.release_year }}</span>
       </p>
     </div>
-  </button>
+
+    <AddToCollectionModal
+      :open="showAddToCollection"
+      :soundtrack-id="soundtrack.id"
+      :soundtrack-title="soundtrack.game_title"
+      :cover-image="soundtrack.cover_image_url"
+      @close="showAddToCollection = false"
+    />
+  </div>
 </template>
 
 <style scoped>
@@ -71,9 +97,15 @@ function addToQueue() {
   padding: 0;
   display: block;
   width: 100%;
+  text-align: left;
   transition:
     transform 0.18s,
     box-shadow 0.18s;
+}
+
+.cover-card:focus-visible {
+  outline: 2px solid var(--accent-light, var(--accent));
+  outline-offset: 2px;
 }
 
 .cover-card:hover {
@@ -110,14 +142,20 @@ function addToQueue() {
   font-size: 3rem;
 }
 
-.queue-btn {
+.cover-actions {
   position: absolute;
   top: 0.5rem;
   right: 0.5rem;
   z-index: 2;
   display: flex;
+  gap: 0.4rem;
+}
+
+.action-btn {
+  display: flex;
   align-items: center;
   justify-content: center;
+  flex-shrink: 0;
   width: 32px;
   height: 32px;
   border: none;
@@ -133,24 +171,35 @@ function addToQueue() {
     transform 0.15s;
 }
 
-.cover-card:hover .queue-btn {
+.cover-card:hover .action-btn,
+.action-btn:focus-visible {
   opacity: 1;
 }
 
-.queue-btn:hover {
+.action-btn:hover {
   background: rgba(40, 40, 40, 0.9);
   transform: scale(1.12);
 }
 
-.queue-btn.queued {
+.action-btn.queued {
   opacity: 1;
   color: #1db954;
 }
 
-/* Touch devices have no hover — keep the action reachable. */
+/* Touch devices have no hover — keep the actions reachable and give them
+   comfortable tap targets. */
 @media (hover: none) {
-  .queue-btn {
+  .action-btn {
     opacity: 1;
+    width: 38px;
+    height: 38px;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* No hover scale on touch — provide tactile feedback on press instead. */
+  .action-btn:active {
+    transform: scale(0.9);
+    background: rgba(40, 40, 40, 0.9);
   }
 }
 
