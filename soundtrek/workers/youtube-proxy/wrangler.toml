@@ -11,6 +11,11 @@ id = "f530810858954e51bd363c98a1e53469"
 # Run: wrangler secret put YOUTUBE_API_KEY
 # Then paste your YouTube Data API v3 key when prompted
 
+# IGDB import (admin "Add Soundtrack" page). Same Twitch app credentials the
+# ingest script uses — set them as secrets:
+#   wrangler secret put TWITCH_CLIENT_ID
+#   wrangler secret put TWITCH_CLIENT_SECRET
+
 # Supabase anon credentials for the cached /catalog endpoint. The anon key is
 # public by design (it ships in the browser bundle) — safe to commit here.
 [vars]

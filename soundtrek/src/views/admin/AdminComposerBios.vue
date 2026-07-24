@@ -45,7 +45,7 @@ const queue = computed(() => {
   ].sort((a, b) => a.localeCompare(b));
   return names.filter((name) => {
     const row = existing.value.get(toSlug(name));
-    return !row || !row.bio || !row.image_url;
+    return !row || !row.bio;
   });
 });
 
@@ -215,7 +215,11 @@ async function fetchWikidataImage(enwikiTitle: string): Promise<string | null> {
   const data = (await res.json()) as {
     entities?: Record<
       string,
-      { claims?: { P18?: Array<{ mainsnak?: { datavalue?: { value?: string } } }> } }
+      {
+        claims?: {
+          P18?: Array<{ mainsnak?: { datavalue?: { value?: string } } }>;
+        };
+      }
     >;
   };
   const entity = Object.values(data.entities ?? {})[0];
@@ -375,10 +379,19 @@ const googleUrl = computed(() =>
             </span>
           </h2>
           <div class="header-actions">
-            <button class="btn btn--primary" :disabled="looking" @click="lookup">
+            <button
+              class="btn btn--primary"
+              :disabled="looking"
+              @click="lookup"
+            >
               {{ looking ? "Looking up…" : "Look Up" }}
             </button>
-            <a :href="googleUrl" target="_blank" rel="noopener" class="btn btn--ghost">
+            <a
+              :href="googleUrl"
+              target="_blank"
+              rel="noopener"
+              class="btn btn--ghost"
+            >
               Google ↗
             </a>
           </div>
@@ -404,7 +417,12 @@ const googleUrl = computed(() =>
 
         <p v-if="wikiTitle" class="source-line">
           Found via {{ wikiSource }}:
-          <a :href="wikiUrl!" target="_blank" rel="noopener" class="source-link">
+          <a
+            :href="wikiUrl!"
+            target="_blank"
+            rel="noopener"
+            class="source-link"
+          >
             {{ wikiTitle }} ↗
           </a>
         </p>
@@ -418,7 +436,10 @@ const googleUrl = computed(() =>
               :alt="selected"
               @error="imgBroken = true"
             />
-            <span v-else-if="imgBroken" class="avatar-fallback avatar-fallback--broken">
+            <span
+              v-else-if="imgBroken"
+              class="avatar-fallback avatar-fallback--broken"
+            >
               image failed to load
             </span>
             <span v-else class="avatar-fallback">no image</span>
@@ -427,7 +448,12 @@ const googleUrl = computed(() =>
           <div class="preview-fields">
             <label class="field">
               <span>Image URL</span>
-              <input v-model="imageUrl" type="text" spellcheck="false" placeholder="https://…" />
+              <input
+                v-model="imageUrl"
+                type="text"
+                spellcheck="false"
+                placeholder="https://…"
+              />
             </label>
             <label class="field">
               <span>Bio</span>
@@ -548,7 +574,9 @@ const googleUrl = computed(() =>
   color: var(--text-secondary);
   font-size: 0.75rem;
   text-decoration: none;
-  transition: border-color 0.12s, color 0.12s;
+  transition:
+    border-color 0.12s,
+    color 0.12s;
 }
 
 .game-chip:hover {
