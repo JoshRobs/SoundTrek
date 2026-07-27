@@ -35,6 +35,7 @@ async function main() {
 
   const staticUrls = [
     url(`${BASE}/`),
+    url(`${BASE}/about`),
     url(`${BASE}/discover`),
     url(`${BASE}/catalog`),
     url(`${BASE}/top`),

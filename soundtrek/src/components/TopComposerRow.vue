@@ -16,7 +16,13 @@ const router = useRouter();
 <template>
   <div class="composer-card" @click="router.push(`/composer/${toSlug(name)}`)">
     <div class="avatar-wrap">
-      <img v-if="imageUrl" :src="imageUrl" :alt="name" class="photo" />
+      <img
+        v-if="imageUrl"
+        :src="imageUrl"
+        :alt="name"
+        class="photo"
+        referrerpolicy="no-referrer"
+      />
       <div v-else class="photo-fallback">
         <svg viewBox="0 0 24 24" fill="currentColor" class="silhouette">
           <path

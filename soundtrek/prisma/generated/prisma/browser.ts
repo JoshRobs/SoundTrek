@@ -48,6 +48,11 @@ export type Track = Prisma.TrackModel
  */
 export type UserLike = Prisma.UserLikeModel
 /**
+ * Model ListenHistory
+ * 
+ */
+export type ListenHistory = Prisma.ListenHistoryModel
+/**
  * Model Collection
  * 
  */

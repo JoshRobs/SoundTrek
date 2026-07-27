@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, watch } from "vue";
+import { ref, computed, watch, onMounted, onUnmounted } from "vue";
 import { useHead } from "@unhead/vue";
 import { useRoute } from "vue-router";
 import { supabase, SOUNDTRACK_LIST_COLUMNS } from "@/lib/supabase";
@@ -15,6 +15,23 @@ const composerStore = useComposerStore();
 const slug = computed(() => route.params.slug as string);
 
 const profile = computed(() => composerStore.cache.get(slug.value) ?? null);
+const imageUrl = computed(() => profile.value?.image_url ?? null);
+const imgBroken = ref(false);
+watch(imageUrl, () => (imgBroken.value = false));
+
+// Click the avatar to view it enlarged in a lightbox.
+const lightboxOpen = ref(false);
+function openLightbox() {
+  if (imageUrl.value && !imgBroken.value) lightboxOpen.value = true;
+}
+function closeLightbox() {
+  lightboxOpen.value = false;
+}
+function onKeydown(e: KeyboardEvent) {
+  if (e.key === "Escape") closeLightbox();
+}
+onMounted(() => window.addEventListener("keydown", onKeydown));
+onUnmounted(() => window.removeEventListener("keydown", onKeydown));
 
 const composerSoundtracks = ref<Soundtrack[]>([]);
 const composerNameFallback = ref("");
@@ -44,8 +61,13 @@ watch(
         return;
       }
       for (const row of composerRows ?? []) {
-        const match = (row.composers ?? []).find((c: string) => toSlug(c) === currentSlug);
-        if (match) { name = match; break; }
+        const match = (row.composers ?? []).find(
+          (c: string) => toSlug(c) === currentSlug,
+        );
+        if (match) {
+          name = match;
+          break;
+        }
       }
     }
     composerNameFallback.value = name ?? currentSlug.replace(/-/g, " ");
@@ -71,22 +93,35 @@ watch(
   { immediate: true },
 );
 
-const composerName = computed(() => profile.value?.name ?? composerNameFallback.value);
+const composerName = computed(
+  () => profile.value?.name ?? composerNameFallback.value,
+);
 
 const subtitle = computed(
   () =>
     `${composerSoundtracks.value.length} ${composerSoundtracks.value.length === 1 ? "soundtrack" : "soundtracks"} in SoundTrek`,
 );
 
-useHead(computed(() => ({
-  title: `${composerName.value} | SoundTrek`,
-  meta: [
-    { name: "description", content: `Listen to ${composerName.value}'s video game soundtracks on SoundTrek.` },
-    { property: "og:title", content: `${composerName.value} | SoundTrek` },
-    { property: "og:description", content: `Listen to ${composerName.value}'s video game soundtracks on SoundTrek.` },
-    { property: "og:url", content: `https://soundtrek.app/composer/${slug.value}` },
-  ],
-})));
+useHead(
+  computed(() => ({
+    title: `${composerName.value} | SoundTrek`,
+    meta: [
+      {
+        name: "description",
+        content: `Listen to ${composerName.value}'s video game soundtracks on SoundTrek.`,
+      },
+      { property: "og:title", content: `${composerName.value} | SoundTrek` },
+      {
+        property: "og:description",
+        content: `Listen to ${composerName.value}'s video game soundtracks on SoundTrek.`,
+      },
+      {
+        property: "og:url",
+        content: `https://soundtrek.app/composer/${slug.value}`,
+      },
+    ],
+  })),
+);
 </script>
 
 <template>
@@ -102,7 +137,27 @@ useHead(computed(() => ({
 
     <template v-else>
       <div class="page-inner">
-        <PageHero label="Composer" :title="composerName" :subtitle="subtitle" />
+        <div class="composer-header">
+          <button
+            v-if="imageUrl && !imgBroken"
+            type="button"
+            class="composer-avatar"
+            aria-label="View larger profile picture"
+            @click="openLightbox"
+          >
+            <img
+              :src="imageUrl"
+              :alt="composerName"
+              referrerpolicy="no-referrer"
+              @error="imgBroken = true"
+            />
+          </button>
+          <PageHero
+            label="Composer"
+            :title="composerName"
+            :subtitle="subtitle"
+          />
+        </div>
 
         <div v-if="profile?.bio" class="bio">{{ profile.bio }}</div>
 
@@ -137,6 +192,31 @@ useHead(computed(() => ({
         </section>
       </div>
     </template>
+
+    <Teleport to="body">
+      <Transition name="lightbox-fade">
+        <div
+          v-if="lightboxOpen && imageUrl"
+          class="lightbox"
+          @click="closeLightbox"
+        >
+          <button
+            type="button"
+            class="lightbox-close"
+            aria-label="Close"
+            @click="closeLightbox"
+          >
+            ✕
+          </button>
+          <img
+            :src="imageUrl"
+            :alt="composerName"
+            class="lightbox-img"
+            referrerpolicy="no-referrer"
+          />
+        </div>
+      </Transition>
+    </Teleport>
   </div>
 </template>
 
@@ -160,12 +240,113 @@ useHead(computed(() => ({
   }
 }
 
+.composer-header {
+  margin-top: 20px;
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+}
+
+.composer-avatar {
+  flex-shrink: 0;
+  width: 200px;
+  height: 200px;
+  padding: 0;
+  border-radius: 50%;
+  overflow: hidden;
+  background: var(--surface-2);
+  border: 2px solid var(--border);
+  cursor: pointer;
+  transition:
+    border-color 0.2s,
+    box-shadow 0.2s;
+}
+
+.composer-avatar:hover {
+  border-color: #77777770;
+  box-shadow: 0 0 20px color-mix(in srgb, white 15%, transparent);
+}
+
+.composer-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  transition: transform 0.25s ease;
+}
+
+.composer-avatar:hover img {
+  transform: scale(1.05);
+}
+
+/* Enlarged profile-picture lightbox */
+.lightbox {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.85);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+  padding: 2rem;
+  cursor: zoom-out;
+}
+
+.lightbox-img {
+  max-width: min(90vw, 560px);
+  max-height: 90vh;
+  object-fit: contain;
+  border-radius: 12px;
+  box-shadow: 0 10px 60px rgba(0, 0, 0, 0.6);
+}
+
+.lightbox-close {
+  position: fixed;
+  top: 1.25rem;
+  right: 1.5rem;
+  background: none;
+  border: none;
+  color: #fff;
+  font-size: 1.75rem;
+  line-height: 1;
+  padding: 0.25rem;
+  cursor: pointer;
+  opacity: 0.8;
+  transition: opacity 0.15s;
+}
+
+.lightbox-close:hover {
+  opacity: 1;
+}
+
+.lightbox-fade-enter-active,
+.lightbox-fade-leave-active {
+  transition: opacity 0.18s ease;
+}
+
+.lightbox-fade-enter-from,
+.lightbox-fade-leave-to {
+  opacity: 0;
+}
+
 .bio {
   font-size: 0.95rem;
   color: var(--text-secondary);
   line-height: 1.6;
   margin-bottom: 1.5rem;
   max-width: 680px;
+}
+
+@media (max-width: 768px) {
+  .composer-header {
+    gap: 1rem;
+  }
+
+  .composer-avatar {
+    width: 84px;
+    height: 84px;
+  }
 }
 
 .grid {

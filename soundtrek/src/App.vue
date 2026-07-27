@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from "vue";
+import { computed, watch } from "vue";
 import { storeToRefs } from "pinia";
 import { useRoute, useRouter } from "vue-router";
 import AppHeader from "@/components/AppHeader.vue";
@@ -8,6 +8,8 @@ import MobileMiniPlayer from "@/components/MobileMiniPlayer.vue";
 import QueuePanel from "@/components/QueuePanel.vue";
 import { useIsMobile } from "@/composables/useIsMobile";
 import { useSoundtrackStore } from "@/stores/soundtracks";
+import { usePlayerStore } from "@/stores/player";
+import { useListens } from "@/composables/useListens";
 import { supabase } from "@/lib/supabase";
 
 const { isMobile } = useIsMobile();
@@ -15,6 +17,17 @@ const { nowPlaying } = storeToRefs(useSoundtrackStore());
 const router = useRouter();
 const route = useRoute();
 const isAdmin = computed(() => !!route.meta.requiresAdmin);
+
+// Record a listen whenever the player moves to a new soundtrack — covers direct
+// plays, per-track plays, and the queue advancing into a different OST.
+const player = usePlayerStore();
+const { recordListen } = useListens();
+watch(
+  () => player.nowPlaying?.id,
+  (id) => {
+    if (id) recordListen(id);
+  },
+);
 
 supabase.auth.onAuthStateChange((event) => {
   if (event === "SIGNED_IN" && window.location.hash.includes("type=signup")) {

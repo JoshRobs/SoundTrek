@@ -1,18 +1,10 @@
 <script setup lang="ts">
-import { computed } from "vue";
+import { ref, onMounted } from "vue";
 import { useRouter } from "vue-router";
-import { storeToRefs } from "pinia";
-import { useSoundtrackStore } from "@/stores/soundtracks";
+import { supabase } from "@/lib/supabase";
 import { toSlug } from "@/utils/slug";
 
 const router = useRouter();
-const store = useSoundtrackStore();
-const { allSoundtracks } = storeToRefs(store);
-
-// Self-sufficient: the landing page no longer loads the catalog itself, so
-// fetch it here (worker KV-cached, deduped by the store). The cards pop in
-// reactively when it resolves.
-store.loadAll();
 
 const CATEGORIES = [
   { label: "historical", type: "theme", tags: ["historical"] },
@@ -27,25 +19,42 @@ const CATEGORIES = [
   { label: "Adventure", type: "genre", tags: ["adventurous", "adventure"] },
 ] as const;
 
-const cards = computed(() =>
-  CATEGORIES.map((cat) => {
-    const matches = allSoundtracks.value.filter((s) => {
-      const all = [...(s.genre_tags ?? []), ...(s.theme_tags ?? [])].map((t) =>
-        t.toLowerCase(),
-      );
-      return cat.tags.some((tag) => all.includes(tag));
-    });
-    const withCover = matches.filter((s) => s.cover_image_url);
-    const pick =
-      withCover[Math.floor(Math.random() * withCover.length)] ?? null;
-    return {
-      label: cat.label,
-      type: cat.type,
-      slug: "slug" in cat ? cat.slug : toSlug(cat.label),
-      cover: pick?.cover_image_url ?? null,
-    };
-  }),
-);
+interface Card {
+  label: string;
+  type: string;
+  slug: string;
+  cover: string | null;
+}
+
+const cards = ref<Card[]>([]);
+
+// One tiny query per category (cover_image_url only) instead of loading the
+// whole catalog — the landing page just needs a single representative cover per
+// tile, so there's no reason to pull ~2MB of soundtracks here.
+onMounted(async () => {
+  cards.value = await Promise.all(
+    CATEGORIES.map(async (cat): Promise<Card> => {
+      const column = cat.type === "genre" ? "genre_tags" : "theme_tags";
+      const { data } = await supabase
+        .from("soundtracks")
+        .select("cover_image_url")
+        .overlaps(column, [...cat.tags])
+        .not("cover_image_url", "is", null)
+        .limit(24);
+      const covers = ((data ?? []) as { cover_image_url: string | null }[])
+        .map((r) => r.cover_image_url)
+        .filter((c): c is string => !!c);
+      return {
+        label: cat.label,
+        type: cat.type,
+        slug: "slug" in cat ? cat.slug : toSlug(cat.label),
+        cover: covers.length
+          ? covers[Math.floor(Math.random() * covers.length)]
+          : null,
+      };
+    }),
+  );
+});
 
 function navigate(type: string, slug: string) {
   router.push(`/category/${type}/${slug}`);

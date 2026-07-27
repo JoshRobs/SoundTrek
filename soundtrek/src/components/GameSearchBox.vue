@@ -248,6 +248,7 @@ onUnmounted(() => {
                   v-if="composerCache.get(r.slug)?.image_url"
                   :src="composerCache.get(r.slug)!.image_url!"
                   :alt="r.name"
+                  referrerpolicy="no-referrer"
                 />
                 <svg
                   v-else

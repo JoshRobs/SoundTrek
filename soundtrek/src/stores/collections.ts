@@ -231,6 +231,38 @@ export const useCollectionStore = defineStore("collections", () => {
     return (data ?? []).map((r: any) => r.collection_id as string);
   }
 
+  // Public collections (any owner) that reference this soundtrack — as a whole-OST
+  // album item or a track from it — with items embedded for cover previews and
+  // counts. Powers the "Relevant Collections" rail on the soundtrack page.
+  async function getPublicCollectionsContaining(
+    soundtrackId: string,
+    limit = 6,
+  ): Promise<Collection[]> {
+    // Candidate collection ids via the items (RLS exposes items of public
+    // collections, same read path fetchPublicCollections relies on).
+    const { data: itemRows } = await supabase
+      .from("collection_items")
+      .select("collection_id")
+      .eq("soundtrack_id", soundtrackId);
+    const ids = [
+      ...new Set(
+        (itemRows ?? []).map((r: { collection_id: string }) => r.collection_id),
+      ),
+    ];
+    if (ids.length === 0) return [];
+
+    const { data } = await supabase
+      .from("collections")
+      .select(
+        "*, collection_items(soundtrack_id, video_id, position, soundtrack:soundtracks(cover_image_url))",
+      )
+      .in("id", ids)
+      .eq("is_public", true)
+      .order("created_at", { ascending: false })
+      .limit(limit);
+    return (data ?? []) as Collection[];
+  }
+
   return {
     myCollections,
     loading,
@@ -251,6 +283,7 @@ export const useCollectionStore = defineStore("collections", () => {
     reorderItems,
     getCollectionsContaining,
     getCollectionsContainingTrack,
+    getPublicCollectionsContaining,
   };
 });
 

@@ -256,7 +256,13 @@ export const useSoundtrackStore = defineStore("soundtracks", () => {
     filters.value = { genres: [], themes: [], consoles: [] };
   }
 
-  async function likeSoundtrack(id: string, delta: 1 | -1) {
+  // Returns the authoritative new `likes` count (raw column value, before
+  // rating_count is added by displayLikes), so callers rendering a row that
+  // isn't in allSoundtracks (e.g. SoundtrackView's own fetch) can reconcile it.
+  async function likeSoundtrack(
+    id: string,
+    delta: 1 | -1,
+  ): Promise<number | undefined> {
     // The catalog is loaded lazily (views fetch their own rows), so the
     // store row may be absent — the counter RPC must fire regardless; only
     // the optimistic bump needs the row.
@@ -270,8 +276,13 @@ export const useSoundtrackStore = defineStore("soundtracks", () => {
       // Reconcile with the authoritative server value — the RPC dedupes
       // repeat likes/unlikes server-side, so it can differ from the
       // optimistic guess above (e.g. a stale double-click no-ops there).
-      if (!error && typeof data === "number" && track) track.likes = data;
+      if (!error && typeof data === "number") {
+        if (track) track.likes = data;
+        return data;
+      }
+      return undefined;
     }
+    return track?.likes;
   }
 
   return {

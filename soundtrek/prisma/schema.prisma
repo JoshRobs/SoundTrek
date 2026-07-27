@@ -96,6 +96,19 @@ model UserLike {
   @@map("user_likes")
 }
 
+// Per-user listen history (migration 013). One row per (user, soundtrack) with
+// played_at bumped on replay; backs the "Recently listened" rail and feeds
+// content-based recommendations. user_id references auth.users(id) (Supabase
+// Auth), kept as a bare column like UserLike above.
+model ListenHistory {
+  user_id       String   @db.Uuid
+  soundtrack_id String   @db.Uuid
+  played_at     DateTime @default(now()) @db.Timestamptz(6)
+
+  @@id([user_id, soundtrack_id])
+  @@map("listen_history")
+}
+
 // User-curated collections of soundtracks. Created originally in the Supabase
 // dashboard (hence the legacy "playlist" constraint/index names in Postgres);
 // first captured here alongside migration 012. user_id references

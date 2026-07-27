@@ -16,6 +16,9 @@ import AddToCollectionModal from "@/components/AddToCollectionModal.vue";
 import TracklistPanel from "@/components/TracklistPanel.vue";
 import { useAuth } from "@/composables/useAuth";
 import { useQueueActions } from "@/composables/useQueueActions";
+import { useCollectionStore } from "@/stores/collections";
+import { itemSummary } from "@/utils/collectionSummary";
+import type { Collection } from "@/types/collection";
 import AppIcon from "@/components/AppIcon.vue";
 
 const UUID_RE =
@@ -28,6 +31,13 @@ const store = useSoundtrackStore();
 const param = route.params.slug as string;
 const notFound = ref(false);
 const coverColor = ref("");
+// The cover loads with crossorigin so we can sample its colour for the glow.
+// If that fails (host sends no CORS headers), retry once without it so the image
+// still shows — we just forgo the glow. Working covers never hit this path.
+const coverCrossorigin = ref<"anonymous" | undefined>("anonymous");
+function onCoverError() {
+  if (coverCrossorigin.value) coverCrossorigin.value = undefined;
+}
 const copied = ref(false);
 const { isLiked, toggleLike: rawToggle } = useLikes();
 const { user } = useAuth();
@@ -55,6 +65,28 @@ function closeAddToPlaylist() {
 const track = ref<Soundtrack | null>(null);
 const moreFromStudio = ref<Soundtrack[]>([]);
 const similarSoundtracks = ref<Soundtrack[]>([]);
+
+// Public collections that include this soundtrack — lateral discovery in the rail.
+const collectionStore = useCollectionStore();
+const relevantCollections = ref<Collection[]>([]);
+
+async function loadRelevantCollections() {
+  const t = track.value;
+  if (!t) return;
+  relevantCollections.value =
+    await collectionStore.getPublicCollectionsContaining(t.id);
+}
+
+// Up to 4 distinct covers from a collection's items, for the mosaic thumbnail.
+function collectionCovers(c: Collection): string[] {
+  const items = (c.collection_items ?? []) as {
+    soundtrack?: { cover_image_url?: string | null };
+  }[];
+  return items
+    .map((i) => i.soundtrack?.cover_image_url)
+    .filter((s): s is string => !!s)
+    .slice(0, 4);
+}
 
 async function loadTrack() {
   const { data } = await supabase
@@ -351,10 +383,16 @@ function addToQueue() {
   setTimeout(() => (queued.value = false), 1600);
 }
 
-function toggleLike() {
+async function toggleLike() {
   if (!track.value) return;
   const delta = rawToggle(id.value);
-  store.likeSoundtrack(id.value, delta);
+  // SoundtrackView renders its own fetched row, not the store's copy, so bump it
+  // optimistically here, then reconcile with the server's authoritative count.
+  track.value.likes = Math.max(0, track.value.likes + delta);
+  const serverLikes = await store.likeSoundtrack(id.value, delta);
+  if (typeof serverLikes === "number" && track.value) {
+    track.value.likes = serverLikes;
+  }
 }
 
 function share() {
@@ -412,6 +450,7 @@ function execCommandCopy(url: string) {
 onMounted(async () => {
   await loadTrack();
   loadTracklist();
+  loadRelevantCollections();
   composerRow.attach();
   similarRow.attach();
 });
@@ -470,11 +509,13 @@ onUnmounted(() => {
             >
               <img
                 v-if="track.cover_image_url"
+                :key="coverCrossorigin ?? 'plain'"
                 :src="track.cover_image_url"
                 :alt="track.game_title"
                 class="cover-img"
-                crossorigin="anonymous"
+                :crossorigin="coverCrossorigin"
                 @load="extractCoverColor($event.target as HTMLImageElement)"
+                @error="onCoverError"
               />
               <div v-else class="cover-fallback">🎮</div>
               <div class="cover-play-overlay">
@@ -766,8 +807,11 @@ onUnmounted(() => {
         </div>
       </div>
 
-      <!-- Right rail — Amazon card with the tracklist beneath it -->
-      <div v-if="amazonUrl || tracklist.length" class="side-rail">
+      <!-- Right rail — Amazon card, tracklist, and relevant collections -->
+      <div
+        v-if="amazonUrl || tracklist.length || relevantCollections.length"
+        class="side-rail"
+      >
         <a
           v-if="amazonUrl"
           :href="amazonUrl"
@@ -796,6 +840,38 @@ onUnmounted(() => {
           :can-collect="!!user"
           @add-to-collection="onAddTrack"
         />
+
+        <section v-if="relevantCollections.length" class="rail-collections">
+          <h3 class="rail-heading">Relevant Collections</h3>
+          <RouterLink
+            v-for="c in relevantCollections"
+            :key="c.id"
+            :to="`/collection/${c.id}`"
+            class="rc-card"
+          >
+            <div class="rc-cover">
+              <div v-if="collectionCovers(c).length >= 4" class="rc-mosaic">
+                <img
+                  v-for="(src, i) in collectionCovers(c)"
+                  :key="i"
+                  :src="src"
+                  :alt="c.name"
+                />
+              </div>
+              <img
+                v-else-if="collectionCovers(c).length"
+                :src="collectionCovers(c)[0]"
+                :alt="c.name"
+                class="rc-single"
+              />
+              <div v-else class="rc-empty">♫</div>
+            </div>
+            <div class="rc-info">
+              <span class="rc-name">{{ c.name }}</span>
+              <span class="rc-meta">{{ itemSummary(c.collection_items) }}</span>
+            </div>
+          </RouterLink>
+        </section>
       </div>
     </div>
   </div>
@@ -891,6 +967,8 @@ onUnmounted(() => {
 .cover-wrap {
   position: relative;
   flex-shrink: 0;
+  width: 260px;
+  aspect-ratio: 3 / 4;
   border-radius: 12px;
   overflow: hidden;
   box-shadow: 0 0px 60px rgba(0, 0, 0, 0.6);
@@ -972,6 +1050,98 @@ onUnmounted(() => {
   .side-rail {
     display: flex;
   }
+}
+
+/* ── Relevant Collections (right rail) ────────────────────────────────────── */
+.rail-collections {
+  align-self: stretch;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.rail-heading {
+  margin: 0 0 0.15rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+}
+
+.rc-card {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.5rem;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  text-decoration: none;
+  transition:
+    border-color 0.15s,
+    transform 0.15s;
+}
+
+.rc-card:hover {
+  border-color: var(--accent);
+  transform: translateY(-1px);
+}
+
+.rc-cover {
+  width: 48px;
+  height: 48px;
+  flex-shrink: 0;
+  border-radius: 6px;
+  overflow: hidden;
+  background: var(--surface);
+}
+
+.rc-mosaic {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: 1fr 1fr;
+  width: 100%;
+  height: 100%;
+}
+
+.rc-mosaic img,
+.rc-single {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.rc-empty {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  font-size: 1.2rem;
+}
+
+.rc-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.rc-name {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.rc-meta {
+  font-size: 0.75rem;
+  color: var(--text-muted);
 }
 
 .amazon-card {
@@ -1387,7 +1557,7 @@ onUnmounted(() => {
 .cover-skeleton {
   flex-shrink: 0;
   width: 260px;
-  height: 260px;
+  aspect-ratio: 3 / 4;
 }
 
 .skeleton-lines {
@@ -1648,8 +1818,8 @@ onUnmounted(() => {
   }
 
   .cover-skeleton {
-    width: 160px;
-    height: 210px;
+    width: min(220px, 60vw);
+    aspect-ratio: 3 / 4;
   }
 
   .skeleton-lines {

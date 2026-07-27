@@ -24,6 +24,7 @@ import BrowseCollectionsView from "@/views/BrowseCollectionsView.vue";
 import CollectionView from "@/views/CollectionView.vue";
 import PrivacyView from "@/views/PrivacyView.vue";
 import TermsView from "@/views/TermsView.vue";
+import AboutView from "@/views/AboutView.vue";
 import SearchView from "@/views/SearchView.vue";
 import LoginView from "@/views/LoginView.vue";
 import LikedView from "@/views/LikedView.vue";
@@ -56,6 +57,7 @@ export const routes: RouteRecordRaw[] = [
   { path: "/collections", component: CollectionsView, meta: { requiresAuth: true } },
   { path: "/browse-collections", component: BrowseCollectionsView },
   { path: "/collection/:id", component: CollectionView },
+  { path: "/about", component: AboutView },
   { path: "/privacy-policy", component: PrivacyView },
   { path: "/terms-of-service", component: TermsView },
   { path: "/search", component: SearchView },

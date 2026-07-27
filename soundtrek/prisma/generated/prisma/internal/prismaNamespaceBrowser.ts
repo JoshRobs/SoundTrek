@@ -57,6 +57,7 @@ export const ModelName = {
   Soundtrack: 'Soundtrack',
   Track: 'Track',
   UserLike: 'UserLike',
+  ListenHistory: 'ListenHistory',
   Collection: 'Collection',
   CollectionItem: 'CollectionItem'
 } as const
@@ -163,6 +164,15 @@ export const UserLikeScalarFieldEnum = {
 } as const
 
 export type UserLikeScalarFieldEnum = (typeof UserLikeScalarFieldEnum)[keyof typeof UserLikeScalarFieldEnum]
+
+
+export const ListenHistoryScalarFieldEnum = {
+  user_id: 'user_id',
+  soundtrack_id: 'soundtrack_id',
+  played_at: 'played_at'
+} as const
+
+export type ListenHistoryScalarFieldEnum = (typeof ListenHistoryScalarFieldEnum)[keyof typeof ListenHistoryScalarFieldEnum]
 
 
 export const CollectionScalarFieldEnum = {

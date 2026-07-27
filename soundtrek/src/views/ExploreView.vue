@@ -3,6 +3,7 @@ import { storeToRefs } from "pinia";
 import { useHead } from "@unhead/vue";
 import { useSoundtrackStore } from "@/stores/soundtracks";
 import ExploreRow from "@/components/ExploreRow.vue";
+import RecentlyListenedRow from "@/components/RecentlyListenedRow.vue";
 
 const store = useSoundtrackStore();
 const { exploreRows, loading } = storeToRefs(store);
@@ -38,6 +39,7 @@ useHead({
       </div>
 
       <div v-else class="rows">
+        <RecentlyListenedRow />
         <ExploreRow
           v-for="row in exploreRows"
           :key="`${row.type}-${row.label}`"

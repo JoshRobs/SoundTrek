@@ -38,11 +38,28 @@ const soundtrackCounts = computed(() => {
   return counts;
 });
 
+// Total community likes per composer — the same popularity signal the Top
+// Composers page ranks by (composer_stats.total_likes).
+const composerLikes = computed(() => {
+  const likes = new Map<string, number>();
+  for (const s of allSoundtracks.value) {
+    const l = s.total_likes ?? s.likes ?? 0;
+    for (const name of s.composers ?? [])
+      likes.set(name, (likes.get(name) ?? 0) + l);
+  }
+  return likes;
+});
+
 const queue = computed(() => {
   if (!loadedExisting.value) return [];
+  // Most popular first, mirroring Top Composers: total likes desc, then name.
   const names = [
     ...new Set(allSoundtracks.value.flatMap((s) => s.composers ?? [])),
-  ].sort((a, b) => a.localeCompare(b));
+  ].sort(
+    (a, b) =>
+      (composerLikes.value.get(b) ?? 0) - (composerLikes.value.get(a) ?? 0) ||
+      a.localeCompare(b),
+  );
   return names.filter((name) => {
     const row = existing.value.get(toSlug(name));
     return !row || !row.bio;
@@ -434,6 +451,7 @@ const googleUrl = computed(() =>
               v-if="imageUrl && !imgBroken"
               :src="imageUrl"
               :alt="selected"
+              referrerpolicy="no-referrer"
               @error="imgBroken = true"
             />
             <span

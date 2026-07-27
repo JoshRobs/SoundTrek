@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted } from "vue";
+import { ref, watch, onMounted } from "vue";
 import { useRouter } from "vue-router";
 import { useHead } from "@unhead/vue";
 import GameSearchBox from "@/components/GameSearchBox.vue";
@@ -7,6 +7,7 @@ import RandomizeButton from "@/components/RandomizeButton.vue";
 import HeroCovers from "@/components/HeroCovers.vue";
 import { supabase, SOUNDTRACK_LIST_COLUMNS } from "@/lib/supabase";
 import { useSoundtrackStore } from "@/stores/soundtracks";
+import { useListens } from "@/composables/useListens";
 import type { Soundtrack } from "@/types/soundtrack";
 import { animate, stagger } from "animejs";
 import { useNotePlayer } from "@/composables/useNotePlayer";
@@ -91,6 +92,31 @@ const featuredItems = ref<Soundtrack[]>([]);
 const recentItems = ref<Soundtrack[]>([]);
 const heroCovers = ref<Soundtrack[]>([]);
 const displayCount = ref(0);
+
+// "Recently listened" — the returning-visitor rail, shown above Trending. Ids
+// come from useListens (localStorage / synced); resolve just those few rows by
+// id rather than loading the whole catalog on the landing page.
+const { listenedOrder } = useListens();
+const recentlyListenedItems = ref<Soundtrack[]>([]);
+
+async function loadRecentlyListened() {
+  const ids = listenedOrder.value.slice(0, 6);
+  if (ids.length === 0) {
+    recentlyListenedItems.value = [];
+    return;
+  }
+  const { data } = await supabase
+    .from("soundtracks")
+    .select(SOUNDTRACK_LIST_COLUMNS)
+    .in("id", ids);
+  const byId = new Map(((data ?? []) as Soundtrack[]).map((s) => [s.id, s]));
+  // Preserve recency order (the .in() query returns rows in arbitrary order).
+  recentlyListenedItems.value = ids
+    .map((id) => byId.get(id))
+    .filter((s): s is Soundtrack => !!s);
+}
+
+watch(listenedOrder, loadRecentlyListened, { immediate: true });
 
 async function buildSections() {
   const { count } = await supabase
@@ -186,6 +212,25 @@ onMounted(() => {
     <CategoryBrowser />
 
     <div class="sections">
+      <!-- Section 0: Recently listened (returning visitors) — title left -->
+      <section v-if="recentlyListenedItems.length" class="landing-section">
+        <div class="section-title">
+          <p class="section-label">Recently</p>
+          <h2 class="section-heading">Pick up where you left off</h2>
+        </div>
+        <div class="section-content">
+          <div class="cover-row cover-row--recent">
+            <CoverCard
+              v-for="s in recentlyListenedItems"
+              :key="s.id"
+              :soundtrack="s"
+              @click="play(s)"
+              @play="store.setNowPlaying(s)"
+            />
+          </div>
+        </div>
+      </section>
+
       <!-- Section 1: Now Listening — title left -->
       <section class="landing-section">
         <div class="section-title">
@@ -279,6 +324,7 @@ onMounted(() => {
           </div>
           <div class="footer-col">
             <p class="footer-col-heading">Contribute</p>
+            <RouterLink to="/about" class="footer-link">About</RouterLink>
             <RouterLink to="/submit" class="footer-link"
               >Submit a Soundtrack</RouterLink
             >
@@ -534,6 +580,13 @@ onMounted(() => {
   aspect-ratio: 3/4;
 }
 
+/* Recently-listened: fixed-width cards, left-aligned, so a single item doesn't
+   stretch to fill the row the way the always-full Trending/New rows do. */
+.cover-row--recent {
+  grid-template-columns: repeat(auto-fill, minmax(150px, 160px));
+  justify-content: start;
+}
+
 /* ── Section 2: Featured grid ─────────────────────────────────────────── */
 .cover-grid {
   display: grid;
@@ -742,6 +795,10 @@ onMounted(() => {
   .cover-row {
     gap: 0.6rem;
     grid-template-columns: repeat(auto-fit, minmax(min(120px, 100%), 1fr));
+  }
+
+  .cover-row--recent {
+    grid-template-columns: repeat(auto-fill, minmax(110px, 120px));
   }
 
   .cover-row .cover-card,
