@@ -50,24 +50,34 @@ watch(
     if (!name) {
       // No composer profile row — fall back to resolving the slug against
       // just the `composers` column across the table (still far smaller
-      // than a full soundtrack row per track).
-      const { data: composerRows, error: err } = await supabase
-        .from("soundtracks")
-        .select("composers")
-        .returns<Pick<Soundtrack, "composers">[]>();
-      if (err) {
-        error.value = err.message;
-        loading.value = false;
-        return;
-      }
-      for (const row of composerRows ?? []) {
-        const match = (row.composers ?? []).find(
-          (c: string) => toSlug(c) === currentSlug,
-        );
-        if (match) {
-          name = match;
-          break;
+      // than a full soundtrack row per track). PostgREST caps an unbounded
+      // select at 1000 rows, so this has to page through everything —
+      // otherwise composers only credited on later rows silently vanish.
+      const PAGE_SIZE = 1000;
+      let from = 0;
+      while (!name) {
+        const { data: composerRows, error: err } = await supabase
+          .from("soundtracks")
+          .select("composers")
+          .range(from, from + PAGE_SIZE - 1)
+          .returns<Pick<Soundtrack, "composers">[]>();
+        if (err) {
+          error.value = err.message;
+          loading.value = false;
+          return;
         }
+        if (!composerRows || composerRows.length === 0) break;
+        for (const row of composerRows) {
+          const match = (row.composers ?? []).find(
+            (c: string) => toSlug(c) === currentSlug,
+          );
+          if (match) {
+            name = match;
+            break;
+          }
+        }
+        if (composerRows.length < PAGE_SIZE) break;
+        from += PAGE_SIZE;
       }
     }
     composerNameFallback.value = name ?? currentSlug.replace(/-/g, " ");

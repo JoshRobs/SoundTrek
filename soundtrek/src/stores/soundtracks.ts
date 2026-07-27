@@ -128,9 +128,10 @@ export const useSoundtrackStore = defineStore("soundtracks", () => {
   const topComposers = computed(() => {
     const counts = new Map<string, number>();
     allSoundtracks.value.forEach((s) =>
-      (s.composers ?? []).forEach((c) =>
-        counts.set(c, (counts.get(c) ?? 0) + 1),
-      ),
+      (s.composers ?? []).forEach((c) => {
+        if (c === "Various Artists") return;
+        counts.set(c, (counts.get(c) ?? 0) + 1);
+      }),
     );
     return [...counts.entries()]
       .sort((a, b) => b[1] - a[1])
