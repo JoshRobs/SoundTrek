@@ -3,8 +3,6 @@ import { ref, computed, onMounted } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { useHead } from "@unhead/vue";
 import { useCollectionStore } from "@/stores/collections";
-import { useSoundtrackStore } from "@/stores/soundtracks";
-import { usePlayerStore } from "@/stores/player";
 import { useQueueStore } from "@/stores/queue";
 import { useAuth } from "@/composables/useAuth";
 import { itemSummary } from "@/utils/collectionSummary";
@@ -16,8 +14,6 @@ import type { Collection, CollectionItem } from "@/types/collection";
 const route = useRoute();
 const router = useRouter();
 const cStore = useCollectionStore();
-const sStore = useSoundtrackStore();
-const player = usePlayerStore();
 const itemQueue = useQueueStore();
 const { user } = useAuth();
 
@@ -86,12 +82,12 @@ const tracks = computed(() =>
   items.value.map((i) => i.soundtrack).filter(Boolean),
 );
 
-// A track item highlights when its video is the one playing; an album item
-// highlights when its soundtrack is playing and the queue isn't focused on a
-// specific track (so a track item of the same OST doesn't also light up).
+// Tied to the item queue's own notion of "what's selected" rather than the
+// player's actual video id, so the highlight is stable across the async gap
+// between clicking play and the OST queue/video actually loading (that gap
+// briefly left currentVideoId null, flickering the highlight off and on).
 function isActive(item: CollectionItem): boolean {
-  if (item.video_id) return player.currentVideoId === item.video_id;
-  return sStore.nowPlaying?.id === item.soundtrack_id && !player.currentVideoId;
+  return itemQueue.currentItem?.id === item.id;
 }
 
 const summary = computed(() => itemSummary(items.value));
@@ -620,7 +616,7 @@ function onUpdated() {
 .hero {
   position: relative;
   padding: 4rem 3rem 3rem;
-  max-width: 1100px;
+  max-width: 1200px;
   margin: 0 auto;
   display: flex;
   gap: 2rem;
@@ -784,7 +780,7 @@ function onUpdated() {
 /* Separator */
 .separator {
   position: relative;
-  max-width: 1100px;
+  max-width: 1200px;
   margin: 0 auto 2.5rem;
   padding: 0 3rem;
 }
@@ -799,7 +795,7 @@ function onUpdated() {
 /* View toggle header */
 .list-header {
   position: relative;
-  max-width: 1100px;
+  max-width: 1200px;
   margin: 0 auto 1.25rem;
   padding: 0 3rem;
   display: flex;
@@ -845,7 +841,7 @@ function onUpdated() {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(185px, 1fr));
   gap: 1.25rem;
-  max-width: 1100px;
+  max-width: 1200px;
   margin: 0 auto;
   padding: 0 3rem 6rem;
 }
@@ -853,7 +849,7 @@ function onUpdated() {
 /* Track list */
 .track-list {
   position: relative;
-  max-width: 1100px;
+  max-width: 1200px;
   margin: 0 auto;
   padding: 0 3rem 6rem;
   display: flex;
@@ -1007,10 +1003,9 @@ function onUpdated() {
   position: relative;
 }
 
-.track-card.active :deep(.cover-card) {
+.track-card.active :deep(.cover-wrap) {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
-  border-radius: 10px;
 }
 
 /* Edit mode: the whole card is a drag target. The inner card is a <button>

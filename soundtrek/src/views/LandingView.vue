@@ -100,7 +100,7 @@ const { listenedOrder } = useListens();
 const recentlyListenedItems = ref<Soundtrack[]>([]);
 
 async function loadRecentlyListened() {
-  const ids = listenedOrder.value.slice(0, 6);
+  const ids = listenedOrder.value.slice(0, 8);
   if (ids.length === 0) {
     recentlyListenedItems.value = [];
     return;
@@ -212,10 +212,12 @@ onMounted(() => {
     <CategoryBrowser />
 
     <div class="sections">
-      <!-- Section 0: Recently listened (returning visitors) — title left -->
-      <section v-if="recentlyListenedItems.length" class="landing-section">
+      <!-- Section 0: Recently listened (returning visitors) — title centered above -->
+      <section
+        v-if="recentlyListenedItems.length"
+        class="landing-section landing-section--recent"
+      >
         <div class="section-title">
-          <p class="section-label">Recently</p>
           <h2 class="section-heading">Pick up where you left off</h2>
         </div>
         <div class="section-content">
@@ -569,6 +571,37 @@ onMounted(() => {
   min-width: 0;
 }
 
+/* Recently listened: header centered above the row instead of beside it. */
+.landing-section--recent {
+  flex-direction: column;
+  align-items: center;
+  gap: 1.5rem;
+}
+
+.landing-section--recent .section-title {
+  flex: none;
+  width: 100%;
+  text-align: center;
+}
+
+.landing-section--recent .section-heading {
+  display: inline-block;
+}
+
+.landing-section--recent .section-heading::after {
+  content: "";
+  display: block;
+  width: 100%;
+  margin: 0.6rem auto 0;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--accent);
+}
+
+.landing-section--recent .section-content {
+  width: 100%;
+}
+
 /* ── Section 1: Now Listening row ─────────────────────────────────────── */
 .cover-row {
   display: grid;
@@ -583,8 +616,8 @@ onMounted(() => {
 /* Recently-listened: fixed-width cards, left-aligned, so a single item doesn't
    stretch to fill the row the way the always-full Trending/New rows do. */
 .cover-row--recent {
-  grid-template-columns: repeat(auto-fill, minmax(150px, 160px));
-  justify-content: start;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 160px));
+  justify-content: center;
 }
 
 /* ── Section 2: Featured grid ─────────────────────────────────────────── */

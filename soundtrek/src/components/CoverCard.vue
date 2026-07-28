@@ -1,23 +1,112 @@
 <script setup lang="ts">
-import { ref } from "vue";
+import { ref, watch, onUnmounted } from "vue";
 import type { Soundtrack } from "@/types/soundtrack";
 import { useQueueActions } from "@/composables/useQueueActions";
 import { useAuth } from "@/composables/useAuth";
+import { useIsMobile } from "@/composables/useIsMobile";
+import { useMobileCardMenu } from "@/composables/useMobileCardMenu";
 import AppIcon from "@/components/AppIcon.vue";
 import AddToCollectionModal from "@/components/AddToCollectionModal.vue";
 
 const props = defineProps<{ soundtrack: Soundtrack; showInfo?: boolean }>();
-defineEmits<{ click: []; play: [] }>();
+const emit = defineEmits<{ click: []; play: [] }>();
 
 const { addSoundtrack } = useQueueActions();
 const { user } = useAuth();
+const { isMobile } = useIsMobile();
 const queued = ref(false);
 const showAddToCollection = ref(false);
+const {
+  isOpen: showMobileMenu,
+  open: openMobileMenu,
+  close: closeMobileMenu,
+} = useMobileCardMenu();
+const actionsRef = ref<HTMLElement | null>(null);
+const menuBtnRef = ref<HTMLElement | null>(null);
+const menuStyle = ref({ top: "0px", left: "0px" });
+
 function addToQueue() {
   addSoundtrack(props.soundtrack);
   queued.value = true;
   setTimeout(() => (queued.value = false), 1500);
 }
+
+function addToQueueFromMenu() {
+  addToQueue();
+  closeMobileMenu();
+}
+
+function playFromMenu() {
+  emit("play");
+  closeMobileMenu();
+}
+
+function openAddToCollectionFromMenu() {
+  showAddToCollection.value = true;
+  closeMobileMenu();
+}
+
+// The card clips overflow (rounded cover art), so the popover is teleported
+// to <body> and positioned in the viewport instead of relying on absolute
+// positioning inside the clipped card.
+const MENU_WIDTH = 190;
+
+function positionMenu() {
+  const btn = menuBtnRef.value;
+  if (!btn) return;
+  const rect = btn.getBoundingClientRect();
+  const left = Math.min(
+    Math.max(8, rect.right - MENU_WIDTH),
+    window.innerWidth - MENU_WIDTH - 8,
+  );
+  menuStyle.value = {
+    top: `${rect.bottom + 8}px`,
+    left: `${left}px`,
+  };
+}
+
+function toggleMobileMenu() {
+  if (showMobileMenu.value) {
+    closeMobileMenu();
+  } else {
+    positionMenu();
+    openMobileMenu();
+  }
+}
+
+function onDocumentClick(e: MouseEvent) {
+  if (actionsRef.value && !actionsRef.value.contains(e.target as Node)) {
+    closeMobileMenu();
+  }
+}
+
+// Scrolling can happen on any ancestor (scroll doesn't bubble), so a
+// capturing window listener is the only reliable way to catch all of them.
+function onWindowScroll() {
+  closeMobileMenu();
+}
+
+function onWindowResize() {
+  closeMobileMenu();
+}
+
+watch(showMobileMenu, (open) => {
+  if (open) {
+    document.addEventListener("click", onDocumentClick);
+    window.addEventListener("scroll", onWindowScroll, true);
+    window.addEventListener("resize", onWindowResize);
+  } else {
+    document.removeEventListener("click", onDocumentClick);
+    window.removeEventListener("scroll", onWindowScroll, true);
+    window.removeEventListener("resize", onWindowResize);
+  }
+});
+
+onUnmounted(() => {
+  document.removeEventListener("click", onDocumentClick);
+  window.removeEventListener("scroll", onWindowScroll, true);
+  window.removeEventListener("resize", onWindowResize);
+});
 </script>
 
 <template>
@@ -39,25 +128,68 @@ function addToQueue() {
       />
       <div v-else class="cover-fallback">🎮</div>
 
-      <div class="cover-actions">
-        <button
-          v-if="user"
-          class="action-btn"
-          aria-label="Add to collection"
-          @click.stop="showAddToCollection = true"
-        >
-          <AppIcon name="plus-icon" :size="22" />
-        </button>
-        <button
-          class="action-btn"
-          :class="{ queued }"
-          :aria-label="queued ? 'Added to queue' : 'Add to queue'"
-          @click.stop="addToQueue"
-        >
-          <AppIcon v-if="queued" name="check-icon" :size="24" />
-          <AppIcon v-else name="add-to-queue-icon" :size="24" />
-        </button>
+      <div ref="actionsRef" class="cover-actions">
+        <template v-if="!isMobile">
+          <button
+            v-if="user"
+            class="action-btn"
+            aria-label="Add to collection"
+            @click.stop="showAddToCollection = true"
+          >
+            <AppIcon name="plus-icon" :size="22" />
+          </button>
+          <button
+            class="action-btn"
+            :class="{ queued }"
+            :aria-label="queued ? 'Added to queue' : 'Add to queue'"
+            @click.stop="addToQueue"
+          >
+            <AppIcon v-if="queued" name="check-icon" :size="24" />
+            <AppIcon v-else name="add-to-queue-icon" :size="24" />
+          </button>
+        </template>
+        <template v-else>
+          <button
+            ref="menuBtnRef"
+            class="action-btn"
+            aria-label="More actions"
+            @click.stop="toggleMobileMenu"
+          >
+            <AppIcon name="options-vertical-icon" :size="20" />
+          </button>
+        </template>
       </div>
+      <Teleport to="body">
+        <Transition name="menu-pop">
+          <div
+            v-if="isMobile && showMobileMenu"
+            class="mobile-menu"
+            :style="menuStyle"
+          >
+            <button class="mobile-menu-item" @click.stop="playFromMenu">
+              <AppIcon name="play-icon" :size="18" />
+              <span>Play</span>
+            </button>
+            <button
+              v-if="user"
+              class="mobile-menu-item"
+              @click.stop="openAddToCollectionFromMenu"
+            >
+              <AppIcon name="plus-icon" :size="18" />
+              <span>Add to collection</span>
+            </button>
+            <button
+              class="mobile-menu-item"
+              :class="{ queued }"
+              @click.stop="addToQueueFromMenu"
+            >
+              <AppIcon v-if="queued" name="check-icon" :size="18" />
+              <AppIcon v-else name="add-to-queue-icon" :size="18" />
+              <span>{{ queued ? "Added to queue" : "Add to queue" }}</span>
+            </button>
+          </div>
+        </Transition>
+      </Teleport>
 
       <div class="cover-overlay">
         <button class="overlay-play" @click.stop="$emit('play')">
@@ -108,13 +240,18 @@ function addToQueue() {
   outline-offset: 2px;
 }
 
-.cover-card:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.5);
-}
+/* Hover-only lift/reveal. Gated to real hover-capable pointers — on touch,
+   browsers simulate :hover under the finger during scroll, which turned this
+   into a hover effect sweeping down the list as you scrolled. */
+@media (hover: hover) and (pointer: fine) {
+  .cover-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 12px 36px rgba(0, 0, 0, 0.5);
+  }
 
-.cover-card:hover .cover-overlay {
-  opacity: 1;
+  .cover-card:hover .cover-overlay {
+    opacity: 1;
+  }
 }
 
 .cover-wrap {
@@ -171,14 +308,19 @@ function addToQueue() {
     transform 0.15s;
 }
 
-.cover-card:hover .action-btn,
 .action-btn:focus-visible {
   opacity: 1;
 }
 
-.action-btn:hover {
-  background: rgba(40, 40, 40, 0.9);
-  transform: scale(1.12);
+@media (hover: hover) and (pointer: fine) {
+  .cover-card:hover .action-btn {
+    opacity: 1;
+  }
+
+  .action-btn:hover {
+    background: rgba(40, 40, 40, 0.9);
+    transform: scale(1.12);
+  }
 }
 
 .action-btn.queued {
@@ -201,6 +343,56 @@ function addToQueue() {
     transform: scale(0.9);
     background: rgba(40, 40, 40, 0.9);
   }
+}
+
+.mobile-menu {
+  position: fixed;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  min-width: 180px;
+  padding: 0.35rem;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: rgba(20, 20, 20, 0.97);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.45);
+}
+
+.mobile-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  width: 100%;
+  padding: 0.55rem 0.6rem;
+  border: none;
+  border-radius: 6px;
+  background: none;
+  color: #fff;
+  font-size: 0.9rem;
+  text-align: left;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.mobile-menu-item:active {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.mobile-menu-item.queued {
+  color: #1db954;
+}
+
+.menu-pop-enter-active,
+.menu-pop-leave-active {
+  transition:
+    opacity 0.15s ease,
+    transform 0.15s ease;
+}
+
+.menu-pop-enter-from,
+.menu-pop-leave-to {
+  opacity: 0;
+  transform: translateY(-4px) scale(0.96);
 }
 
 .cover-overlay {
@@ -242,9 +434,18 @@ function addToQueue() {
     transform 0.15s;
 }
 
-.overlay-play:hover {
-  background: rgba(255, 255, 255, 0.2);
-  transform: scale(1.1);
+@media (hover: hover) and (pointer: fine) {
+  .overlay-play:hover {
+    background: rgba(255, 255, 255, 0.2);
+    transform: scale(1.1);
+  }
+}
+
+@media (hover: none) {
+  .overlay-play:active {
+    background: rgba(255, 255, 255, 0.2);
+    transform: scale(0.9);
+  }
 }
 
 .cover-card--with-info {
@@ -274,8 +475,10 @@ function addToQueue() {
   transition: color 0.15s;
 }
 
-.card-title:hover {
-  color: var(--accent-light, var(--accent));
+@media (hover: hover) and (pointer: fine) {
+  .card-title:hover {
+    color: var(--accent-light, var(--accent));
+  }
 }
 
 .card-meta {

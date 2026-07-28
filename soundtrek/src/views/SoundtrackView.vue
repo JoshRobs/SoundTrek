@@ -642,6 +642,43 @@ onUnmounted(() => {
           />
         </div>
 
+        <!-- Relevant collections for narrow viewports (the right rail is
+         hidden there) -->
+        <section
+          v-if="relevantCollections.length"
+          class="rail-collections rail-collections-mobile"
+        >
+          <h3 class="rail-heading">Relevant Collections</h3>
+          <RouterLink
+            v-for="c in relevantCollections"
+            :key="c.id"
+            :to="`/collection/${c.id}`"
+            class="rc-card"
+          >
+            <div class="rc-cover">
+              <div v-if="collectionCovers(c).length >= 4" class="rc-mosaic">
+                <img
+                  v-for="(src, i) in collectionCovers(c)"
+                  :key="i"
+                  :src="src"
+                  :alt="c.name"
+                />
+              </div>
+              <img
+                v-else-if="collectionCovers(c).length"
+                :src="collectionCovers(c)[0]"
+                :alt="c.name"
+                class="rc-single"
+              />
+              <div v-else class="rc-empty">♫</div>
+            </div>
+            <div class="rc-info">
+              <span class="rc-name">{{ c.name }}</span>
+              <span class="rc-meta">{{ itemSummary(c.collection_items) }}</span>
+            </div>
+          </RouterLink>
+        </section>
+
         <!-- Amazon disclosure -->
         <p v-if="amazonUrl" class="amazon-disclosure">
           As an Amazon Associate, SoundTrek earns from qualifying purchases.
@@ -1211,6 +1248,29 @@ onUnmounted(() => {
 
 @media (max-width: 768px) {
   .tracklist-mobile {
+    padding: 0 1rem 1.5rem;
+  }
+}
+
+/* ── Relevant Collections (narrow viewports) ──────────────────────────────── */
+/* Card styles are shared with the rail version above; this wrapper only
+   handles where the mobile instance sits and when it shows (the rail
+   covers ≥1150px). */
+.rail-collections-mobile {
+  display: none;
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 0 3rem 1.5rem;
+}
+
+@media (max-width: 1149.98px) {
+  .rail-collections-mobile {
+    display: flex;
+  }
+}
+
+@media (max-width: 768px) {
+  .rail-collections-mobile {
     padding: 0 1rem 1.5rem;
   }
 }

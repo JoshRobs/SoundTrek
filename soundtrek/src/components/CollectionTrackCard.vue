@@ -91,13 +91,18 @@ defineEmits<{ click: []; play: []; remove: [] }>();
   transition: transform 0.18s, box-shadow 0.18s;
 }
 
-.cover-card:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.5);
-}
+/* Hover-only lift/reveal. Gated to real hover-capable pointers — on touch,
+   browsers simulate :hover under the finger during scroll, which turned this
+   into a hover effect sweeping down the list as you scrolled. */
+@media (hover: hover) and (pointer: fine) {
+  .cover-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 12px 36px rgba(0, 0, 0, 0.5);
+  }
 
-.cover-card:hover .cover-overlay {
-  opacity: 1;
+  .cover-card:hover .cover-overlay {
+    opacity: 1;
+  }
 }
 
 .cover-wrap {
@@ -156,8 +161,10 @@ defineEmits<{ click: []; play: []; remove: [] }>();
   transition: opacity 0.18s;
 }
 
-.cover-card:hover .cover-overlay {
-  pointer-events: auto;
+@media (hover: hover) and (pointer: fine) {
+  .cover-card:hover .cover-overlay {
+    pointer-events: auto;
+  }
 }
 
 .cover-overlay--edit {
@@ -198,9 +205,42 @@ defineEmits<{ click: []; play: []; remove: [] }>();
   transition: background 0.15s, transform 0.15s;
 }
 
-.overlay-play:hover {
-  background: rgba(255, 255, 255, 0.2);
-  transform: scale(1.1);
+@media (hover: hover) and (pointer: fine) {
+  .overlay-play:hover {
+    background: rgba(255, 255, 255, 0.2);
+    transform: scale(1.1);
+  }
+}
+
+@media (hover: none) {
+  .overlay-play:active {
+    background: rgba(255, 255, 255, 0.2);
+    transform: scale(0.9);
+  }
+}
+
+/* No hover on touch, and no lift/shadow either — the card stays flat. The
+   play button is shown statically (centered on the art) instead of being
+   revealed by an interaction; the scrim/title stay off (card-title below
+   already shows the title) so the art isn't permanently dimmed, and the
+   button is sized up for an easier tap target. Compound selectors so these
+   reliably win over the base rules above regardless of source order (equal
+   specificity would otherwise fall to whichever is later in the file). */
+@media (hover: none) {
+  .cover-card .cover-overlay {
+    opacity: 1;
+    pointer-events: auto;
+    background: transparent;
+  }
+
+  .cover-card .cover-title {
+    display: none;
+  }
+
+  .cover-card .overlay-play {
+    width: 56px;
+    height: 56px;
+  }
 }
 
 .overlay-remove {
@@ -218,15 +258,24 @@ defineEmits<{ click: []; play: []; remove: [] }>();
   transition: background 0.15s, color 0.15s, border-color 0.15s, transform 0.15s;
 }
 
-.cover-card:hover .overlay-remove {
-  border-color: rgba(248, 113, 113, 0.9);
-  background: rgba(0, 0, 0, 0.4);
-  color: #f87171;
+@media (hover: hover) and (pointer: fine) {
+  .cover-card:hover .overlay-remove {
+    border-color: rgba(248, 113, 113, 0.9);
+    background: rgba(0, 0, 0, 0.4);
+    color: #f87171;
+  }
+
+  .cover-card .overlay-remove:hover {
+    background: rgba(248, 113, 113, 0.3);
+    transform: scale(1.1);
+  }
 }
 
-.cover-card .overlay-remove:hover {
-  background: rgba(248, 113, 113, 0.3);
-  transform: scale(1.1);
+@media (hover: none) {
+  .overlay-remove:active {
+    background: rgba(248, 113, 113, 0.3);
+    transform: scale(0.9);
+  }
 }
 
 .card-info {
@@ -248,8 +297,10 @@ defineEmits<{ click: []; play: []; remove: [] }>();
   transition: color 0.15s;
 }
 
-.card-title:hover {
-  color: var(--accent-light, var(--accent));
+@media (hover: hover) and (pointer: fine) {
+  .card-title:hover {
+    color: var(--accent-light, var(--accent));
+  }
 }
 
 .card-meta {
