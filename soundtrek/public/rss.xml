@@ -5,8 +5,24 @@
     <link>https://soundtrek.app</link>
     <description>The latest video game soundtracks added to SoundTrek.</description>
     <language>en-us</language>
-    <lastBuildDate>Sun, 26 Jul 2026 22:19:28 GMT</lastBuildDate>
+    <lastBuildDate>Sun, 09 Aug 2026 01:08:34 GMT</lastBuildDate>
     <atom:link href="https://soundtrek.app/rss.xml" rel="self" type="application/rss+xml" />
+  <item>
+    <title>Core Keeper OST</title>
+    <link>https://soundtrek.app/soundtrack/a079bac1-d078-40c1-9a9f-c9f2e929dc0a</link>
+    <guid isPermaLink="true">https://soundtrek.app/soundtrack/a079bac1-d078-40c1-9a9f-c9f2e929dc0a</guid>
+    <description>Core Keeper soundtrack by Jonathan Geer (2024)</description>
+    <pubDate>Mon, 27 Jul 2026 14:50:19 GMT</pubDate>
+    <enclosure url="https://images.igdb.com/igdb/image/upload/t_cover_big/co396n.jpg" type="image/jpeg" length="0" />
+  </item>
+  <item>
+    <title>Dome Keeper OST</title>
+    <link>https://soundtrek.app/soundtrack/bb1c6754-dd09-4e30-92c9-20564e04f3be</link>
+    <guid isPermaLink="true">https://soundtrek.app/soundtrack/bb1c6754-dd09-4e30-92c9-20564e04f3be</guid>
+    <description>Dome Keeper soundtrack by Cameron Paxton (2022)</description>
+    <pubDate>Mon, 27 Jul 2026 14:48:14 GMT</pubDate>
+    <enclosure url="https://images.igdb.com/igdb/image/upload/t_cover_big/co4tbs.jpg" type="image/jpeg" length="0" />
+  </item>
   <item>
     <title>Dragon's Dogma II OST</title>
     <link>https://soundtrek.app/soundtrack/c1b0d41a-95bc-4479-91a3-d2d63b597c81</link>
@@ -390,22 +406,6 @@
     <description>Medal of Honor: Underground soundtrack by Michael Giacchino (2000)</description>
     <pubDate>Wed, 15 Jul 2026 14:49:28 GMT</pubDate>
     <enclosure url="https://images.igdb.com/igdb/image/upload/t_cover_big/co8yzk.jpg" type="image/jpeg" length="0" />
-  </item>
-  <item>
-    <title>Phoenix Wright: Ace Attorney - Dual Destinies OST</title>
-    <link>https://soundtrek.app/soundtrack/218e54df-60b1-4873-bf35-79c5096bafa0</link>
-    <guid isPermaLink="true">https://soundtrek.app/soundtrack/218e54df-60b1-4873-bf35-79c5096bafa0</guid>
-    <description>Phoenix Wright: Ace Attorney - Dual Destinies soundtrack by Noriyuki Iwadare (2013)</description>
-    <pubDate>Wed, 15 Jul 2026 14:49:27 GMT</pubDate>
-    <enclosure url="https://images.igdb.com/igdb/image/upload/t_cover_big/co5z8o.jpg" type="image/jpeg" length="0" />
-  </item>
-  <item>
-    <title>Fire Emblem: Radiant Dawn OST</title>
-    <link>https://soundtrek.app/soundtrack/34bb2752-112b-4fb4-bd6b-bc8cfa583ec4</link>
-    <guid isPermaLink="true">https://soundtrek.app/soundtrack/34bb2752-112b-4fb4-bd6b-bc8cfa583ec4</guid>
-    <description>Fire Emblem: Radiant Dawn soundtrack by Yoshito Hirano, Chika Sekigawa, Naoko Mitome (2007)</description>
-    <pubDate>Wed, 15 Jul 2026 14:49:26 GMT</pubDate>
-    <enclosure url="https://images.igdb.com/igdb/image/upload/t_cover_big/cobb09.jpg" type="image/jpeg" length="0" />
   </item>
   </channel>
 </rss>

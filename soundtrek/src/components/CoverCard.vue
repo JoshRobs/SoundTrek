@@ -492,6 +492,19 @@ onUnmounted(() => {
   text-overflow: ellipsis;
 }
 
+/* text-overflow doesn't inherit to flex children, so the composer name has to
+   ellipsize itself. Without this it keeps its full intrinsic width and pushes
+   the year out of the clipped box entirely on narrow cards. */
+.card-meta > span:first-child {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.card-meta > span + span {
+  flex-shrink: 0;
+}
+
 .card-meta span + span::before {
   content: "·";
   margin-right: 0.4rem;
