@@ -37,6 +37,9 @@ const form = ref({
   amazon_url:       "",
   amazon_image_url: "",
 
+  // Loaded
+  loaded_url: "",
+
   // Tags (comma-separated strings internally)
   composers:    "",
   genre_tags:   "",
@@ -456,6 +459,7 @@ async function submit() {
     spotify_type:        form.value.spotify_type               || null,
     amazon_url:          form.value.amazon_url.trim()          || null,
     amazon_image_url:    form.value.amazon_image_url.trim()    || null,
+    loaded_url:          form.value.loaded_url.trim()          || null,
     composers:           splitTags(form.value.composers),
     genre_tags:          splitTags(form.value.genre_tags),
     theme_tags:          splitTags(form.value.theme_tags),
@@ -730,6 +734,16 @@ async function submit() {
           <input v-model="form.amazon_image_url" type="url" placeholder="https://…" />
         </label>
       </div>
+    </section>
+
+    <!-- ── Loaded ────────────────────────────────────────────────────────── -->
+    <section class="form-section">
+      <h2 class="section-title">Loaded</h2>
+      <label class="field field--full">
+        <span>Loaded Product URL</span>
+        <input v-model="form.loaded_url" type="url" placeholder="https://www.loaded.com/…" />
+      </label>
+      <p class="field-hint">The plain loaded.com game page. The affiliate tracking link is added automatically.</p>
     </section>
 
     <!-- ── Tags ──────────────────────────────────────────────────────────── -->

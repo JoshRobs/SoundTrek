@@ -369,6 +369,68 @@ const amazonUrl = computed(() => {
   return `https://www.amazon.com/s?k=${q}&tag=${tag}`;
 });
 
+// Loaded price, written daily from the Impact catalog by scripts/sync-loaded.ts.
+// Hidden once it's over 48h old, so a stalled sync shows a plain link rather
+// than a stale price.
+const LOADED_PRICE_MAX_AGE_MS = 48 * 60 * 60 * 1000;
+const loadedPrice = computed(() => {
+  const t = track.value;
+  if (
+    !t?.loaded_url ||
+    t.loaded_price == null ||
+    !t.loaded_currency ||
+    !t.loaded_price_updated_at
+  )
+    return null;
+  const updatedAt = new Date(t.loaded_price_updated_at);
+  if (!(Date.now() - updatedAt.getTime() <= LOADED_PRICE_MAX_AGE_MS)) return null;
+
+  const fmt = new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: t.loaded_currency,
+  });
+  const current = Number(t.loaded_price);
+  const original = Number(t.loaded_original_price);
+  const discount =
+    original > current ? Math.round((1 - current / original) * 100) : 0;
+  return {
+    current: fmt.format(current),
+    original: discount > 0 ? fmt.format(original) : null,
+    discount,
+    currency: t.loaded_currency,
+    asOf: `Price on Loaded as of ${updatedAt.toLocaleDateString()}; may have changed`,
+  };
+});
+
+// Loaded affiliate link. Impact deep-links through ?u=<destination>, so the
+// stored plain loaded.com product page is wrapped in the tracking link here.
+// When a price is shown, the page is pinned to that price's currency so the
+// visitor lands on the same number. An already-tracked go.loaded.com link is
+// passed through untouched.
+const LOADED_TRACKING_URL = "https://go.loaded.com/c/7526814/1566025/18216";
+const loadedUrl = computed(() => {
+  const raw = track.value?.loaded_url?.trim();
+  if (!raw) return null;
+  if (raw.startsWith("https://go.loaded.com/")) return raw;
+  let dest = raw;
+  if (loadedPrice.value) {
+    try {
+      const u = new URL(raw);
+      u.searchParams.set("__currency", loadedPrice.value.currency.toLowerCase());
+      dest = u.toString();
+    } catch {}
+  }
+  return `${LOADED_TRACKING_URL}?u=${encodeURIComponent(dest)}`;
+});
+
+// Rail card shows the cover only when it can sit level with a pictured Amazon
+// card (or stands alone); otherwise it matches Amazon's compact footer.
+const showLoadedArt = computed(
+  () =>
+    !!track.value?.cover_image_url &&
+    (!amazonUrl.value || !!track.value.amazon_image_url),
+);
+
 function play() {
   if (track.value) store.setNowPlaying(track.value);
 }
@@ -610,22 +672,45 @@ onUnmounted(() => {
                   >{{ tag }}</span
                 >
               </div>
-              <a
-                v-if="amazonUrl"
-                :href="amazonUrl"
-                target="_blank"
-                rel="noopener sponsored"
-                class="amazon-inline"
-              >
-                <img
-                  src="/amazonLogo.png"
-                  alt="Amazon"
-                  class="amazon-inline-logo"
-                />
-                <span class="amazon-inline-cta">{{
-                  track.amazon_image_url ? "Buy the OST" : "Find on Amazon"
-                }}</span>
-              </a>
+              <div v-if="amazonUrl || loadedUrl" class="buy-inline">
+                <a
+                  v-if="amazonUrl"
+                  :href="amazonUrl"
+                  target="_blank"
+                  rel="noopener sponsored"
+                  class="amazon-inline"
+                >
+                  <img
+                    src="/amazonLogo.png"
+                    alt="Amazon"
+                    class="amazon-inline-logo"
+                  />
+                  <span class="amazon-inline-cta">{{
+                    track.amazon_image_url ? "Buy the OST" : "Find on Amazon"
+                  }}</span>
+                </a>
+                <a
+                  v-if="loadedUrl"
+                  :href="loadedUrl"
+                  target="_blank"
+                  rel="noopener sponsored"
+                  class="loaded-inline"
+                  :title="loadedPrice?.asOf"
+                >
+                  <AppIcon name="gamepad-icon" :size="20" class="loaded-icon" />
+                  <span class="loaded-wordmark">Loaded</span>
+                  <span v-if="loadedPrice" class="loaded-inline-cta">
+                    <span class="loaded-price">{{ loadedPrice.current }}</span>
+                    <s v-if="loadedPrice.original" class="loaded-was">{{
+                      loadedPrice.original
+                    }}</s>
+                    <span v-if="loadedPrice.discount" class="loaded-discount"
+                      >−{{ loadedPrice.discount }}%</span
+                    >
+                  </span>
+                  <span v-else class="loaded-inline-cta">Buy the game</span>
+                </a>
+              </div>
             </div>
           </div>
         </div>
@@ -679,9 +764,19 @@ onUnmounted(() => {
           </RouterLink>
         </section>
 
-        <!-- Amazon disclosure -->
-        <p v-if="amazonUrl" class="amazon-disclosure">
-          As an Amazon Associate, SoundTrek earns from qualifying purchases.
+        <!-- Affiliate disclosure -->
+        <p v-if="amazonUrl || loadedUrl" class="amazon-disclosure">
+          <template v-if="amazonUrl">
+            As an Amazon Associate, SoundTrek earns from qualifying purchases.
+          </template>
+          <template v-if="loadedUrl">
+            SoundTrek may earn a commission on purchases made through Loaded
+            links.
+          </template>
+          <template v-if="loadedPrice">
+            Loaded prices are in {{ loadedPrice.currency }}, updated daily, and
+            may change.
+          </template>
         </p>
 
         <!-- Streaming links -->
@@ -844,31 +939,70 @@ onUnmounted(() => {
         </div>
       </div>
 
-      <!-- Right rail — Amazon card, tracklist, and relevant collections -->
+      <!-- Right rail — buy cards, tracklist, and relevant collections -->
       <div
-        v-if="amazonUrl || tracklist.length || relevantCollections.length"
+        v-if="
+          amazonUrl || loadedUrl || tracklist.length || relevantCollections.length
+        "
         class="side-rail"
       >
-        <a
-          v-if="amazonUrl"
-          :href="amazonUrl"
-          target="_blank"
-          rel="noopener sponsored"
-          class="amazon-card"
-        >
-          <img
-            v-if="track.amazon_image_url"
-            :src="track.amazon_image_url"
-            :alt="`${track.game_title} on Amazon`"
-            class="amazon-product-img"
-          />
-          <div class="amazon-footer">
-            <img src="/amazonLogo.png" alt="Amazon" class="amazon-logo" />
-            <span class="amazon-cta">{{
-              track.amazon_image_url ? "Buy the OST" : "Find on Amazon"
-            }}</span>
-          </div>
-        </a>
+        <div v-if="amazonUrl || loadedUrl" class="buy-cards">
+          <a
+            v-if="amazonUrl"
+            :href="amazonUrl"
+            target="_blank"
+            rel="noopener sponsored"
+            class="amazon-card"
+          >
+            <img
+              v-if="track.amazon_image_url"
+              :src="track.amazon_image_url"
+              :alt="`${track.game_title} on Amazon`"
+              class="amazon-product-img"
+            />
+            <div class="amazon-footer">
+              <img src="/amazonLogo.png" alt="Amazon" class="amazon-logo" />
+              <span class="amazon-cta">{{
+                track.amazon_image_url ? "Buy the OST" : "Find on Amazon"
+              }}</span>
+            </div>
+          </a>
+
+          <a
+            v-if="loadedUrl"
+            :href="loadedUrl"
+            target="_blank"
+            rel="noopener sponsored"
+            class="loaded-card"
+            :title="loadedPrice?.asOf"
+          >
+            <div v-if="showLoadedArt" class="loaded-art">
+              <img :src="track.cover_image_url!" :alt="track.game_title" />
+              <span class="loaded-art-badge">
+                <AppIcon name="gamepad-icon" :size="14" />
+                Game
+              </span>
+              <span v-if="loadedPrice?.discount" class="loaded-sticker"
+                >−{{ loadedPrice.discount }}%</span
+              >
+            </div>
+            <div class="loaded-footer">
+              <span class="loaded-wordmark">Loaded</span>
+              <span v-if="loadedPrice" class="loaded-price-row">
+                <span class="loaded-price">{{ loadedPrice.current }}</span>
+                <s v-if="loadedPrice.original" class="loaded-was">{{
+                  loadedPrice.original
+                }}</s>
+                <span
+                  v-if="loadedPrice.discount && !showLoadedArt"
+                  class="loaded-discount"
+                  >−{{ loadedPrice.discount }}%</span
+                >
+              </span>
+              <span v-else class="loaded-cta">Buy the game</span>
+            </div>
+          </a>
+        </div>
 
         <TracklistPanel
           v-if="tracklist.length && track"
@@ -1229,6 +1363,178 @@ onUnmounted(() => {
   white-space: nowrap;
 }
 
+/* ── Buy cards (right rail) ───────────────────────────────────────────────── */
+.buy-cards {
+  display: flex;
+  align-items: stretch;
+  justify-content: flex-end;
+  gap: 0.75rem;
+}
+
+/* ── Loaded (shared) ──────────────────────────────────────────────────────── */
+.loaded-card,
+.loaded-inline {
+  --loaded-a: #a855f7;
+  --loaded-b: #ec4899;
+}
+
+.loaded-wordmark {
+  font-family: "Bebas Neue", sans-serif;
+  font-size: 1.4rem;
+  font-weight: 400;
+  letter-spacing: 0.1em;
+  line-height: 1;
+  text-transform: uppercase;
+  background: linear-gradient(90deg, #c084fc, #f472b6);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* ── Loaded card (right rail) ─────────────────────────────────────────────── */
+.loaded-card {
+  display: flex;
+  width: 130px;
+  flex-direction: column;
+  border-radius: 10px;
+  overflow: hidden;
+  text-decoration: none;
+  border: 1px solid color-mix(in srgb, var(--loaded-a) 30%, transparent);
+  background: var(--surface-2);
+  transition:
+    border-color 0.2s,
+    box-shadow 0.2s;
+}
+
+.loaded-card:hover {
+  border-color: color-mix(in srgb, var(--loaded-b) 65%, transparent);
+  box-shadow: 0 4px 20px color-mix(in srgb, var(--loaded-b) 20%, transparent);
+}
+
+.loaded-art {
+  position: relative;
+  aspect-ratio: 1 / 1;
+  overflow: hidden;
+}
+
+.loaded-art img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  transition: transform 0.3s ease;
+}
+
+.loaded-card:hover .loaded-art img {
+  transform: scale(1.06);
+}
+
+.loaded-art::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to top, rgba(18, 12, 32, 0.85), transparent 55%);
+  pointer-events: none;
+}
+
+.loaded-art-badge {
+  position: absolute;
+  left: 0.4rem;
+  bottom: 0.4rem;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.15rem 0.45rem;
+  border-radius: 99px;
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(4px);
+  color: #fff;
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.loaded-footer {
+  position: relative;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem;
+  padding: 0.6rem 0.75rem;
+  background: linear-gradient(160deg, #1f1238, #130f1e);
+}
+
+/* Thin brand-gradient rule between the art and the footer */
+.loaded-footer::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, var(--loaded-a), var(--loaded-b));
+}
+
+.loaded-cta {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #f9a8d4;
+  white-space: nowrap;
+}
+
+/* Sale sticker pinned to the art's top-right corner */
+.loaded-sticker {
+  position: absolute;
+  top: 0.4rem;
+  right: 0.4rem;
+  z-index: 1;
+  padding: 0.2rem 0.4rem;
+  border-radius: 6px;
+  background: linear-gradient(135deg, var(--loaded-a), var(--loaded-b));
+  box-shadow: 0 2px 10px color-mix(in srgb, var(--loaded-b) 45%, transparent);
+  color: #fff;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  transform: rotate(4deg);
+}
+
+.loaded-price-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: center;
+  gap: 0.1rem 0.35rem;
+}
+
+/* ── Loaded price (shared) ────────────────────────────────────────────────── */
+.loaded-price {
+  font-size: 0.85rem;
+  font-weight: 800;
+  color: #fff;
+  white-space: nowrap;
+}
+
+.loaded-was {
+  font-size: 0.68rem;
+  color: rgba(255, 255, 255, 0.45);
+  white-space: nowrap;
+}
+
+.loaded-discount {
+  padding: 0.05rem 0.35rem;
+  border-radius: 4px;
+  background: linear-gradient(135deg, var(--loaded-a), var(--loaded-b));
+  color: #fff;
+  font-size: 0.66rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
 /* ── Tracklist (narrow viewports) ─────────────────────────────────────────── */
 /* Card styles live in TracklistPanel.vue; this wrapper only handles where
    the mobile instance sits and when it shows (the rail covers ≥1150px). */
@@ -1532,13 +1838,19 @@ onUnmounted(() => {
   border: 1px solid color-mix(in srgb, var(--accent) 25%, transparent);
 }
 
-/* ── Amazon inline (mobile / narrow screens) ─────────────────────────────── */
+/* ── Buy links inline (mobile / narrow screens) ──────────────────────────── */
+.buy-inline {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin-top: 1.5rem;
+}
+
 .amazon-inline {
   display: flex;
   align-items: center;
   gap: 0.6rem;
   padding: 0.55rem 0.85rem;
-  margin-top: 1.5rem;
   border-radius: 8px;
   border: 1px solid rgba(255, 153, 0, 0.25);
   background: #232f3e;
@@ -1565,8 +1877,61 @@ onUnmounted(() => {
   white-space: nowrap;
 }
 
+.loaded-inline {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.55rem 0.85rem;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  /* Gradient border: solid fill on the padding box, gradient on the border box */
+  background:
+    linear-gradient(135deg, #1f1238, #130f1e) padding-box,
+    linear-gradient(
+        135deg,
+        color-mix(in srgb, var(--loaded-a) 55%, transparent),
+        color-mix(in srgb, var(--loaded-b) 55%, transparent)
+      )
+      border-box;
+  text-decoration: none;
+  width: fit-content;
+  transition: box-shadow 0.15s;
+}
+
+.loaded-inline:hover {
+  box-shadow: 0 4px 18px color-mix(in srgb, var(--loaded-b) 25%, transparent);
+}
+
+.loaded-icon {
+  color: #c084fc;
+}
+
+.loaded-inline .loaded-wordmark {
+  font-size: 1.3rem;
+}
+
+.loaded-inline-cta {
+  display: flex;
+  align-items: baseline;
+  gap: 0.4rem;
+  padding-left: 0.5rem;
+  border-left: 1px solid rgba(255, 255, 255, 0.15);
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #f9a8d4;
+  white-space: nowrap;
+}
+
+.loaded-inline .loaded-price {
+  font-size: 0.92rem;
+}
+
+.loaded-inline .loaded-discount {
+  align-self: center;
+}
+
 @media (min-width: 1150px) {
-  .amazon-inline {
+  .buy-inline {
     display: none;
   }
 }

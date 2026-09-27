@@ -39,6 +39,11 @@ export interface Soundtrack {
   description: string | null
   amazon_url: string | null
   amazon_image_url: string | null
+  loaded_url: string | null
+  loaded_price: number | null
+  loaded_original_price: number | null
+  loaded_currency: string | null
+  loaded_price_updated_at: string | null
 }
 
 export interface Composer {

@@ -7,7 +7,7 @@ export const supabase = createClient(
 
 // Every column a soundtrack needs to render as a card/list row AND play in
 // the persistent player. Omits only description, keyword_tags, amazon_url,
-// and amazon_image_url — those are used solely by SoundtrackView (which
+// amazon_image_url and the loaded_* columns — those are used solely by SoundtrackView (which
 // fetches its own full row) and the admin (which loads fresh full rows).
 // Cuts multi-row query egress roughly in half. rating_count stays: it feeds
 // displayLikes().

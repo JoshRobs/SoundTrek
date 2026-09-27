@@ -59,6 +59,7 @@ function blankForm() {
     spotify_type:        "" as "track" | "album" | "playlist" | "",
     amazon_url:          "",
     amazon_image_url:    "",
+    loaded_url:          "",
     composers:           "",
     genre_tags:          "",
     theme_tags:          "",
@@ -89,6 +90,7 @@ function populateForm(s: Soundtrack) {
     spotify_type:        (s.spotify_type ?? "") as "track" | "album" | "playlist" | "",
     amazon_url:          s.amazon_url ?? "",
     amazon_image_url:    s.amazon_image_url ?? "",
+    loaded_url:          s.loaded_url ?? "",
     composers:           (s.composers ?? []).join(", "),
     genre_tags:          (s.genre_tags ?? []).join(", "),
     theme_tags:          (s.theme_tags ?? []).join(", "),
@@ -133,6 +135,19 @@ async function submit() {
 
   saving.value = true;
 
+  const loadedUrl = form.value.loaded_url.trim() || null;
+  // A changed Loaded link invalidates the synced price until the next
+  // scripts/sync-loaded.ts run prices the new product.
+  const loadedPriceReset =
+    loadedUrl !== (selected.value.loaded_url ?? null)
+      ? {
+          loaded_price:            null,
+          loaded_original_price:   null,
+          loaded_currency:         null,
+          loaded_price_updated_at: null,
+        }
+      : {};
+
   const row = {
     game_title:          form.value.game_title.trim(),
     studio:              form.value.studio.trim(),
@@ -149,6 +164,8 @@ async function submit() {
     spotify_type:        form.value.spotify_type               || null,
     amazon_url:          form.value.amazon_url.trim()          || null,
     amazon_image_url:    form.value.amazon_image_url.trim()    || null,
+    loaded_url:          loadedUrl,
+    ...loadedPriceReset,
     composers:           splitTags(form.value.composers),
     genre_tags:          splitTags(form.value.genre_tags),
     theme_tags:          splitTags(form.value.theme_tags),
@@ -322,6 +339,15 @@ async function submit() {
             <input v-model="form.amazon_image_url" type="url" />
           </label>
         </div>
+      </section>
+
+      <section class="form-section">
+        <h2 class="section-title">Loaded</h2>
+        <label class="field field--full">
+          <span>Loaded Product URL</span>
+          <input v-model="form.loaded_url" type="url" placeholder="https://www.loaded.com/…" />
+        </label>
+        <p class="field-hint">The plain loaded.com game page. The affiliate tracking link is added automatically; the price appears after the next daily sync.</p>
       </section>
 
       <section class="form-section">

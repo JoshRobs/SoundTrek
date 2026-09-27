@@ -64,7 +64,12 @@ model Soundtrack {
   slug                String?  @unique
   amazon_url          String?
   amazon_image_url    String?
-  description         String?
+  loaded_url              String?
+  loaded_price            Decimal?  @db.Decimal(10, 2)
+  loaded_original_price   Decimal?  @db.Decimal(10, 2)
+  loaded_currency         String?
+  loaded_price_updated_at DateTime? @db.Timestamptz(6)
+  description        String?
   created_at          DateTime @default(now()) @db.Timestamptz(6)
 
   @@map("soundtracks")

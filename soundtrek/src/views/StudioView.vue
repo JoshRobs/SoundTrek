@@ -23,19 +23,35 @@ watch(
 
     // Only the narrow `studio` column is fetched across the table to
     // resolve the slug to its exact display name, instead of loading every
-    // full soundtrack row.
-    const { data: studioRows, error: err } = await supabase
-      .from("soundtracks")
-      .select("studio");
-    if (err) {
-      error.value = err.message;
+    // full soundtrack row. PostgREST caps an unbounded select at 1000 rows,
+    // so this has to page through everything — otherwise studios only on
+    // later rows resolve to nothing and the page shows no soundtracks.
+    const PAGE_SIZE = 1000;
+    let name: string | null = null;
+    let from = 0;
+    while (!name) {
+      const { data: studioRows, error: err } = await supabase
+        .from("soundtracks")
+        .select("studio")
+        .order("id")
+        .range(from, from + PAGE_SIZE - 1)
+        .returns<Pick<Soundtrack, "studio">[]>();
+      if (err) {
+        error.value = err.message;
+        loading.value = false;
+        return;
+      }
+      if (!studioRows || studioRows.length === 0) break;
+      name = studioRows.find((r) => toSlug(r.studio) === currentSlug)?.studio ?? null;
+      if (studioRows.length < PAGE_SIZE) break;
+      from += PAGE_SIZE;
+    }
+
+    if (!name) {
+      studioSoundtracks.value = [];
       loading.value = false;
       return;
     }
-
-    const name = (studioRows ?? []).find(
-      (r) => toSlug(r.studio) === currentSlug,
-    )?.studio ?? currentSlug.replace(/-/g, " ");
 
     const { data, error: err2 } = await supabase
       .from("soundtracks")
