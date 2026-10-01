@@ -8,11 +8,16 @@
  * Videos are scored and must pass a minimum threshold to be accepted.
  * Results that barely pass are flagged with ⚠ so you can spot-check them.
  *
+ * Only rows with a null youtube_video_id are processed, so existing (including
+ * manually set) video IDs are never overwritten and the script is safe to run
+ * from multiple machines. Rows searched without a match are recorded locally
+ * so they aren't re-searched on every run.
+ *
  * Usage:
  *   npx tsx scripts/enrich-video-ids.ts
  *   npx tsx scripts/enrich-video-ids.ts --dry-run
  *   npx tsx scripts/enrich-video-ids.ts --batch=200
- *   npx tsx scripts/enrich-video-ids.ts --reset      # clear progress and restart
+ *   npx tsx scripts/enrich-video-ids.ts --reset      # clear not-found list and retry those rows
  */
 
 import { Innertube } from 'youtubei.js'
@@ -44,12 +49,17 @@ function sleep(ms: number) {
 // ── Progress ──────────────────────────────────────────────────────────────────
 
 interface Progress {
-  processedIds: string[]
+  // IDs of rows that were searched but had no match above threshold.
+  // Rows that got a video are skipped via the IS NULL filter instead.
+  notFoundIds: string[]
 }
 
 function loadProgress(): Progress {
-  if (RESET || !existsSync(PROGRESS_FILE)) return { processedIds: [] }
-  return JSON.parse(readFileSync(PROGRESS_FILE, 'utf-8')) as Progress
+  if (RESET || !existsSync(PROGRESS_FILE)) return { notFoundIds: [] }
+  const raw = JSON.parse(readFileSync(PROGRESS_FILE, 'utf-8'))
+  // Older progress files stored every processed ID as processedIds. Any of those
+  // that still have a null youtube_video_id were not-found rows, so treat them the same.
+  return { notFoundIds: raw.notFoundIds ?? raw.processedIds ?? [] }
 }
 
 function saveProgress(p: Progress) {
@@ -225,42 +235,38 @@ async function main() {
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY)
   const progress = loadProgress()
 
-  console.log(`Already processed: ${progress.processedIds.length}`)
+  const notFoundSet = new Set(progress.notFoundIds)
 
-  // Paginated ID fetch — Supabase default limit is 1000, must page for larger catalogs
-  let allIdRows: { id: string }[] = []
+  // Paginated fetch of rows still missing a video — Supabase default limit is
+  // 1000, must page for larger catalogs
+  let nullRows: { id: string; game_title: string }[] = []
   const PAGE = 1000
   let from = 0
   while (true) {
     const { data, error: idErr } = await supabase
       .from('soundtracks')
-      .select('id')
+      .select('id, game_title')
+      .is('youtube_video_id', null)
+      .order('id')
       .range(from, from + PAGE - 1)
     if (idErr) throw idErr
-    allIdRows = allIdRows.concat(data ?? [])
+    nullRows = nullRows.concat(data ?? [])
     if (!data || data.length < PAGE) break
     from += PAGE
   }
 
-  const processedSet  = new Set(progress.processedIds)
-  const unprocessedIds = (allIdRows ?? [])
-    .map(r => r.id as string)
-    .filter(id => !processedSet.has(id))
-    .slice(0, BATCH_SIZE)
+  const candidates = nullRows.filter(r => !notFoundSet.has(r.id))
+  const rows = candidates.slice(0, BATCH_SIZE)
 
-  if (!unprocessedIds.length) {
+  const skippedNotFound = nullRows.length - candidates.length
+  if (skippedNotFound > 0) console.log(`Skipping ${skippedNotFound} previously not-found rows.`)
+
+  if (!rows.length) {
     console.log('All rows processed.')
     return
   }
 
-  const { data: rows, error } = await supabase
-    .from('soundtracks')
-    .select('id, game_title')
-    .in('id', unprocessedIds)
-
-  if (error) throw error
-
-  console.log(`Rows to process this run: ${rows?.length ?? 0}\n`)
+  console.log(`Rows to process this run: ${rows.length}\n`)
 
   const yt = await Innertube.create()
 
@@ -277,6 +283,10 @@ async function main() {
     if (!result) {
       console.log('  [no match above threshold]\n')
       notFound++
+      if (!DRY_RUN) {
+        progress.notFoundIds.push(row.id)
+        saveProgress(progress)
+      }
     } else {
       const durationStr = formatDuration(result.seconds)
       const lowConf = result.score < CONFIDENT ? ' ⚠ low confidence' : ''
@@ -304,16 +314,10 @@ async function main() {
 
     console.log('')
 
-    progress.processedIds.push(row.id)
-    saveProgress(progress)
-
     await sleep(1200)
   }
 
-  const { count: totalCount } = await supabase
-    .from('soundtracks')
-    .select('id', { count: 'exact', head: true })
-  const remaining = (totalCount ?? 0) - progress.processedIds.length
+  const remaining = candidates.length - rows.length
 
   console.log(`
 ────────────────────────────────

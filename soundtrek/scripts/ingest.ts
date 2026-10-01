@@ -157,21 +157,6 @@ function parseReleaseYear(game: IGDBGame): number {
 
 // ── YouTube (Data API) ────────────────────────────────────────────────────────
 
-async function fetchFirstPlaylistVideo(playlistId: string): Promise<string | null> {
-  const params = new URLSearchParams({
-    part: 'contentDetails',
-    playlistId,
-    maxResults: '1',
-    key: YOUTUBE_API_KEY,
-  })
-  const res = await fetch(`https://www.googleapis.com/youtube/v3/playlistItems?${params}`)
-  const data = await res.json() as {
-    items?: { contentDetails: { videoId: string } }[]
-    error?: { message: string; code: number }
-  }
-  return data.items?.[0]?.contentDetails?.videoId ?? null
-}
-
 async function searchYouTube(gameTitle: string): Promise<{
   youtube_video_id: string | null
   youtube_playlist_id: string | null
@@ -203,15 +188,10 @@ async function searchYouTube(gameTitle: string): Promise<{
 
   if (!data.items?.length) return null
 
-  // Prefer a playlist — also fetch first video so the embed has a starting point
+  // Prefer a playlist. youtube_video_id is filled later by enrich-video-ids.ts
   const playlist = data.items.find(i => i.id.kind === 'youtube#playlist')
   if (playlist?.id.playlistId) {
-    const firstVideoId = await fetchFirstPlaylistVideo(playlist.id.playlistId)
-    return {
-      youtube_playlist_id: playlist.id.playlistId,
-      youtube_video_id: firstVideoId,
-      source_type: 'playlist',
-    }
+    return { youtube_video_id: null, youtube_playlist_id: playlist.id.playlistId, source_type: 'playlist' }
   }
 
   // Fall back to a single video
@@ -289,7 +269,7 @@ async function main() {
     // YouTube search
     const yt = await searchYouTube(game.name)
     if (yt) {
-      const ytId = yt.youtube_video_id ?? yt.youtube_playlist_id
+      const ytId = yt.source_type === 'playlist' ? yt.youtube_playlist_id : yt.youtube_video_id
       process.stdout.write(`[YT: ${yt.source_type} ${ytId}] `)
     } else {
       process.stdout.write('[YT: not found] ')

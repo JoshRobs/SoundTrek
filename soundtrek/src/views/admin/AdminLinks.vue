@@ -4,28 +4,67 @@ import { storeToRefs } from "pinia";
 import { supabase } from "@/lib/supabase";
 import { useSoundtrackStore } from "@/stores/soundtracks";
 import { cleanTracklistTitles } from "@/utils/trackTitle";
+import type { Soundtrack } from "@/types/soundtrack";
 
 const { allSoundtracks } = storeToRefs(useSoundtrackStore());
 
-// ── Alphabetical queue ────────────────────────────────────────────────────────
+// ── Queue (alphabetical, or by when each soundtrack was added) ────────────────
 
-const sorted = computed(() =>
-  [...allSoundtracks.value].sort((a, b) =>
-    a.game_title.localeCompare(b.game_title),
-  ),
-);
+type SortMode = "alpha" | "newest" | "oldest";
+const sortMode = ref<SortMode>("alpha");
 
-const index = ref<number | null>(null);
+const sorted = computed(() => {
+  const list = [...allSoundtracks.value];
+  const byTitle = (a: Soundtrack, b: Soundtrack) =>
+    a.game_title.localeCompare(b.game_title);
+  if (sortMode.value === "alpha") return list.sort(byTitle);
+
+  // Bulk inserts share a timestamp — fall back to title for a stable order.
+  const dir = sortMode.value === "newest" ? -1 : 1;
+  return list.sort(
+    (a, b) =>
+      dir * (Date.parse(a.created_at) - Date.parse(b.created_at)) ||
+      byTitle(a, b),
+  );
+});
+
+// Tracked by id rather than position so switching sort order keeps you on the
+// same soundtrack (and doesn't wipe unsaved edits via the `current` watcher).
+const currentId = ref<string | null>(null);
+const index = computed(() => {
+  if (currentId.value === null) return null;
+  const i = sorted.value.findIndex((s) => s.id === currentId.value);
+  return i === -1 ? null : i;
+});
 const current = computed(() =>
   index.value === null ? null : (sorted.value[index.value] ?? null),
 );
 
 function next() {
   if (index.value !== null && index.value < sorted.value.length - 1)
-    index.value++;
+    currentId.value = sorted.value[index.value + 1].id;
 }
 function prev() {
-  if (index.value !== null && index.value > 0) index.value--;
+  if (index.value !== null && index.value > 0)
+    currentId.value = sorted.value[index.value - 1].id;
+}
+function jumpToStart() {
+  if (sorted.value.length) currentId.value = sorted.value[0].id;
+}
+
+const startLabel = computed(
+  () =>
+    ({ alpha: "Start at A", newest: "Start at newest", oldest: "Start at oldest" })[
+      sortMode.value
+    ],
+);
+
+function formatAdded(iso: string): string {
+  return new Date(iso).toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
 }
 
 // ── Starting-point picker ─────────────────────────────────────────────────────
@@ -48,8 +87,7 @@ const matches = computed(() => {
 });
 
 function pick(id: string) {
-  const i = sorted.value.findIndex((s) => s.id === id);
-  if (i !== -1) index.value = i;
+  currentId.value = id;
   search.value = "";
   pickerOpen.value = false;
 }
@@ -419,9 +457,22 @@ async function save() {
             @mousedown.prevent="pick(m.id)"
           >
             {{ m.game_title }}
-            <span class="picker-year">{{ m.release_year }}</span>
+            <span class="picker-year">{{
+              sortMode === "alpha" ? m.release_year : `added ${formatAdded(m.created_at)}`
+            }}</span>
           </button>
         </div>
+      </div>
+
+      <div class="sort-controls">
+        <select v-model="sortMode" class="sort-select" aria-label="Sort order">
+          <option value="alpha">A–Z</option>
+          <option value="newest">Newest added</option>
+          <option value="oldest">Oldest added</option>
+        </select>
+        <button class="btn btn--ghost" :disabled="!sorted.length" @click="jumpToStart">
+          {{ startLabel }}
+        </button>
       </div>
 
       <div class="nav-controls">
@@ -457,6 +508,7 @@ async function save() {
                   : "No composers"
               }}
               · {{ current.release_year }}
+              · added {{ formatAdded(current.created_at) }}
             </span>
           </h2>
           <button class="btn btn--primary" @click="checkAll">Re-check</button>
@@ -609,8 +661,9 @@ async function save() {
     </template>
 
     <p v-else class="hint">
-      Type a game title above to pick a starting point, then use Next to walk
-      the catalog alphabetically.
+      Type a game title above to pick a starting point, or choose a sort order
+      and hit start, then use Next to walk the catalog. “Newest added” puts the
+      most recently added soundtracks first.
     </p>
   </div>
 </template>
@@ -628,11 +681,33 @@ async function save() {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 1rem;
+  flex-wrap: wrap;
+  gap: 0.75rem 1rem;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 8px;
   padding: 0.6rem 1rem;
+}
+
+.sort-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.sort-select {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.4rem 0.55rem;
+  font-size: 0.82rem;
+  color: var(--text-primary);
+  font-family: inherit;
+}
+
+.sort-select:focus {
+  outline: none;
+  border-color: var(--accent);
 }
 
 .queue-count {

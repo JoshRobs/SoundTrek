@@ -336,9 +336,11 @@ function parseReleaseYear(game: IGDBGame): number {
 
 // Twitch app-access token, cached in KV. IGDB tokens live ~60 days; we cache
 // for whatever expires_in reports, minus a buffer, so we mint one rarely.
-async function getIGDBToken(env: Env): Promise<string> {
-  const cached = await env.YOUTUBE_CACHE.get("igdb-token");
-  if (cached) return cached;
+async function getIGDBToken(env: Env, forceRefresh = false): Promise<string> {
+  if (!forceRefresh) {
+    const cached = await env.YOUTUBE_CACHE.get("igdb-token");
+    if (cached) return cached;
+  }
 
   const res = await fetch(
     `https://id.twitch.tv/oauth2/token?client_id=${env.TWITCH_CLIENT_ID}&client_secret=${env.TWITCH_CLIENT_SECRET}&grant_type=client_credentials`,
@@ -347,14 +349,50 @@ async function getIGDBToken(env: Env): Promise<string> {
   const data = (await res.json()) as {
     access_token?: string;
     expires_in?: number;
+    message?: string;
   };
-  if (!data.access_token) throw new Error("Failed to get IGDB token");
+  if (!data.access_token) {
+    throw new Error(`Failed to get IGDB token: ${data.message ?? `HTTP ${res.status}`}`);
+  }
 
   const ttl = Math.max((data.expires_in ?? 3600) - 3600, 300);
   await env.YOUTUBE_CACHE.put("igdb-token", data.access_token, {
     expirationTtl: ttl,
   });
   return data.access_token;
+}
+
+// POST an Apicalypse query to IGDB. A cached token can be revoked long before
+// its KV entry expires (secret rotated, Twitch-side invalidation), which would
+// otherwise 401 every request until the TTL ran out — so on 401 we mint a
+// fresh token and retry once.
+async function igdbFetch<T>(
+  env: Env,
+  endpoint: string,
+  body: string,
+): Promise<T | { error: string }> {
+  const send = (token: string) =>
+    fetch(`https://api.igdb.com/v4/${endpoint}`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Client-ID": env.TWITCH_CLIENT_ID,
+        "Content-Type": "text/plain",
+      },
+      body,
+    });
+
+  try {
+    let r = await send(await getIGDBToken(env));
+    if (r.status === 401) r = await send(await getIGDBToken(env, true));
+    if (!r.ok) {
+      const detail = (await r.text()).slice(0, 200);
+      return { error: `IGDB request failed: ${r.status} ${detail}`.trim() };
+    }
+    return (await r.json()) as T;
+  } catch (e) {
+    return { error: (e as Error).message };
+  }
 }
 
 // Shared field selection + row mapping so /igdb-search and /igdb-random-indie
@@ -407,31 +445,9 @@ async function igdbSearch(query: string, env: Env): Promise<Response> {
     });
   }
 
-  let token: string;
-  try {
-    token = await getIGDBToken(env);
-  } catch (e) {
-    return new Response(
-      JSON.stringify({ error: (e as Error).message }),
-      { status: 502, headers: { ...CORS_HEADERS, "Content-Type": "application/json" } },
-    );
-  }
-
   const escaped = q.replace(/["\\]/g, "\\$&");
 
-  async function runQuery(body: string): Promise<IGDBGame[] | { error: string }> {
-    const r = await fetch("https://api.igdb.com/v4/games", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Client-ID": env.TWITCH_CLIENT_ID,
-        "Content-Type": "text/plain",
-      },
-      body,
-    });
-    if (!r.ok) return { error: `IGDB request failed: ${r.status}` };
-    return (await r.json()) as IGDBGame[];
-  }
+  const runQuery = (body: string) => igdbFetch<IGDBGame[]>(env, "games", body);
 
   // Primary: `search` ranks by relevance (no `sort` allowed alongside it).
   // version_parent = null drops editions/ports so we surface the base game.
@@ -496,16 +512,6 @@ async function igdbRandomIndie(env: Env): Promise<Response> {
     );
   }
 
-  let token: string;
-  try {
-    token = await getIGDBToken(env);
-  } catch (e) {
-    return new Response(JSON.stringify({ error: (e as Error).message }), {
-      status: 502,
-      headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
-    });
-  }
-
   const INDIE_GENRE = 32;
   const MIN_RATING_COUNT = 5;
   const now = Math.floor(Date.now() / 1000);
@@ -515,19 +521,7 @@ async function igdbRandomIndie(env: Env): Promise<Response> {
     ` & first_release_date != null & first_release_date < ${now}` +
     ` & first_release_date > ${windowStart} & rating_count >= ${MIN_RATING_COUNT}`;
 
-  async function igdb<T>(endpoint: string, body: string): Promise<T | { error: string }> {
-    const r = await fetch(`https://api.igdb.com/v4/${endpoint}`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Client-ID": env.TWITCH_CLIENT_ID,
-        "Content-Type": "text/plain",
-      },
-      body,
-    });
-    if (!r.ok) return { error: `IGDB request failed: ${r.status}` };
-    return (await r.json()) as T;
-  }
+  const igdb = <T>(endpoint: string, body: string) => igdbFetch<T>(env, endpoint, body);
 
   const LIMIT = 20;
 
@@ -587,15 +581,17 @@ async function fetchFirstPlaylistVideo(
   return data.items?.[0]?.contentDetails?.videoId ?? null;
 }
 
-// ── Single-video scoring (ported from scripts/enrich-video-ids.ts) ──────────
+// ── Single-video search + scoring (ported from scripts/enrich-video-ids.ts) ──
 //
-// When no playlist is found we fall back to a standalone video for the OST.
-// A short clip (menu theme, a single track, a cover) is worthless as "the"
-// soundtrack, so candidates are scored and must clear MIN_DURATION + MIN_SCORE
-// exactly as the enrichment script does — just with a 15-minute floor.
+// youtube_video_id is the long-form full-OST video — the player's backup audio
+// when a playlist breaks, and the only source when there's no playlist. A short
+// clip (menu theme, a single track, a cover) is worthless for that, so
+// candidates are scored and must clear MIN_DURATION + MIN_SCORE exactly as the
+// enrichment script does. Keep these constants in lockstep with that script.
 
-const MIN_DURATION = 15 * 60; // 15 minutes, in seconds
-const MIN_SCORE = 4;
+const MIN_DURATION = 20 * 60; // 20 minutes, in seconds
+const MIN_SCORE = 4; // minimum score to accept a result
+const CONFIDENT = 7; // score at which we stop trying further queries
 
 const BAD_KEYWORDS = [
   "cover", "covers", "remix", "remixed", "piano", "tribute",
@@ -617,6 +613,20 @@ const ROMAN_NUMERALS = new Set([
   "xi", "xii", "xiii", "xiv", "xv", "xvi", "xvii", "xviii", "xix", "xx",
   "xxi", "xxii", "xxiii", "xxiv", "xxv", "xxvi", "xxvii", "xxviii", "xxix", "xxx",
 ]);
+
+// The Data API returns snippet titles HTML-escaped ("Baldur&#39;s Gate 3").
+// Left as-is, normalizeTitle turns that into "baldur39s gate 3", which never
+// contains the game title — so decode before scoring. (The enrich script uses
+// Innertube, which returns plain text.)
+function decodeHtmlEntities(s: string): string {
+  const named: Record<string, string> = { amp: "&", quot: '"', apos: "'", lt: "<", gt: ">" };
+  return s.replace(/&(#x[0-9a-f]+|#\d+|amp|quot|apos|lt|gt);/gi, (m, e: string) => {
+    const k = e.toLowerCase();
+    if (k[0] !== "#") return named[k] ?? m;
+    const code = k[1] === "x" ? parseInt(k.slice(2), 16) : parseInt(k.slice(1), 10);
+    return Number.isFinite(code) ? String.fromCodePoint(code) : m;
+  });
+}
 
 function normalizeTitle(s: string): string {
   return s.toLowerCase().replace(/[^a-z0-9\s]/g, "").replace(/\s+/g, " ").trim();
@@ -704,6 +714,74 @@ async function fetchVideoDurations(
   return out;
 }
 
+type YouTubeSearchData = {
+  items?: {
+    id: { kind: string; videoId?: string; playlistId?: string };
+    snippet?: { title?: string };
+  }[];
+  error?: { message: string; code: number };
+};
+
+class YouTubeApiError extends Error {
+  constructor(message: string, readonly code: number) {
+    super(message);
+  }
+}
+
+async function searchYouTubeApi(
+  params: Record<string, string>,
+  env: Env,
+): Promise<NonNullable<YouTubeSearchData["items"]>> {
+  const qs = new URLSearchParams({ part: "snippet", relevanceLanguage: "en", ...params, key: env.YOUTUBE_API_KEY });
+  const res = await fetch(`https://www.googleapis.com/youtube/v3/search?${qs}`);
+  const data = (await res.json()) as YouTubeSearchData;
+  if (data.error) throw new YouTubeApiError(data.error.message, data.error.code);
+  return data.items ?? [];
+}
+
+// Best long-form full-OST video for a game — same queries, scoring and
+// early-exit as searchSingleVideo in scripts/enrich-video-ids.ts. The Data API
+// runs each query as a video-only search; videoDuration=long (> 20 min) only
+// drops candidates the MIN_DURATION check would reject anyway, leaving more
+// room in each page for real matches.
+async function findOstVideo(
+  gameTitle: string,
+  env: Env,
+): Promise<{ videoId: string; title: string; score: number } | null> {
+  const queries = [
+    `${gameTitle} original soundtrack`,
+    `${gameTitle} full OST`,
+    `${gameTitle} complete soundtrack`,
+  ];
+
+  let best: { videoId: string; title: string; score: number } | null = null;
+
+  for (const query of queries) {
+    const items = await searchYouTubeApi(
+      { q: query, type: "video", videoDuration: "long", maxResults: "25" },
+      env,
+    );
+    const candidates = items
+      .filter((i) => i.id.videoId)
+      .map((i) => ({
+        videoId: i.id.videoId as string,
+        title: decodeHtmlEntities(i.snippet?.title ?? ""),
+      }));
+
+    const durations = await fetchVideoDurations(candidates.map((c) => c.videoId), env);
+
+    for (const c of candidates) {
+      const score = scoreVideo(c.title, gameTitle, durations.get(c.videoId) ?? 0);
+      if (score < MIN_SCORE) continue;
+      if (!best || score > best.score) best = { ...c, score };
+    }
+
+    if (best && best.score >= CONFIDENT) break;
+  }
+
+  return best;
+}
+
 async function youtubeSearch(query: string, env: Env): Promise<Response> {
   const q = query.trim();
   if (!q) {
@@ -713,9 +791,10 @@ async function youtubeSearch(query: string, env: Env): Promise<Response> {
     });
   }
 
-  // Cache by game title — a search costs 100 Data API units, so repeats should
-  // never re-spend quota. Version suffix (v2) busts pre-duration-filter entries.
-  const cacheKey = `youtube-search:v2:${q.toLowerCase()}`;
+  // Cache by game title — each search costs 100 Data API units (up to 4 per
+  // lookup), so repeats should never re-spend quota. Version suffix (v3) busts
+  // entries from before the enrich-video-ids scoring port.
+  const cacheKey = `youtube-search:v3:${q.toLowerCase()}`;
   const cached = await env.YOUTUBE_CACHE.get(cacheKey);
   if (cached) {
     return new Response(cached, {
@@ -723,26 +802,20 @@ async function youtubeSearch(query: string, env: Env): Promise<Response> {
     });
   }
 
-  const params = new URLSearchParams({
-    part: "snippet",
-    q: `${q} full OST complete soundtrack`,
-    maxResults: "5",
-    relevanceLanguage: "en",
-    key: env.YOUTUBE_API_KEY,
-  });
-
-  const res = await fetch(`https://www.googleapis.com/youtube/v3/search?${params}`);
-  const data = (await res.json()) as {
-    items?: {
-      id: { kind: string; videoId?: string; playlistId?: string };
-      snippet?: { title?: string };
-    }[];
-    error?: { message: string; code: number };
-  };
-
-  if (data.error) {
+  let playlistId: string | null = null;
+  let video: Awaited<ReturnType<typeof findOstVideo>> = null;
+  try {
+    // Playlist lookup mirrors searchYouTube in scripts/ingest.ts.
+    const [items, found] = await Promise.all([
+      searchYouTubeApi({ q: `${q} full OST complete soundtrack`, maxResults: "5" }, env),
+      findOstVideo(q, env),
+    ]);
+    playlistId = items.find((i) => i.id.kind === "youtube#playlist")?.id.playlistId ?? null;
+    video = found;
+  } catch (e) {
+    const code = e instanceof YouTubeApiError ? e.code : undefined;
     return new Response(
-      JSON.stringify({ error: data.error.message, code: data.error.code }),
+      JSON.stringify({ error: (e as Error).message, code }),
       { status: 502, headers: { ...CORS_HEADERS, "Content-Type": "application/json" } },
     );
   }
@@ -751,41 +824,27 @@ async function youtubeSearch(query: string, env: Env): Promise<Response> {
     youtube_video_id: string | null;
     youtube_playlist_id: string | null;
     source_type: "video" | "playlist";
+    // Title of the scored full-OST video; null when youtube_video_id is only
+    // the playlist's first track (no long-form match cleared MIN_SCORE).
+    video_title: string | null;
   } | null = null;
 
-  // Prefer a playlist — also grab its first video so the embed has a start point.
-  const playlist = data.items?.find((i) => i.id.kind === "youtube#playlist");
-  if (playlist?.id.playlistId) {
-    const firstVideoId = await fetchFirstPlaylistVideo(playlist.id.playlistId, env);
+  if (playlistId) {
+    // Same as ingest + enrich-video-ids combined: the scored video when there
+    // is one, else the playlist's first track so the embed has a start point.
     result = {
-      youtube_playlist_id: playlist.id.playlistId,
-      youtube_video_id: firstVideoId,
+      youtube_playlist_id: playlistId,
+      youtube_video_id: video?.videoId ?? (await fetchFirstPlaylistVideo(playlistId, env)),
       source_type: "playlist",
+      video_title: video?.title ?? null,
     };
-  } else {
-    // No playlist — fall back to a standalone video, but only a long-form full
-    // OST. Fetch durations for the video candidates and score them the same way
-    // enrich-video-ids.ts does; anything under 15 min (or off-topic) is dropped.
-    const candidates = (data.items ?? [])
-      .filter((i) => i.id.kind === "youtube#video" && i.id.videoId)
-      .map((i) => ({ videoId: i.id.videoId as string, title: i.snippet?.title ?? "" }));
-
-    const durations = await fetchVideoDurations(candidates.map((c) => c.videoId), env);
-
-    let best: { videoId: string; score: number } | null = null;
-    for (const c of candidates) {
-      const score = scoreVideo(c.title, q, durations.get(c.videoId) ?? 0);
-      if (score < MIN_SCORE) continue;
-      if (!best || score > best.score) best = { videoId: c.videoId, score };
-    }
-
-    if (best) {
-      result = {
-        youtube_video_id: best.videoId,
-        youtube_playlist_id: null,
-        source_type: "video",
-      };
-    }
+  } else if (video) {
+    result = {
+      youtube_playlist_id: null,
+      youtube_video_id: video.videoId,
+      source_type: "video",
+      video_title: video.title,
+    };
   }
 
   const out = JSON.stringify({ result });

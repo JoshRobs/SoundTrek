@@ -91,6 +91,14 @@ const importingId    = ref<number | null>(null);
 const importNote     = ref<string | null>(null);
 const randomizing    = ref(false);
 
+// fetch() rejects with a bare "Failed to fetch" TypeError when the worker is
+// down/unreachable (e.g. `wrangler dev` not running) — name the URL instead.
+function proxyErrorMessage(e: unknown): string {
+  return e instanceof TypeError
+    ? `Couldn't reach the worker at ${proxyUrl} — is it running/deployed?`
+    : (e as Error).message;
+}
+
 async function searchIgdb() {
   igdbError.value = null;
   importNote.value = null;
@@ -130,7 +138,7 @@ async function searchIgdb() {
     igdbResults.value = results;
     igdbSearched.value = true;
   } catch (e) {
-    igdbError.value = (e as Error).message;
+    igdbError.value = proxyErrorMessage(e);
   } finally {
     igdbSearching.value = false;
   }
@@ -177,7 +185,7 @@ async function surpriseMe() {
     }
     igdbError.value = "Couldn't find an indie game that's not already in your catalog — try again.";
   } catch (e) {
-    igdbError.value = (e as Error).message;
+    igdbError.value = proxyErrorMessage(e);
   } finally {
     randomizing.value = false;
   }
@@ -223,13 +231,22 @@ async function importGame(c: IgdbCandidate) {
               youtube_video_id: string | null;
               youtube_playlist_id: string | null;
               source_type: "video" | "playlist";
+              video_title: string | null;
             } | null;
           };
           if (result) {
             form.value.source_type         = result.source_type;
             form.value.youtube_playlist_id = result.youtube_playlist_id ?? "";
             form.value.youtube_video_id    = result.youtube_video_id ?? "";
-            ytNote = `YouTube ${result.source_type} found`;
+            // video_title is only set when a long-form full-OST video was
+            // matched (mirrors enrich-video-ids.ts); otherwise the video ID is
+            // just the playlist's first track and worth replacing by hand.
+            ytNote =
+              result.source_type === "playlist"
+                ? result.video_title
+                  ? "YouTube playlist + full-OST video found"
+                  : "YouTube playlist found, but no full-OST video (video ID is the playlist's first track)"
+                : "YouTube full-OST video found (no playlist)";
           }
         } else {
           const body = await res.json().catch(() => ({})) as { error?: string };
