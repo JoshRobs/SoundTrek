@@ -18,9 +18,28 @@ export const useSoundtrackStore = defineStore("soundtracks", () => {
   // must be replaced when they ask.
   let fetchedFresh = false;
 
-  async function loadAll(opts?: { fresh?: boolean }) {
+  // The catalog is prefetched on app start (ExploreMenu) and also requested by
+  // whichever view mounts, so calls overlap — share the in-flight request
+  // rather than downloading ~2MB twice. A fresh request never joins a cached
+  // one; it supersedes it (loadId keeps the slower cached load from landing
+  // on top of fresh rows).
+  let inflight: Promise<void> | null = null;
+  let inflightFresh = false;
+  let loadId = 0;
+
+  function loadAll(opts?: { fresh?: boolean }): Promise<void> {
     const wantFresh = !!opts?.fresh;
-    if (fetched && (fetchedFresh || !wantFresh)) return;
+    if (fetched && (fetchedFresh || !wantFresh)) return Promise.resolve();
+    if (inflight && (inflightFresh || !wantFresh)) return inflight;
+    inflightFresh = wantFresh;
+    const p: Promise<void> = fetchCatalog(wantFresh, ++loadId).finally(() => {
+      if (inflight === p) inflight = null;
+    });
+    inflight = p;
+    return p;
+  }
+
+  async function fetchCatalog(wantFresh: boolean, myId: number): Promise<void> {
     loading.value = true;
     error.value = null;
 
@@ -61,14 +80,17 @@ export const useSoundtrackStore = defineStore("soundtracks", () => {
         }
       }
 
+      // Superseded by a fresh load — let our awaiters wait for its rows.
+      if (myId !== loadId) return inflight ?? undefined;
       allSoundtracks.value = all;
       fetched = true;
       fetchedFresh = !viaCache;
     } catch (e: unknown) {
+      if (myId !== loadId) return;
       error.value =
         e instanceof Error ? e.message : "Failed to load soundtracks.";
     } finally {
-      loading.value = false;
+      if (myId === loadId) loading.value = false;
     }
   }
 

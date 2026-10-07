@@ -1,3 +1,5 @@
+import { isBlockedVideo } from "../../../src/utils/blockedVideos";
+
 export interface Env {
   YOUTUBE_CACHE: KVNamespace;
   YOUTUBE_API_KEY: string;
@@ -63,7 +65,8 @@ export default {
     }
 
     const playlistId = match[1];
-    const cacheKey = `playlist:${playlistId}`;
+    // Version suffix (v2) busts entries cached before spam-video filtering.
+    const cacheKey = `playlist:v2:${playlistId}`;
 
     const cached = await env.YOUTUBE_CACHE.get(cacheKey);
     if (cached) {
@@ -103,10 +106,14 @@ export default {
       };
 
       for (const item of data.items ?? []) {
+        const videoId = item.snippet.resourceId.videoId as string;
+        // Spam injected into third-party playlists — drop it entirely rather
+        // than flagging it, since it's only "unavailable" while set private.
+        if (isBlockedVideo(videoId, item.snippet.videoOwnerChannelId)) continue;
         const title = item.snippet.title as string;
         const unavailable =
           title === "Deleted video" || title === "Private video";
-        items.push({ videoId: item.snippet.resourceId.videoId, title, unavailable });
+        items.push({ videoId, title, unavailable });
       }
 
       pageToken = data.nextPageToken;
@@ -566,10 +573,11 @@ async function fetchFirstPlaylistVideo(
   playlistId: string,
   env: Env,
 ): Promise<string | null> {
+  // A few items, not one, so a spam video in slot 0 doesn't become the start.
   const params = new URLSearchParams({
     part: "contentDetails",
     playlistId,
-    maxResults: "1",
+    maxResults: "5",
     key: env.YOUTUBE_API_KEY,
   });
   const res = await fetch(
@@ -578,7 +586,8 @@ async function fetchFirstPlaylistVideo(
   const data = (await res.json()) as {
     items?: { contentDetails: { videoId: string } }[];
   };
-  return data.items?.[0]?.contentDetails?.videoId ?? null;
+  const first = data.items?.find((i) => !isBlockedVideo(i.contentDetails.videoId));
+  return first?.contentDetails.videoId ?? null;
 }
 
 // ── Single-video search + scoring (ported from scripts/enrich-video-ids.ts) ──

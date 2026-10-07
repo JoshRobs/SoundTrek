@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from "vue";
+import { ref, onMounted, watch } from "vue";
 import { useRouter } from "vue-router";
 import { useSoundtrackStore } from "@/stores/soundtracks";
 import MegaFeatured from "./MegaFeatured.vue";
@@ -12,10 +12,33 @@ const store = useSoundtrackStore();
 const open = ref(false);
 let closeTimer: ReturnType<typeof setTimeout> | null = null;
 
+// Every column derives from the catalog — prefetch it on app start so the
+// panel is populated the first time it opens. Deferred to idle so it doesn't
+// compete with the page's own first requests; the store shares the request
+// with any view that asks for the catalog meanwhile.
+onMounted(() => {
+  const prefetch = () => store.loadAll();
+  if ("requestIdleCallback" in window) {
+    requestIdleCallback(prefetch, { timeout: 2000 });
+  } else {
+    setTimeout(prefetch, 200);
+  }
+});
+
+// Warm the Popular column's cover thumbnails too, so they don't pop in after
+// the text when the panel first opens.
+watch(
+  () => store.featuredSoundtracks,
+  (list) => {
+    for (const s of list) {
+      if (s.cover_image_url) new Image().src = s.cover_image_url;
+    }
+  },
+);
+
 function onEnter() {
   if (closeTimer) clearTimeout(closeTimer);
-  // Featured/Categories derive from the catalog; kick off the (KV-cached,
-  // store-deduped) fetch on hover so the panel isn't empty.
+  // No-op once the prefetch above has landed; starts it if hover beat idle.
   store.loadAll();
   open.value = true;
 }

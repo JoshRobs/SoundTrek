@@ -8,6 +8,7 @@ import StreamingLinks from "@/components/StreamingLinks.vue";
 import type { Soundtrack, StreamingLink } from "@/types/soundtrack";
 import type { TracklistEntry } from "@/types/track";
 import { cleanTracklistTitles } from "@/utils/trackTitle";
+import { isBlockedVideo } from "@/utils/blockedVideos";
 import { toSlug } from "@/utils/slug";
 import { useLikes } from "@/composables/useLikes";
 import ReviewSection from "@/components/ReviewSection.vue";
@@ -181,7 +182,8 @@ async function loadTracklist() {
     .eq("soundtrack_id", t.id)
     .order("position");
   if (data?.length) {
-    tracklist.value = data;
+    // Rows synced before a spam video was blocklisted still contain it.
+    tracklist.value = data.filter((d) => !isBlockedVideo(d.video_id));
     return;
   }
 

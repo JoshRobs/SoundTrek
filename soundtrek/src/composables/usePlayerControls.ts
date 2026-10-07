@@ -6,6 +6,7 @@ import type { Soundtrack } from "@/types/soundtrack";
 import { usePlayerStore } from "@/stores/player";
 import { useQueueStore } from "@/stores/queue";
 import { cleanTracklistTitles } from "@/utils/trackTitle";
+import { isBlockedVideo } from "@/utils/blockedVideos";
 
 interface SpotifyEmbedControls {
   play: () => void;
@@ -116,11 +117,14 @@ export function usePlayerControls(
       .eq("soundtrack_id", track.id)
       .order("position");
     if (data?.length) {
-      return data.map((d) => ({
-        videoId: d.video_id,
-        title: d.title,
-        unavailable: d.unavailable,
-      }));
+      // Rows synced before a spam video was blocklisted still contain it.
+      return data
+        .filter((d) => !isBlockedVideo(d.video_id))
+        .map((d) => ({
+          videoId: d.video_id,
+          title: d.title,
+          unavailable: d.unavailable,
+        }));
     }
 
     const proxyUrl = import.meta.env.VITE_YOUTUBE_PROXY_URL;
@@ -207,6 +211,16 @@ export function usePlayerControls(
           }
         },
         onStateChange: (e: { data: number }) => {
+          // Native playlist mode plays YouTube's list unfiltered — skip spam
+          // the moment it's cued (-1) or, failing that, starts playing (1).
+          if (!customQueueActive.value && (e.data === -1 || e.data === 1)) {
+            const ids: string[] = (player as any)?.getPlaylist() ?? [];
+            const current = ids[player?.getPlaylistIndex() ?? -1];
+            if (current && isBlockedVideo(current)) {
+              player?.nextVideo();
+              return;
+            }
+          }
           isPlaying.value = e.data === 1;
           if (e.data === 1 || e.data === 2) {
             if (!customQueueActive.value) {
