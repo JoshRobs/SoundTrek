@@ -22,6 +22,9 @@ dist-ssr
 # Ingestion script progress (local state, not shareable)
 scripts/.progress.json
 
+# Wrangler local dev state — KV cache (incl. API tokens), build output
+.wrangler/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
