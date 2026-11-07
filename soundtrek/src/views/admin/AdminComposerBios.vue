@@ -16,17 +16,21 @@ interface ComposerRow {
 
 const existing = ref(new Map<string, ComposerRow>());
 const loadedExisting = ref(false);
+// Names of composers-table rows, so search also finds composers that no
+// longer appear on any soundtrack.
+const tableNames = ref<string[]>([]);
 
 onMounted(async () => {
   const { data } = await supabase
     .from("composers")
-    .select("slug, bio, image_url");
+    .select("slug, name, bio, image_url");
+  const rows = (data ?? []) as Array<
+    { slug: string; name: string | null } & ComposerRow
+  >;
   existing.value = new Map(
-    (data ?? []).map((c: { slug: string } & ComposerRow) => [
-      c.slug,
-      { bio: c.bio, image_url: c.image_url },
-    ]),
+    rows.map((c) => [c.slug, { bio: c.bio, image_url: c.image_url }]),
   );
+  tableNames.value = rows.map((c) => c.name).filter((n): n is string => !!n);
   loadedExisting.value = true;
 });
 
@@ -67,9 +71,93 @@ const queue = computed(() => {
 });
 
 const skipped = ref(new Set<string>());
-const selected = computed(
+const queueHead = computed(
   () => queue.value.find((n) => !skipped.value.has(n)) ?? null,
 );
+
+// ── Search: pin any composer (even ones with a bio) for editing ───────────────
+
+const pinned = ref<string | null>(null);
+const selected = computed(() => pinned.value ?? queueHead.value);
+
+const searchQuery = ref("");
+const searchOpen = ref(false);
+const searchActive = ref(0);
+
+const normalize = (s: string) =>
+  s
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "")
+    .toLowerCase()
+    .trim();
+
+// Every known composer, one entry per slug (soundtrack credits win over the
+// table's stored name so the name matches what soundtracks reference).
+const allComposerNames = computed(() => {
+  const bySlug = new Map<string, string>();
+  for (const s of allSoundtracks.value)
+    for (const name of s.composers ?? [])
+      if (!bySlug.has(toSlug(name))) bySlug.set(toSlug(name), name);
+  for (const name of tableNames.value)
+    if (!bySlug.has(toSlug(name))) bySlug.set(toSlug(name), name);
+  return [...bySlug.values()];
+});
+
+const searchResults = computed(() => {
+  const q = normalize(searchQuery.value);
+  if (!q) return [];
+  return allComposerNames.value
+    .map((name) => {
+      const n = normalize(name);
+      const idx = n.indexOf(q);
+      return { name, idx, startsWord: idx === 0 || n[idx - 1] === " " };
+    })
+    .filter((r) => r.idx !== -1)
+    .sort(
+      (a, b) =>
+        Number(b.startsWord) - Number(a.startsWord) ||
+        (composerLikes.value.get(b.name) ?? 0) -
+          (composerLikes.value.get(a.name) ?? 0) ||
+        a.name.localeCompare(b.name),
+    )
+    .slice(0, 10)
+    .map((r) => r.name);
+});
+
+watch(searchResults, () => (searchActive.value = 0));
+
+function hasBio(name: string) {
+  return !!existing.value.get(toSlug(name))?.bio;
+}
+
+function pick(name: string) {
+  pinned.value = name;
+  savedNote.value = null;
+  searchQuery.value = "";
+  searchOpen.value = false;
+}
+
+function onSearchKey(e: KeyboardEvent) {
+  const n = searchResults.value.length;
+  if (e.key === "ArrowDown" && n) {
+    e.preventDefault();
+    searchOpen.value = true;
+    searchActive.value = (searchActive.value + 1) % n;
+  } else if (e.key === "ArrowUp" && n) {
+    e.preventDefault();
+    searchActive.value = (searchActive.value - 1 + n) % n;
+  } else if (e.key === "Enter" && n) {
+    e.preventDefault();
+    pick(searchResults.value[searchActive.value]);
+  } else if (e.key === "Escape") {
+    searchOpen.value = false;
+  }
+}
+
+function backToQueue() {
+  pinned.value = null;
+  savedNote.value = null;
+}
 
 // The composer's credited games, most popular first — the reference for
 // judging whether a lookup hit the right person.
@@ -87,7 +175,7 @@ const remaining = computed(
 );
 
 function skip() {
-  if (selected.value) skipped.value.add(selected.value);
+  if (queueHead.value) skipped.value.add(queueHead.value);
 }
 
 // ── Editable fields ───────────────────────────────────────────────────────────
@@ -354,7 +442,10 @@ async function save() {
   // out of the queue and the next one is selected automatically.
   existing.value.set(row.slug, { bio: row.bio, image_url: row.image_url });
   existing.value = new Map(existing.value);
-  savedNote.value = `Saved ${name} — ${remaining.value} remaining`;
+  // A searched-for composer stays open after saving; queue items advance.
+  savedNote.value = pinned.value
+    ? `Saved ${name}`
+    : `Saved ${name} — ${remaining.value} remaining`;
 }
 
 const wikiUrl = computed(() =>
@@ -372,15 +463,66 @@ const googleUrl = computed(() =>
 
 <template>
   <div class="page">
+    <div class="search">
+      <input
+        v-model="searchQuery"
+        type="search"
+        class="search-input"
+        placeholder="Search any composer to edit…"
+        spellcheck="false"
+        autocomplete="off"
+        @focus="searchOpen = true"
+        @input="searchOpen = true"
+        @blur="searchOpen = false"
+        @keydown="onSearchKey"
+      />
+      <ul
+        v-if="searchOpen && searchQuery.trim()"
+        class="search-results"
+        role="listbox"
+      >
+        <li
+          v-for="(name, i) in searchResults"
+          :key="name"
+          role="option"
+          :aria-selected="i === searchActive"
+          :class="['search-item', { 'search-item--active': i === searchActive }]"
+          @mousedown.prevent="pick(name)"
+          @mouseenter="searchActive = i"
+        >
+          <span class="search-name">{{ name }}</span>
+          <span class="search-meta">
+            {{ soundtrackCounts.get(name) ?? 0 }} OST
+            <span
+              :class="['status-dot', hasBio(name) ? 'status-dot--ok' : '']"
+              :title="hasBio(name) ? 'Has bio' : 'Missing bio'"
+            />
+          </span>
+        </li>
+        <li v-if="!searchResults.length" class="search-empty">
+          No composers match “{{ searchQuery.trim() }}”
+        </li>
+      </ul>
+    </div>
+
     <div class="queue-bar">
-      <span class="queue-count">
-        {{ remaining }} composer{{ remaining !== 1 ? "s" : "" }} missing a bio
-        or image
-      </span>
-      <span v-if="savedNote" class="saved-note">{{ savedNote }}</span>
-      <button class="btn btn--ghost" :disabled="!selected" @click="skip">
-        Skip →
-      </button>
+      <template v-if="pinned">
+        <span class="queue-count">Editing a searched composer</span>
+        <span v-if="savedNote" class="saved-note">{{ savedNote }}</span>
+        <button class="btn btn--ghost" @click="backToQueue">
+          ← Back to queue
+        </button>
+      </template>
+      <template v-else>
+        <span class="queue-count">
+          {{ remaining }} composer{{ remaining !== 1 ? "s" : "" }} missing a
+          bio or image
+        </span>
+        <span v-if="savedNote" class="saved-note">{{ savedNote }}</span>
+        <button class="btn btn--ghost" :disabled="!queueHead" @click="skip">
+          Skip →
+        </button>
+      </template>
     </div>
 
     <template v-if="selected">
@@ -486,7 +628,7 @@ const googleUrl = computed(() =>
             :disabled="saving || looking || (!bio.trim() && !imageUrl.trim())"
             @click="save"
           >
-            {{ saving ? "Saving…" : "Apply & Next" }}
+            {{ saving ? "Saving…" : pinned ? "Save" : "Apply & Next" }}
           </button>
           <p v-if="saveError" class="msg msg--error">{{ saveError }}</p>
         </div>
@@ -506,6 +648,94 @@ const googleUrl = computed(() =>
   display: flex;
   flex-direction: column;
   gap: 1.25rem;
+}
+
+/* Search */
+.search {
+  position: relative;
+}
+
+.search-input {
+  width: 100%;
+  box-sizing: border-box;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.6rem 1rem;
+  font-size: 0.875rem;
+  color: var(--text-primary);
+  font-family: inherit;
+}
+
+.search-input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.search-results {
+  position: absolute;
+  z-index: 10;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  margin: 0;
+  padding: 0.25rem;
+  list-style: none;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.search-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.45rem 0.7rem;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+.search-item--active {
+  background: var(--surface-2);
+  color: var(--text-primary);
+}
+
+.search-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.search-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  flex-shrink: 0;
+  font-size: 0.72rem;
+  color: #ffffff77;
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #f87171;
+}
+
+.status-dot--ok {
+  background: #4ade80;
+}
+
+.search-empty {
+  padding: 0.5rem 0.7rem;
+  font-size: 0.82rem;
+  color: #ffffff77;
 }
 
 .queue-bar {

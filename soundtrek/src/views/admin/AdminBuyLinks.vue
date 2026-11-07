@@ -38,7 +38,7 @@ const queue = computed(() =>
     ),
 );
 
-const selected = computed(
+const queueHead = computed(
   () => queue.value.find((s) => !skipped.value.has(s.id)) ?? null,
 );
 const remaining = computed(
@@ -47,7 +47,84 @@ const remaining = computed(
 const passed = computed(() => queue.value.length - remaining.value);
 
 function skip() {
-  if (selected.value) skipped.value.add(selected.value.id);
+  if (queueHead.value) skipped.value.add(queueHead.value.id);
+}
+
+// ── Search: pin any soundtrack (even fully linked ones) for editing ───────────
+
+const pinnedId = ref<string | null>(null);
+const pinned = computed(
+  () => allSoundtracks.value.find((s) => s.id === pinnedId.value) ?? null,
+);
+const selected = computed(() => pinned.value ?? queueHead.value);
+
+const gameQuery = ref("");
+const searchOpen = ref(false);
+const searchActive = ref(0);
+
+const normalize = (s: string) =>
+  s
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "")
+    .toLowerCase()
+    .trim();
+
+const likesOf = (s: Soundtrack) => s.total_likes ?? s.likes ?? 0;
+
+const searchResults = computed(() => {
+  const q = normalize(gameQuery.value);
+  if (!q) return [];
+  return allSoundtracks.value
+    .map((s) => {
+      const t = normalize(s.game_title ?? "");
+      const idx = t.indexOf(q);
+      return { s, idx, startsWord: idx === 0 || /\W/.test(t[idx - 1] ?? "") };
+    })
+    .filter((r) => r.idx !== -1)
+    .sort(
+      (a, b) =>
+        Number(b.startsWord) - Number(a.startsWord) ||
+        likesOf(b.s) - likesOf(a.s) ||
+        (a.s.game_title ?? "").localeCompare(b.s.game_title ?? ""),
+    )
+    .slice(0, 10)
+    .map((r) => r.s);
+});
+
+watch(searchResults, () => (searchActive.value = 0));
+
+function pick(s: Soundtrack) {
+  pinnedId.value = s.id;
+  savedNote.value = null;
+  gameQuery.value = "";
+  searchOpen.value = false;
+}
+
+function onSearchKey(e: KeyboardEvent) {
+  const n = searchResults.value.length;
+  if (e.key === "ArrowDown" && n) {
+    e.preventDefault();
+    searchOpen.value = true;
+    searchActive.value = (searchActive.value + 1) % n;
+  } else if (e.key === "ArrowUp" && n) {
+    e.preventDefault();
+    searchActive.value = (searchActive.value - 1 + n) % n;
+  } else if (e.key === "Enter" && n) {
+    e.preventDefault();
+    pick(searchResults.value[searchActive.value]);
+  } else if (e.key === "Escape") {
+    searchOpen.value = false;
+  }
+}
+
+function backToQueue() {
+  pinnedId.value = null;
+  savedNote.value = null;
+}
+
+function setFilter(f: Filter) {
+  filter.value = f;
+  backToQueue();
 }
 
 // ── Editable fields ───────────────────────────────────────────────────────────
@@ -178,24 +255,87 @@ async function save() {
   }
 
   // Update the store row, then move on. Marking it skipped advances even when
-  // one link is still empty (e.g. the game isn't sold on Loaded).
+  // one link is still empty (e.g. the game isn't sold on Loaded). A searched-for
+  // soundtrack stays open after saving.
   const row = allSoundtracks.value.find((r) => r.id === s.id);
   if (row) Object.assign(row, fields);
   skipped.value.add(s.id);
-  savedNote.value = `Saved ${s.game_title} — ${remaining.value} remaining`;
+  savedNote.value = pinnedId.value
+    ? `Saved ${s.game_title}`
+    : `Saved ${s.game_title} — ${remaining.value} remaining`;
 }
 </script>
 
 <template>
   <div class="page">
-    <div class="queue-bar">
+    <div class="search">
+      <input
+        v-model="gameQuery"
+        type="search"
+        class="search-input"
+        placeholder="Search any game to edit its buy links…"
+        spellcheck="false"
+        autocomplete="off"
+        @focus="searchOpen = true"
+        @input="searchOpen = true"
+        @blur="searchOpen = false"
+        @keydown="onSearchKey"
+      />
+      <ul
+        v-if="searchOpen && gameQuery.trim()"
+        class="search-results"
+        role="listbox"
+      >
+        <li
+          v-for="(s, i) in searchResults"
+          :key="s.id"
+          role="option"
+          :aria-selected="i === searchActive"
+          :class="['search-item', { 'search-item--active': i === searchActive }]"
+          @mousedown.prevent="pick(s)"
+          @mouseenter="searchActive = i"
+        >
+          <span class="search-name">
+            {{ s.game_title }}
+            <span class="search-year">{{ s.release_year }}</span>
+          </span>
+          <span class="search-meta">
+            <span
+              :class="['link-pill', { 'link-pill--set': s.amazon_url }]"
+              :title="s.amazon_url ? 'Amazon link set' : 'No Amazon link'"
+              >Amazon</span
+            >
+            <span
+              :class="['link-pill', { 'link-pill--set': s.loaded_url }]"
+              :title="s.loaded_url ? 'Loaded link set' : 'No Loaded link'"
+              >Loaded</span
+            >
+          </span>
+        </li>
+        <li v-if="!searchResults.length" class="search-empty">
+          No games match “{{ gameQuery.trim() }}”
+        </li>
+      </ul>
+    </div>
+
+    <div v-if="pinned" class="queue-bar">
+      <span class="queue-count queue-count--left">
+        Editing a searched game
+      </span>
+      <span v-if="savedNote" class="saved-note">{{ savedNote }}</span>
+      <button class="btn btn--ghost" @click="backToQueue">
+        ← Back to queue
+      </button>
+    </div>
+
+    <div v-else class="queue-bar">
       <div class="filter-tabs">
         <button
           v-for="f in (['either', 'amazon', 'loaded'] as const)"
           :key="f"
           class="filter-tab"
           :class="{ active: filter === f }"
-          @click="filter = f"
+          @click="setFilter(f)"
         >
           {{
             f === "either"
@@ -209,7 +349,7 @@ async function save() {
       </div>
       <span class="queue-count">{{ remaining }} left</span>
       <span v-if="savedNote" class="saved-note">{{ savedNote }}</span>
-      <button class="btn btn--ghost" :disabled="!selected" @click="skip">
+      <button class="btn btn--ghost" :disabled="!queueHead" @click="skip">
         Skip →
       </button>
     </div>
@@ -378,7 +518,7 @@ async function save() {
             :disabled="saving || !dirty"
             @click="save"
           >
-            {{ saving ? "Saving…" : "Save & Next" }}
+            {{ saving ? "Saving…" : pinned ? "Save" : "Save & Next" }}
           </button>
           <p v-if="saveError" class="msg msg--error">{{ saveError }}</p>
         </div>
@@ -425,6 +565,106 @@ async function save() {
   font-size: 0.85rem;
   color: #ffffffbb;
   margin-left: auto;
+}
+
+.queue-count--left {
+  margin-left: 0;
+  margin-right: auto;
+}
+
+/* Search */
+.search {
+  position: relative;
+}
+
+.search-input {
+  width: 100%;
+  box-sizing: border-box;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.6rem 1rem;
+  font-size: 0.875rem;
+  color: var(--text-primary);
+  font-family: inherit;
+}
+
+.search-input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.search-results {
+  position: absolute;
+  z-index: 10;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  margin: 0;
+  padding: 0.25rem;
+  list-style: none;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.search-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.45rem 0.7rem;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+.search-item--active {
+  background: var(--surface-2);
+  color: var(--text-primary);
+}
+
+.search-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.search-year {
+  font-size: 0.72rem;
+  color: #ffffff77;
+  margin-left: 0.35rem;
+}
+
+.search-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  flex-shrink: 0;
+}
+
+.link-pill {
+  font-size: 0.65rem;
+  font-weight: 600;
+  padding: 0.05rem 0.4rem;
+  border-radius: 4px;
+  color: #f87171;
+  border: 1px solid rgba(248, 113, 113, 0.35);
+}
+
+.link-pill--set {
+  color: #4ade80;
+  border-color: rgba(74, 222, 128, 0.35);
+}
+
+.search-empty {
+  padding: 0.5rem 0.7rem;
+  font-size: 0.82rem;
+  color: #ffffff77;
 }
 
 .filter-tabs {

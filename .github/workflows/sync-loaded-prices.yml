@@ -1,0 +1,34 @@
+# Refreshes Loaded prices on soundtrack pages from the Impact product catalog.
+# SoundtrackView hides prices older than 48h, so if this stops running the
+# pages fall back to a plain "Buy the game" link.
+#
+# Repo secrets required (Settings → Secrets and variables → Actions):
+#   IMPACT_ACCOUNT_SID, IMPACT_AUTH_TOKEN, VITE_SUPABASE_URL, SUPABASE_SERVICE_KEY
+
+name: Sync Loaded prices
+
+on:
+  schedule:
+    - cron: "17 6 * * *" # daily, 06:17 UTC
+  workflow_dispatch:
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: soundtrek
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: soundtrek/package-lock.json
+      - run: npm ci
+      - run: npx tsx scripts/sync-loaded.ts
+        env:
+          IMPACT_ACCOUNT_SID: ${{ secrets.IMPACT_ACCOUNT_SID }}
+          IMPACT_AUTH_TOKEN: ${{ secrets.IMPACT_AUTH_TOKEN }}
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
