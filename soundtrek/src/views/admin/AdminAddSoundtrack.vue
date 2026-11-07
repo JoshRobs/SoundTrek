@@ -218,7 +218,12 @@ async function importGame(c: IgdbCandidate) {
       popularity: c.popularity,
     };
 
-    // YouTube OST lookup (mirrors searchYouTube in ingest.ts).
+    // YouTube OST lookup — playlist mirrors searchYouTube in ingest.ts, video is
+    // the same full-OST match enrich-video-ids.ts would pick. Cleared first so
+    // a game with no match doesn't inherit the previous import's IDs.
+    form.value.source_type         = "video";
+    form.value.youtube_playlist_id = "";
+    form.value.youtube_video_id    = "";
     let ytNote = "no YouTube OST found";
     if (proxyUrl) {
       try {
@@ -232,21 +237,21 @@ async function importGame(c: IgdbCandidate) {
               youtube_playlist_id: string | null;
               source_type: "video" | "playlist";
               video_title: string | null;
+              low_confidence?: boolean;
             } | null;
           };
           if (result) {
             form.value.source_type         = result.source_type;
             form.value.youtube_playlist_id = result.youtube_playlist_id ?? "";
             form.value.youtube_video_id    = result.youtube_video_id ?? "";
-            // video_title is only set when a long-form full-OST video was
-            // matched (mirrors enrich-video-ids.ts); otherwise the video ID is
-            // just the playlist's first track and worth replacing by hand.
             ytNote =
-              result.source_type === "playlist"
-                ? result.video_title
-                  ? "YouTube playlist + full-OST video found"
-                  : "YouTube playlist found, but no full-OST video (video ID is the playlist's first track)"
-                : "YouTube full-OST video found (no playlist)";
+              result.youtube_playlist_id && result.youtube_video_id
+                ? "YouTube playlist + full-OST video found"
+                : result.youtube_playlist_id
+                  ? "YouTube playlist found, but no full-OST video (video ID left empty)"
+                  : "YouTube full-OST video found (no playlist)";
+            // Same threshold the enrich script flags with "⚠ low confidence".
+            if (result.low_confidence) ytNote += " — low-confidence video match, worth a spot-check";
           }
         } else {
           const body = await res.json().catch(() => ({})) as { error?: string };

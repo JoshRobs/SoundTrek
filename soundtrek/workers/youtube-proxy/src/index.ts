@@ -1,4 +1,6 @@
+import { Innertube } from "youtubei.js/cf-worker";
 import { isBlockedVideo } from "../../../src/utils/blockedVideos";
+import { findOstVideo, CONFIDENT, type OstVideo } from "../../../src/utils/ostVideo";
 
 export interface Env {
   YOUTUBE_CACHE: KVNamespace;
@@ -42,8 +44,8 @@ export default {
       return igdbRandomIndie(env);
     }
 
-    // Admin "Import from IGDB" — find a YouTube OST for a game title (mirrors
-    // searchYouTube in scripts/ingest.ts).
+    // Admin "Import from IGDB" — find a YouTube OST playlist (mirrors
+    // searchYouTube in scripts/ingest.ts) and full-OST video (enrich-video-ids.ts).
     if (url.pathname === "/youtube-search") {
       const q = url.searchParams.get("q") ?? "";
       return youtubeSearch(q, env);
@@ -569,160 +571,6 @@ async function igdbRandomIndie(env: Env): Promise<Response> {
   });
 }
 
-async function fetchFirstPlaylistVideo(
-  playlistId: string,
-  env: Env,
-): Promise<string | null> {
-  // A few items, not one, so a spam video in slot 0 doesn't become the start.
-  const params = new URLSearchParams({
-    part: "contentDetails",
-    playlistId,
-    maxResults: "5",
-    key: env.YOUTUBE_API_KEY,
-  });
-  const res = await fetch(
-    `https://www.googleapis.com/youtube/v3/playlistItems?${params}`,
-  );
-  const data = (await res.json()) as {
-    items?: { contentDetails: { videoId: string } }[];
-  };
-  const first = data.items?.find((i) => !isBlockedVideo(i.contentDetails.videoId));
-  return first?.contentDetails.videoId ?? null;
-}
-
-// ── Single-video search + scoring (ported from scripts/enrich-video-ids.ts) ──
-//
-// youtube_video_id is the long-form full-OST video — the player's backup audio
-// when a playlist breaks, and the only source when there's no playlist. A short
-// clip (menu theme, a single track, a cover) is worthless for that, so
-// candidates are scored and must clear MIN_DURATION + MIN_SCORE exactly as the
-// enrichment script does. Keep these constants in lockstep with that script.
-
-const MIN_DURATION = 20 * 60; // 20 minutes, in seconds
-const MIN_SCORE = 4; // minimum score to accept a result
-const CONFIDENT = 7; // score at which we stop trying further queries
-
-const BAD_KEYWORDS = [
-  "cover", "covers", "remix", "remixed", "piano", "tribute",
-  "arrangement", "arranged", "karaoke", "lofi", "lo-fi",
-  "chiptune", "jazz", "8-bit", "8bit", "fan made", "fan-made",
-  "loop", "walkthrough", "1 hour", "one hour", "extended",
-  "menu theme", "lobby theme", "title screen",
-];
-
-const OST_KEYWORDS = [
-  "original soundtrack", "original game soundtrack", "original score",
-  "full ost", "complete ost", "full soundtrack", "complete soundtrack",
-  "game music", "music from", " ost ",
-];
-
-// Roman numerals I–XXX — covers any realistic game series
-const ROMAN_NUMERALS = new Set([
-  "i", "ii", "iii", "iv", "v", "vi", "vii", "viii", "ix", "x",
-  "xi", "xii", "xiii", "xiv", "xv", "xvi", "xvii", "xviii", "xix", "xx",
-  "xxi", "xxii", "xxiii", "xxiv", "xxv", "xxvi", "xxvii", "xxviii", "xxix", "xxx",
-]);
-
-// The Data API returns snippet titles HTML-escaped ("Baldur&#39;s Gate 3").
-// Left as-is, normalizeTitle turns that into "baldur39s gate 3", which never
-// contains the game title — so decode before scoring. (The enrich script uses
-// Innertube, which returns plain text.)
-function decodeHtmlEntities(s: string): string {
-  const named: Record<string, string> = { amp: "&", quot: '"', apos: "'", lt: "<", gt: ">" };
-  return s.replace(/&(#x[0-9a-f]+|#\d+|amp|quot|apos|lt|gt);/gi, (m, e: string) => {
-    const k = e.toLowerCase();
-    if (k[0] !== "#") return named[k] ?? m;
-    const code = k[1] === "x" ? parseInt(k.slice(2), 16) : parseInt(k.slice(1), 10);
-    return Number.isFinite(code) ? String.fromCodePoint(code) : m;
-  });
-}
-
-function normalizeTitle(s: string): string {
-  return s.toLowerCase().replace(/[^a-z0-9\s]/g, "").replace(/\s+/g, " ").trim();
-}
-
-// True if the video title contains the game title followed immediately by a
-// series number (Arabic or Roman) that isn't already part of the game title —
-// e.g. game "Forza Horizon" vs video "Forza Horizon 6 OST" → reject.
-function hasUnexpectedSeriesNumber(gt: string, vt: string): boolean {
-  const idx = vt.indexOf(gt);
-  if (idx === -1) return false;
-  const after = vt.slice(idx + gt.length).trimStart();
-
-  const arabicMatch = after.match(/^(\d+)/);
-  if (arabicMatch) {
-    const gameNumbers: string[] = gt.match(/\d+/g) ?? [];
-    if (!gameNumbers.includes(arabicMatch[1])) return true;
-  }
-
-  const romanMatch = after.match(/^([a-z]+)/);
-  if (romanMatch && ROMAN_NUMERALS.has(romanMatch[1])) {
-    const gameRomans = gt.split(" ").filter((w) => ROMAN_NUMERALS.has(w));
-    if (!gameRomans.includes(romanMatch[1])) return true;
-  }
-
-  return false;
-}
-
-function scoreVideo(videoTitle: string, gameTitle: string, durationSeconds: number): number {
-  const vt = normalizeTitle(videoTitle);
-  const gt = normalizeTitle(gameTitle);
-
-  // Hard reject: too short, fake "exactly 1 hour" videos, or bad keywords
-  if (durationSeconds < MIN_DURATION) return -1;
-  if (Math.abs(durationSeconds - 3600) <= 2) return -1;
-  if (BAD_KEYWORDS.some((b) => vt.includes(b))) return -1;
-
-  let score = 0;
-
-  // Game title must appear verbatim in the video title — hard reject otherwise
-  if (vt === gt) score += 5;
-  else if (vt.includes(gt)) score += 4;
-  else return -1;
-
-  if (hasUnexpectedSeriesNumber(gt, vt)) return -1;
-
-  // Must contain "soundtrack" or "ost" — hard reject otherwise
-  if (!vt.includes("soundtrack") && !vt.includes(" ost") && !vt.includes("(ost)") && !vt.includes("[ost]")) return -1;
-
-  if (OST_KEYWORDS.some((k) => vt.includes(k))) score += 3;
-  else score += 1;
-
-  if (durationSeconds >= 60 * 60) score += 1;
-
-  return score;
-}
-
-// ISO 8601 duration ("PT1H2M3S") → seconds. Returns 0 on anything unparseable.
-function parseISO8601Seconds(iso: string): number {
-  const m = iso.match(/^PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?$/);
-  if (!m) return 0;
-  return parseInt(m[1] ?? "0", 10) * 3600 + parseInt(m[2] ?? "0", 10) * 60 + parseInt(m[3] ?? "0", 10);
-}
-
-// Durations for a set of video IDs via the Data API (1 unit, batched).
-async function fetchVideoDurations(
-  videoIds: string[],
-  env: Env,
-): Promise<Map<string, number>> {
-  const out = new Map<string, number>();
-  if (!videoIds.length) return out;
-  const params = new URLSearchParams({
-    part: "contentDetails",
-    id: videoIds.join(","),
-    key: env.YOUTUBE_API_KEY,
-  });
-  const res = await fetch(`https://www.googleapis.com/youtube/v3/videos?${params}`);
-  if (!res.ok) return out;
-  const data = (await res.json()) as {
-    items?: { id: string; contentDetails?: { duration?: string } }[];
-  };
-  for (const item of data.items ?? []) {
-    out.set(item.id, parseISO8601Seconds(item.contentDetails?.duration ?? ""));
-  }
-  return out;
-}
-
 type YouTubeSearchData = {
   items?: {
     id: { kind: string; videoId?: string; playlistId?: string };
@@ -748,47 +596,17 @@ async function searchYouTubeApi(
   return data.items ?? [];
 }
 
-// Best long-form full-OST video for a game — same queries, scoring and
-// early-exit as searchSingleVideo in scripts/enrich-video-ids.ts. The Data API
-// runs each query as a video-only search; videoDuration=long (> 20 min) only
-// drops candidates the MIN_DURATION check would reject anyway, leaving more
-// room in each page for real matches.
-async function findOstVideo(
-  gameTitle: string,
-  env: Env,
-): Promise<{ videoId: string; title: string; score: number } | null> {
-  const queries = [
-    `${gameTitle} original soundtrack`,
-    `${gameTitle} full OST`,
-    `${gameTitle} complete soundtrack`,
-  ];
-
-  let best: { videoId: string; title: string; score: number } | null = null;
-
-  for (const query of queries) {
-    const items = await searchYouTubeApi(
-      { q: query, type: "video", videoDuration: "long", maxResults: "25" },
-      env,
-    );
-    const candidates = items
-      .filter((i) => i.id.videoId)
-      .map((i) => ({
-        videoId: i.id.videoId as string,
-        title: decodeHtmlEntities(i.snippet?.title ?? ""),
-      }));
-
-    const durations = await fetchVideoDurations(candidates.map((c) => c.videoId), env);
-
-    for (const c of candidates) {
-      const score = scoreVideo(c.title, gameTitle, durations.get(c.videoId) ?? 0);
-      if (score < MIN_SCORE) continue;
-      if (!best || score > best.score) best = { ...c, score };
-    }
-
-    if (best && best.score >= CONFIDENT) break;
-  }
-
-  return best;
+// Long-form full-OST video for a game — the exact queries, scoring and client
+// (youtubei.js / Innertube, no API key or quota) that scripts/enrich-video-ids.ts
+// uses, via the shared src/utils/ostVideo.ts, so the admin import picks the same
+// video the script would. retrieve_player: false skips fetching YouTube's player
+// JS, which search doesn't need.
+async function searchOstVideo(gameTitle: string): Promise<OstVideo | null> {
+  const yt = await Innertube.create({ retrieve_player: false });
+  return findOstVideo(
+    async (q) => (await yt.search(q, { type: "video" })).videos,
+    gameTitle,
+  );
 }
 
 async function youtubeSearch(query: string, env: Env): Promise<Response> {
@@ -800,10 +618,10 @@ async function youtubeSearch(query: string, env: Env): Promise<Response> {
     });
   }
 
-  // Cache by game title — each search costs 100 Data API units (up to 4 per
-  // lookup), so repeats should never re-spend quota. Version suffix (v3) busts
-  // entries from before the enrich-video-ids scoring port.
-  const cacheKey = `youtube-search:v3:${q.toLowerCase()}`;
+  // Cache by game title — the playlist search costs 100 Data API units and the
+  // video search up to three Innertube calls, so repeats should never redo
+  // them. Version suffix (v4) busts entries from the old Data API video search.
+  const cacheKey = `youtube-search:v4:${q.toLowerCase()}`;
   const cached = await env.YOUTUBE_CACHE.get(cacheKey);
   if (cached) {
     return new Response(cached, {
@@ -812,12 +630,12 @@ async function youtubeSearch(query: string, env: Env): Promise<Response> {
   }
 
   let playlistId: string | null = null;
-  let video: Awaited<ReturnType<typeof findOstVideo>> = null;
+  let video: OstVideo | null = null;
   try {
     // Playlist lookup mirrors searchYouTube in scripts/ingest.ts.
     const [items, found] = await Promise.all([
       searchYouTubeApi({ q: `${q} full OST complete soundtrack`, maxResults: "5" }, env),
-      findOstVideo(q, env),
+      searchOstVideo(q),
     ]);
     playlistId = items.find((i) => i.id.kind === "youtube#playlist")?.id.playlistId ?? null;
     video = found;
@@ -833,26 +651,21 @@ async function youtubeSearch(query: string, env: Env): Promise<Response> {
     youtube_video_id: string | null;
     youtube_playlist_id: string | null;
     source_type: "video" | "playlist";
-    // Title of the scored full-OST video; null when youtube_video_id is only
-    // the playlist's first track (no long-form match cleared MIN_SCORE).
     video_title: string | null;
+    // Score below CONFIDENT — the enrich script flags these "⚠ low confidence".
+    low_confidence: boolean;
   } | null = null;
 
-  if (playlistId) {
-    // Same as ingest + enrich-video-ids combined: the scored video when there
-    // is one, else the playlist's first track so the embed has a start point.
+  // youtube_video_id is only ever the scored full-OST video, exactly as
+  // enrich-video-ids.ts sets it — null when nothing clears MIN_SCORE, never a
+  // stand-in like the playlist's first track.
+  if (playlistId || video) {
     result = {
       youtube_playlist_id: playlistId,
-      youtube_video_id: video?.videoId ?? (await fetchFirstPlaylistVideo(playlistId, env)),
-      source_type: "playlist",
+      youtube_video_id: video?.videoId ?? null,
+      source_type: playlistId ? "playlist" : "video",
       video_title: video?.title ?? null,
-    };
-  } else if (video) {
-    result = {
-      youtube_playlist_id: null,
-      youtube_video_id: video.videoId,
-      source_type: "video",
-      video_title: video.title,
+      low_confidence: !!video && video.score < CONFIDENT,
     };
   }
 

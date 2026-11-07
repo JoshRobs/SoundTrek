@@ -385,7 +385,8 @@ const loadedPrice = computed(() => {
   )
     return null;
   const updatedAt = new Date(t.loaded_price_updated_at);
-  if (!(Date.now() - updatedAt.getTime() <= LOADED_PRICE_MAX_AGE_MS)) return null;
+  if (!(Date.now() - updatedAt.getTime() <= LOADED_PRICE_MAX_AGE_MS))
+    return null;
 
   const fmt = new Intl.NumberFormat("en-US", {
     style: "currency",
@@ -418,7 +419,10 @@ const loadedUrl = computed(() => {
   if (loadedPrice.value) {
     try {
       const u = new URL(raw);
-      u.searchParams.set("__currency", loadedPrice.value.currency.toLowerCase());
+      u.searchParams.set(
+        "__currency",
+        loadedPrice.value.currency.toLowerCase(),
+      );
       dest = u.toString();
     } catch {}
   }
@@ -635,7 +639,9 @@ onUnmounted(() => {
                   @click="toggleLike"
                 >
                   <AppIcon
-                    :name="isLiked(id) ? 'heart-filled-icon' : 'heart-outline-icon'"
+                    :name="
+                      isLiked(id) ? 'heart-filled-icon' : 'heart-outline-icon'
+                    "
                     :size="18"
                   />
                   {{ displayLikes(track) }}
@@ -687,9 +693,7 @@ onUnmounted(() => {
                     alt="Amazon"
                     class="amazon-inline-logo"
                   />
-                  <span class="amazon-inline-cta">{{
-                    track.amazon_image_url ? "Buy the OST" : "Find on Amazon"
-                  }}</span>
+                  <span class="amazon-inline-cta">{{ "Buy the OST" }}</span>
                 </a>
                 <a
                   v-if="loadedUrl"
@@ -944,7 +948,10 @@ onUnmounted(() => {
       <!-- Right rail — buy cards, tracklist, and relevant collections -->
       <div
         v-if="
-          amazonUrl || loadedUrl || tracklist.length || relevantCollections.length
+          amazonUrl ||
+          loadedUrl ||
+          tracklist.length ||
+          relevantCollections.length
         "
         class="side-rail"
       >
@@ -964,9 +971,7 @@ onUnmounted(() => {
             />
             <div class="amazon-footer">
               <img src="/amazonLogo.png" alt="Amazon" class="amazon-logo" />
-              <span class="amazon-cta">{{
-                track.amazon_image_url ? "Buy the OST" : "Find on Amazon"
-              }}</span>
+              <span class="amazon-cta">{{ "Buy the OST" }}</span>
             </div>
           </a>
 

@@ -52,6 +52,21 @@ function jumpToStart() {
   if (sorted.value.length) currentId.value = sorted.value[0].id;
 }
 
+// Editable "N of M" counter — jump straight to a position in the current order.
+const positionInput = ref("");
+function syncPositionInput() {
+  positionInput.value = index.value === null ? "" : String(index.value + 1);
+}
+watch(index, syncPositionInput, { immediate: true });
+
+function goToPosition() {
+  const n = parseInt(positionInput.value, 10);
+  if (Number.isNaN(n) || !sorted.value.length) return syncPositionInput();
+  const i = Math.min(Math.max(n, 1), sorted.value.length) - 1;
+  currentId.value = sorted.value[i].id;
+  syncPositionInput(); // out-of-range input clamps; reflect it even if index didn't change
+}
+
 const startLabel = computed(
   () =>
     ({ alpha: "Start at A", newest: "Start at newest", oldest: "Start at oldest" })[
@@ -476,8 +491,18 @@ async function save() {
       </div>
 
       <div class="nav-controls">
-        <span v-if="current" class="queue-count">
-          {{ (index ?? 0) + 1 }} of {{ sorted.length }}
+        <span v-if="sorted.length" class="queue-count">
+          <input
+            v-model="positionInput"
+            class="position-input"
+            type="text"
+            inputmode="numeric"
+            placeholder="#"
+            aria-label="Go to position"
+            @keydown.enter.prevent="goToPosition"
+            @blur="syncPositionInput"
+          />
+          of {{ sorted.length }}
         </span>
         <button
           class="btn btn--ghost"
@@ -662,8 +687,9 @@ async function save() {
 
     <p v-else class="hint">
       Type a game title above to pick a starting point, or choose a sort order
-      and hit start, then use Next to walk the catalog. “Newest added” puts the
-      most recently added soundtracks first.
+      and hit start (or type a position number and press Enter), then use Next
+      to walk the catalog. “Newest added” puts the most recently added
+      soundtracks first.
     </p>
   </div>
 </template>
@@ -714,6 +740,23 @@ async function save() {
   font-size: 0.85rem;
   color: #ffffffbb;
   white-space: nowrap;
+}
+
+.position-input {
+  width: 5ch;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.3rem 0.4rem;
+  font-size: 0.85rem;
+  color: var(--text-primary);
+  font-family: inherit;
+  text-align: center;
+}
+
+.position-input:focus {
+  outline: none;
+  border-color: var(--accent);
 }
 
 .nav-controls {
