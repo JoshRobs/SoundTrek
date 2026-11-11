@@ -4,6 +4,7 @@ import { storeToRefs } from "pinia";
 import { supabase } from "@/lib/supabase";
 import { useSoundtrackStore } from "@/stores/soundtracks";
 import { toSlug } from "@/utils/slug";
+import { usePersistentSet } from "@/composables/usePersistentSet";
 
 const { allSoundtracks } = storeToRefs(useSoundtrackStore());
 
@@ -70,7 +71,7 @@ const queue = computed(() => {
   });
 });
 
-const skipped = ref(new Set<string>());
+const { set: skipped, clear: clearSkipped } = usePersistentSet("composer-bios-skipped");
 const queueHead = computed(
   () => queue.value.find((n) => !skipped.value.has(n)) ?? null,
 );
@@ -173,6 +174,7 @@ const selectedGames = computed(() => {
 const remaining = computed(
   () => queue.value.filter((n) => !skipped.value.has(n)).length,
 );
+const skippedCount = computed(() => queue.value.length - remaining.value);
 
 function skip() {
   if (queueHead.value) skipped.value.add(queueHead.value);
@@ -290,6 +292,23 @@ async function searchWikipediaTitle(name: string): Promise<string | null> {
   return data.query?.search?.[0]?.title ?? null;
 }
 
+// Wikimedia only renders thumbnails at a fixed set of widths — an arbitrary
+// one like 512px returns HTTP 400 — so use the original when it's already
+// small, else the standard 500px step.
+const WIKI_IMAGE_WIDTH = 500;
+
+function wikiImageUrl(data: {
+  thumbnail?: { source: string };
+  originalimage?: { source: string; width: number };
+}): string | null {
+  const strip = (u: string) => u.split("?")[0]; // drop the API's utm_* tags
+  const orig = data.originalimage;
+  if (orig && orig.width <= WIKI_IMAGE_WIDTH) return strip(orig.source);
+  const thumb = data.thumbnail?.source;
+  if (thumb) return strip(thumb).replace(/\/\d+px-/, `/${WIKI_IMAGE_WIDTH}px-`);
+  return orig ? strip(orig.source) : null;
+}
+
 async function fetchWikiSummary(
   pageTitle: string,
 ): Promise<{ bio: string | null; imageUrl: string | null }> {
@@ -302,16 +321,14 @@ async function fetchWikiSummary(
     extract?: string;
     type?: string;
     thumbnail?: { source: string };
+    originalimage?: { source: string; width: number };
   };
   if (data.type === "disambiguation") return { bio: null, imageUrl: null };
-  const thumb = data.thumbnail?.source ?? null;
-  return {
-    bio: data.extract ?? null,
-    imageUrl: thumb ? thumb.replace(/\/(\d+)px-/, "/512px-") : null,
-  };
+  return { bio: data.extract ?? null, imageUrl: wikiImageUrl(data) };
 }
 
-// Wikidata P18 ("image") — the curated portrait, for pages with no lead image.
+// Wikidata P18 ("image") — the curated portrait, often present when the
+// article has no lead image.
 async function fetchWikidataImage(enwikiTitle: string): Promise<string | null> {
   const res = await fetch(
     `https://www.wikidata.org/w/api.php?action=wbgetentities&sites=enwiki&titles=${encodeURIComponent(enwikiTitle)}&props=claims&format=json&origin=*`,
@@ -330,7 +347,56 @@ async function fetchWikidataImage(enwikiTitle: string): Promise<string | null> {
   const entity = Object.values(data.entities ?? {})[0];
   const filename = entity?.claims?.P18?.[0]?.mainsnak?.datavalue?.value;
   if (!filename || typeof filename !== "string") return null;
-  return `https://commons.wikimedia.org/wiki/Special:FilePath/${encodeURIComponent(filename)}?width=512`;
+  return `https://commons.wikimedia.org/wiki/Special:FilePath/${encodeURIComponent(filename)}?width=${WIKI_IMAGE_WIDTH}`;
+}
+
+// ── Image candidates ──────────────────────────────────────────────────────────
+// Look Up gathers photos from several sources; the admin picks one.
+
+interface ImageOption {
+  url: string;
+  source: string;
+  detail?: string;
+}
+
+const imageOptions = ref<ImageOption[]>([]);
+const brokenOptions = ref(new Set<string>());
+const visibleOptions = computed(() =>
+  imageOptions.value.filter((o) => !brokenOptions.value.has(o.url)),
+);
+
+const proxyUrl = import.meta.env.VITE_YOUTUBE_PROXY_URL as string | undefined;
+
+// Deezer artist photos (1000×1000), via the worker. Exact name matches only
+// when there are any — the search also returns collaborations ("A & B") and
+// near-namesakes. Otherwise the closest two, labelled with Deezer's name so a
+// wrong person is easy to spot.
+async function fetchDeezerOptions(name: string): Promise<ImageOption[]> {
+  if (!proxyUrl) throw new Error("VITE_YOUTUBE_PROXY_URL is not configured");
+  const res = await fetch(`${proxyUrl}/deezer-artists?q=${encodeURIComponent(name)}`);
+  if (res.status === 404) throw new Error("the worker has no /deezer-artists route yet — redeploy it");
+  if (!res.ok) {
+    const body = (await res.json().catch(() => ({}))) as { error?: string };
+    throw new Error(body.error ?? `HTTP ${res.status}`);
+  }
+  const { results } = (await res.json()) as {
+    results: { id: number; name: string; fans: number; picture: string }[];
+  };
+  const slug = toSlug(name);
+  const exact = results.filter((a) => toSlug(a.name) === slug);
+  const picks = (exact.length ? exact : results.slice(0, 2))
+    .sort((a, b) => b.fans - a.fans)
+    .slice(0, 3);
+  const fans = (n: number) => `${n.toLocaleString()} fan${n === 1 ? "" : "s"}`;
+  return picks.map((a) => ({
+    url: a.picture,
+    source: "Deezer",
+    detail: exact.length ? fans(a.fans) : `“${a.name}” · ${fans(a.fans)}`,
+  }));
+}
+
+function pickImage(url: string) {
+  imageUrl.value = url;
 }
 
 let lookupToken = 0;
@@ -344,8 +410,18 @@ async function lookup() {
   lookupError.value = null;
   wikiTitle.value = null;
   wikiSource.value = null;
+  imageOptions.value = [];
+  brokenOptions.value = new Set();
 
-  try {
+  const problems: string[] = [];
+
+  // Deezer runs alongside the Wikipedia chain.
+  const deezer = fetchDeezerOptions(name).catch((e: unknown) => {
+    problems.push(`Deezer: ${e instanceof Error ? e.message : "failed"}`);
+    return [] as ImageOption[];
+  });
+
+  const wiki = (async (): Promise<ImageOption[]> => {
     let title: string | null = null;
     let source = "MusicBrainz";
     try {
@@ -357,36 +433,55 @@ async function lookup() {
       title = await searchWikipediaTitle(name);
       source = "Wikipedia search";
     }
-    if (token !== lookupToken) return;
-
+    if (token !== lookupToken) return [];
     if (!title) {
-      lookupError.value = "No Wikipedia page found — fill in manually or skip.";
-      return;
+      problems.push("No Wikipedia page found");
+      return [];
     }
 
     wikiTitle.value = title;
     wikiSource.value = source;
 
-    const summary = await fetchWikiSummary(title);
+    const [summary, portrait] = await Promise.all([
+      fetchWikiSummary(title),
+      fetchWikidataImage(title).catch(() => null),
+    ]);
+    if (token !== lookupToken) return [];
+
+    // Only fill a bio that's still empty — an existing one is kept.
+    if (!bio.value && summary.bio) bio.value = summary.bio;
+    if (!summary.bio) problems.push("Wikipedia page has no extract");
+
+    const options: ImageOption[] = [];
+    if (summary.imageUrl)
+      options.push({ url: summary.imageUrl, source: "Wikipedia", detail: "lead image" });
+    if (portrait)
+      options.push({ url: portrait, source: "Wikidata", detail: "portrait" });
+    return options;
+  })().catch((e: unknown) => {
+    problems.push(`Wikipedia: ${e instanceof Error ? e.message : "failed"}`);
+    return [] as ImageOption[];
+  });
+
+  try {
+    const [deezerOptions, wikiOptions] = await Promise.all([deezer, wiki]);
     if (token !== lookupToken) return;
 
-    let img = summary.imageUrl;
-    if (!img) {
-      img = await fetchWikidataImage(title);
-      if (token !== lookupToken) return;
-    }
+    // Wikipedia's lead image and the Wikidata portrait are often one file.
+    const fileOf = (u: string) =>
+      decodeURIComponent(u.split("?")[0].split("/").pop() ?? "")
+        .replace(/^\d+px-/, "")
+        .replace(/ /g, "_");
+    const seen = new Set<string>();
+    imageOptions.value = [...deezerOptions, ...wikiOptions].filter((o) => {
+      const key = o.source === "Deezer" ? o.url : fileOf(o.url);
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
 
-    // Only fill fields that are still empty — existing partial rows (e.g. a
-    // bio saved earlier with no image) keep their data.
-    if (!bio.value && summary.bio) bio.value = summary.bio;
-    if (!imageUrl.value && img) imageUrl.value = img;
-
-    if (!summary.bio && !img) {
-      lookupError.value = "Page found, but no extract or image on it.";
-    }
-  } catch (e) {
-    if (token === lookupToken)
-      lookupError.value = e instanceof Error ? e.message : "Lookup failed";
+    if (!imageOptions.value.length) problems.push("no image candidates found");
+    if (problems.length) lookupError.value = problems.join(" · ");
   } finally {
     if (token === lookupToken) looking.value = false;
   }
@@ -401,6 +496,8 @@ watch(
     imgBroken.value = false;
     wikiTitle.value = null;
     wikiSource.value = null;
+    imageOptions.value = [];
+    brokenOptions.value = new Set();
     lookupError.value = null;
     saveError.value = null;
     looking.value = false;
@@ -452,6 +549,12 @@ const wikiUrl = computed(() =>
   wikiTitle.value
     ? `https://en.wikipedia.org/wiki/${encodeURIComponent(wikiTitle.value)}`
     : null,
+);
+
+const googleImagesUrl = computed(() =>
+  selected.value
+    ? `https://www.google.com/search?tbm=isch&q=${encodeURIComponent(`"${selected.value}" composer`)}`
+    : "#",
 );
 
 const googleUrl = computed(() =>
@@ -519,6 +622,9 @@ const googleUrl = computed(() =>
           bio or image
         </span>
         <span v-if="savedNote" class="saved-note">{{ savedNote }}</span>
+        <button v-if="skippedCount" class="btn btn--ghost" @click="clearSkipped">
+          Un-skip {{ skippedCount }}
+        </button>
         <button class="btn btn--ghost" :disabled="!queueHead" @click="skip">
           Skip →
         </button>
@@ -606,8 +712,41 @@ const googleUrl = computed(() =>
           </div>
 
           <div class="preview-fields">
+            <div v-if="visibleOptions.length" class="image-options">
+              <span class="options-label">Pick an image</span>
+              <div class="options-grid">
+                <button
+                  v-for="o in visibleOptions"
+                  :key="o.url"
+                  type="button"
+                  class="image-option"
+                  :class="{ 'image-option--selected': imageUrl === o.url }"
+                  :title="o.url"
+                  @click="pickImage(o.url)"
+                >
+                  <img
+                    :src="o.url"
+                    :alt="`${o.source} image`"
+                    referrerpolicy="no-referrer"
+                    loading="lazy"
+                    @error="brokenOptions.add(o.url)"
+                  />
+                  <span class="option-source">{{ o.source }}</span>
+                  <span v-if="o.detail" class="option-detail">{{ o.detail }}</span>
+                </button>
+              </div>
+            </div>
             <label class="field">
-              <span>Image URL</span>
+              <span>
+                Image URL
+                <a
+                  :href="googleImagesUrl"
+                  target="_blank"
+                  rel="noopener"
+                  class="open-link"
+                  >Google Images ↗</a
+                >
+              </span>
               <input
                 v-model="imageUrl"
                 type="text"
@@ -900,6 +1039,72 @@ const googleUrl = computed(() =>
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
+}
+
+/* Image candidates from Look Up */
+.image-options {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+.options-label {
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+}
+.options-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+.image-option {
+  width: 112px;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.2rem;
+  padding: 0.35rem;
+  background: var(--surface-2);
+  border: 2px solid var(--border);
+  border-radius: 8px;
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+  color: inherit;
+}
+.image-option:hover {
+  border-color: var(--accent-light);
+}
+.image-option--selected {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(124, 58, 237, 0.35);
+}
+.image-option img {
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+  border-radius: 5px;
+  background: var(--surface);
+}
+.option-source {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.option-detail {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.open-link {
+  font-size: 0.75rem;
+  color: var(--accent);
+  text-decoration: none;
+  margin-left: 0.4rem;
+}
+.open-link:hover {
+  text-decoration: underline;
 }
 
 .field {

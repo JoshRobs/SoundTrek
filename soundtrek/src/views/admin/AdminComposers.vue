@@ -4,6 +4,9 @@ import { storeToRefs } from "pinia";
 import { supabase } from "@/lib/supabase";
 import { useSoundtrackStore } from "@/stores/soundtracks";
 import type { Soundtrack } from "@/types/soundtrack";
+import { splitComposerNames } from "@/utils/composerNames";
+import ComposerNamesPreview from "@/components/admin/ComposerNamesPreview.vue";
+import { usePersistentSet } from "@/composables/usePersistentSet";
 
 interface WikiResult {
   pageTitle: string;
@@ -24,7 +27,7 @@ const { allSoundtracks } = storeToRefs(useSoundtrackStore());
 
 // ── Queue: soundtracks with no composers ──────────────────────────────────────
 
-const skipped = ref(new Set<string>());
+const { set: skipped, clear: clearSkipped } = usePersistentSet("composers-skipped");
 const composers = ref("");
 const wikiResult = ref<WikiResult | null>(null);
 const mbResults = ref<MBResult[]>([]);
@@ -46,6 +49,8 @@ const remaining = computed(
   () => queue.value.filter((s) => !skipped.value.has(s.id)).length,
 );
 
+const skippedCount = computed(() => queue.value.length - remaining.value);
+
 watch(
   selected,
   (s) => {
@@ -53,7 +58,9 @@ watch(
     wikiResult.value = null;
     mbResults.value = [];
     lookupError.value = null;
-    success.value = null;
+    looking.value = false; // any in-flight lookup is for the previous game
+    // success is kept: it names the game it's about, and saving advances the
+    // queue, so clearing it here would hide it the moment it appears.
     if (s) composers.value = (s.composers ?? []).join(", ");
   },
   { immediate: true },
@@ -177,7 +184,8 @@ async function lookupMusicBrainz(title: string): Promise<MBResult[]> {
 // ── Combined lookup ───────────────────────────────────────────────────────────
 
 async function lookup() {
-  if (!selected.value) return;
+  const target = selected.value;
+  if (!target) return;
   looking.value = true;
   lookupError.value = null;
   wikiResult.value = null;
@@ -185,9 +193,13 @@ async function lookup() {
 
   try {
     const [wiki, mb] = await Promise.allSettled([
-      lookupWikipedia(selected.value.game_title),
-      lookupMusicBrainz(selected.value.game_title),
+      lookupWikipedia(target.game_title),
+      lookupMusicBrainz(target.game_title),
     ]);
+
+    // Moved on (skip/save) while looking up — these results belong to the
+    // previous game, so drop them rather than offer them for this one.
+    if (selected.value?.id !== target.id) return;
 
     if (wiki.status === "fulfilled") wikiResult.value = wiki.value;
     if (mb.status === "fulfilled") mbResults.value = mb.value;
@@ -198,22 +210,19 @@ async function lookup() {
   } catch (e) {
     lookupError.value = (e as Error).message;
   } finally {
-    looking.value = false;
+    if (selected.value?.id === target.id) looking.value = false;
   }
 }
 
 // ── Save ──────────────────────────────────────────────────────────────────────
 
-function splitComposers(raw: string): string[] {
-  return raw
-    .split(",")
-    .map((s) => s.trim())
-    .filter(Boolean);
-}
+const splitComposers = splitComposerNames;
 
 async function save() {
-  if (!selected.value) return;
-  saving.value = false;
+  // Pin the soundtrack being saved — Skip can move `selected` on while the
+  // request is in flight, and the result must land on this one.
+  const target = selected.value;
+  if (!target) return;
   success.value = null;
   saveError.value = null;
 
@@ -223,17 +232,16 @@ async function save() {
   const { error } = await supabase
     .from("soundtracks")
     .update({ composers: names })
-    .eq("id", selected.value.id);
+    .eq("id", target.id);
 
   saving.value = false;
 
   if (error) {
-    saveError.value = error.message;
+    saveError.value = `${target.game_title}: ${error.message}`;
   } else {
     // Update store so the item drops off the queue immediately
-    const s = allSoundtracks.value.find((s) => s.id === selected.value?.id);
-    if (s) s.composers = names;
-    success.value = `Saved — ${remaining.value - 1} remaining.`;
+    target.composers = names;
+    success.value = `Saved ${target.game_title} — ${remaining.value} remaining.`;
   }
 }
 
@@ -251,6 +259,9 @@ const googleUrl = computed(() =>
       <span class="queue-count"
         >{{ remaining }} soundtracks without composers</span
       >
+      <button v-if="skippedCount" class="btn btn--ghost" @click="clearSkipped">
+        Un-skip {{ skippedCount }}
+      </button>
       <button class="btn btn--ghost" :disabled="!selected" @click="skip">
         Skip →
       </button>
@@ -294,14 +305,7 @@ const googleUrl = computed(() =>
           />
         </label>
 
-        <div v-if="composers" class="tag-preview">
-          <span
-            v-for="name in splitComposers(composers)"
-            :key="name"
-            class="tag"
-            >{{ name }}</span
-          >
-        </div>
+        <ComposerNamesPreview v-model="composers" />
 
         <div class="save-row">
           <button class="btn btn--primary" :disabled="saving" @click="save">

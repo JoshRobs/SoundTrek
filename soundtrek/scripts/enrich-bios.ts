@@ -179,15 +179,23 @@ async function fetchWikiSummary(pageTitle: string): Promise<WikiSummary> {
       extract?: string;
       type?: string;
       thumbnail?: { source: string };
-      originalimage?: { source: string };
+      originalimage?: { source: string; width: number };
     };
     if (data.type === "disambiguation") return { bio: null, imageUrl: null };
 
-    // The summary thumbnail is ~320px; Commons thumb URLs embed the width,
-    // so bump it for a sharper avatar. Falls through untouched if the URL
-    // doesn't match the thumb pattern.
+    // The summary thumbnail is ~330px; Commons thumb URLs embed the width, so
+    // bump it for a sharper avatar. Wikimedia only renders a fixed set of
+    // widths (an arbitrary one like 512px returns HTTP 400), so use the
+    // standard 500px step, or the original when it's already that small.
+    const strip = (u: string) => u.split("?")[0]; // drop the API's utm_* tags
+    const orig = data.originalimage;
     const thumb = data.thumbnail?.source ?? null;
-    const imageUrl = thumb ? thumb.replace(/\/(\d+)px-/, "/512px-") : null;
+    const imageUrl =
+      orig && orig.width <= 500
+        ? strip(orig.source)
+        : thumb
+          ? strip(thumb).replace(/\/\d+px-/, "/500px-")
+          : null;
 
     return { bio: data.extract ?? null, imageUrl };
   } catch {
@@ -218,7 +226,7 @@ async function fetchWikidataImage(enwikiTitle: string): Promise<string | null> {
     const entity = Object.values(data.entities ?? {})[0];
     const filename = entity?.claims?.P18?.[0]?.mainsnak?.datavalue?.value;
     if (!filename || typeof filename !== "string") return null;
-    return `https://commons.wikimedia.org/wiki/Special:FilePath/${encodeURIComponent(filename)}?width=512`;
+    return `https://commons.wikimedia.org/wiki/Special:FilePath/${encodeURIComponent(filename)}?width=500`;
   } catch {
     return null;
   }

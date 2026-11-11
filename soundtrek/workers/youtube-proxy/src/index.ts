@@ -51,6 +51,13 @@ export default {
       return youtubeSearch(q, env);
     }
 
+    // Admin "Composer Bios" — artist photo candidates. Deezer's API is public
+    // but sends no CORS headers, so the browser can't call it directly.
+    if (url.pathname === "/deezer-artists") {
+      const q = url.searchParams.get("q") ?? "";
+      return deezerArtists(q);
+    }
+
     const infoMatch = url.pathname.match(/^\/playlist-info\/([A-Za-z0-9_-]+)$/);
     if (infoMatch) {
       return playlistInfo(infoMatch[1], env);
@@ -191,6 +198,44 @@ function catalogResponse(body: string): Response {
 
 // Playlist metadata (title, item count) — used by the admin link checker.
 // Cached briefly so repeated checks are cheap but corrections show up fast.
+// Deezer artist search → { results: [{ id, name, fans, picture }] } for the
+// admin composer image picker. Artists without a real photo are dropped —
+// Deezer serves a generic silhouette for those, recognisable by an empty
+// image hash ("/images/artist//").
+async function deezerArtists(query: string): Promise<Response> {
+  const json = (body: unknown, status = 200) =>
+    new Response(JSON.stringify(body), {
+      status,
+      headers: {
+        ...CORS_HEADERS,
+        "Content-Type": "application/json",
+        ...(status === 200 ? { "Cache-Control": "public, max-age=86400" } : {}),
+      },
+    });
+
+  const q = query.trim();
+  if (!q) return json({ error: "missing query" }, 400);
+
+  try {
+    const res = await fetch(
+      `https://api.deezer.com/search/artist?q=${encodeURIComponent(q)}&limit=10`,
+    );
+    if (!res.ok) return json({ error: `Deezer HTTP ${res.status}` }, 502);
+    const data = (await res.json()) as {
+      data?: { id: number; name: string; nb_fan: number; picture_xl?: string }[];
+      error?: { message?: string };
+    };
+    if (data.error) return json({ error: data.error.message ?? "Deezer error" }, 502);
+
+    const results = (data.data ?? [])
+      .filter((a) => a.picture_xl && !a.picture_xl.includes("/images/artist//"))
+      .map((a) => ({ id: a.id, name: a.name, fans: a.nb_fan, picture: a.picture_xl! }));
+    return json({ results });
+  } catch {
+    return json({ error: "Deezer unreachable" }, 502);
+  }
+}
+
 async function playlistInfo(playlistId: string, env: Env): Promise<Response> {
   const cacheKey = `playlist-info:${playlistId}`;
 

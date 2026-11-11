@@ -3,6 +3,8 @@ import { ref, computed, watch } from "vue";
 import { storeToRefs } from "pinia";
 import { supabase } from "@/lib/supabase";
 import { useSoundtrackStore } from "@/stores/soundtracks";
+import { usePersistentSet } from "@/composables/usePersistentSet";
+import { searchSoundtracks } from "@/utils/searchSoundtracks";
 import type { Soundtrack } from "@/types/soundtrack";
 
 const { allSoundtracks } = storeToRefs(useSoundtrackStore());
@@ -15,7 +17,8 @@ const PARTNER_TAG = import.meta.env.VITE_AMAZON_TAG as string | undefined;
 type Filter = "either" | "amazon" | "loaded";
 
 const filter = ref<Filter>("either");
-const skipped = ref(new Set<string>());
+// Skipped, or saved while still missing one link (e.g. not sold on Loaded).
+const { set: skipped, clear: clearSkipped } = usePersistentSet("buy-links-skipped");
 
 const missing: Record<Filter, (s: Soundtrack) => boolean> = {
   either: (s) => !s.amazon_url || !s.loaded_url,
@@ -62,34 +65,9 @@ const gameQuery = ref("");
 const searchOpen = ref(false);
 const searchActive = ref(0);
 
-const normalize = (s: string) =>
-  s
-    .normalize("NFD")
-    .replace(/\p{Diacritic}/gu, "")
-    .toLowerCase()
-    .trim();
-
-const likesOf = (s: Soundtrack) => s.total_likes ?? s.likes ?? 0;
-
-const searchResults = computed(() => {
-  const q = normalize(gameQuery.value);
-  if (!q) return [];
-  return allSoundtracks.value
-    .map((s) => {
-      const t = normalize(s.game_title ?? "");
-      const idx = t.indexOf(q);
-      return { s, idx, startsWord: idx === 0 || /\W/.test(t[idx - 1] ?? "") };
-    })
-    .filter((r) => r.idx !== -1)
-    .sort(
-      (a, b) =>
-        Number(b.startsWord) - Number(a.startsWord) ||
-        likesOf(b.s) - likesOf(a.s) ||
-        (a.s.game_title ?? "").localeCompare(b.s.game_title ?? ""),
-    )
-    .slice(0, 10)
-    .map((r) => r.s);
-});
+const searchResults = computed(() =>
+  searchSoundtracks(allSoundtracks.value, gameQuery.value),
+);
 
 watch(searchResults, () => (searchActive.value = 0));
 
@@ -349,6 +327,9 @@ async function save() {
       </div>
       <span class="queue-count">{{ remaining }} left</span>
       <span v-if="savedNote" class="saved-note">{{ savedNote }}</span>
+      <button v-if="passed" class="btn btn--ghost" @click="clearSkipped">
+        Un-skip {{ passed }}
+      </button>
       <button class="btn btn--ghost" :disabled="!queueHead" @click="skip">
         Skip →
       </button>
@@ -526,8 +507,8 @@ async function save() {
     </template>
 
     <p v-else-if="passed" class="hint">
-      End of the queue for this session — {{ passed }} skipped or saved but
-      still missing a link.
+      End of the queue — {{ passed }} skipped or saved but still missing a
+      link. Use “Un-skip” to go through them again.
     </p>
     <p v-else class="hint">
       Every soundtrack has

@@ -1,8 +1,15 @@
 <script setup lang="ts">
-import { ref, watch, computed } from "vue";
+import { ref, watch, computed, onMounted, onBeforeUnmount } from "vue";
+import { onBeforeRouteLeave } from "vue-router";
 import { storeToRefs } from "pinia";
 import { supabase } from "@/lib/supabase";
 import { toSlug } from "@/utils/slug";
+import { splitComposerNames } from "@/utils/composerNames";
+import { syncTracklist } from "@/utils/syncTracklist";
+import { searchSoundtracks } from "@/utils/searchSoundtracks";
+import ComposerNamesPreview from "@/components/admin/ComposerNamesPreview.vue";
+import LinkStatus from "@/components/admin/LinkStatus.vue";
+import { useLinkCheck } from "@/composables/useLinkCheck";
 import { useSoundtrackStore } from "@/stores/soundtracks";
 import type { Soundtrack, StreamingPlatform } from "@/types/soundtrack";
 
@@ -14,28 +21,72 @@ const query        = ref("");
 const selected     = ref<Soundtrack | null>(null);
 const searchOpen   = ref(false);
 
-const results = computed(() => {
-  const q = query.value.trim().toLowerCase();
-  if (!q) return [];
-  return allSoundtracks.value
-    .filter(s => s.game_title.toLowerCase().includes(q))
-    .slice(0, 10);
-});
+const searchActive = ref(0);
+
+const results = computed(() => searchSoundtracks(allSoundtracks.value, query.value));
+watch(results, () => (searchActive.value = 0));
 
 function pick(s: Soundtrack) {
+  searchOpen.value = false;
+  if (s.id !== selected.value?.id && !confirmDiscard()) {
+    query.value = selected.value?.game_title ?? "";
+    return;
+  }
   selected.value  = s;
   query.value     = s.game_title;
-  searchOpen.value = false;
   populateForm(s);
+}
+
+function onSearchKey(e: KeyboardEvent) {
+  const n = results.value.length;
+  if (e.key === "ArrowDown" && n) {
+    e.preventDefault();
+    searchOpen.value = true;
+    searchActive.value = (searchActive.value + 1) % n;
+  } else if (e.key === "ArrowUp" && n) {
+    e.preventDefault();
+    searchActive.value = (searchActive.value - 1 + n) % n;
+  } else if (e.key === "Enter" && n && searchOpen.value) {
+    e.preventDefault();
+    pick(results.value[searchActive.value]);
+  } else if (e.key === "Escape") {
+    searchOpen.value = false;
+  }
 }
 
 function closeSearch() { setTimeout(() => { searchOpen.value = false }, 150); }
 
 function clearSelection() {
+  if (!confirmDiscard()) return;
   selected.value = null;
   query.value    = "";
   resetForm();
 }
+
+// ── Unsaved changes ───────────────────────────────────────────────────────────
+// Snapshot of the form as last loaded or saved; any difference is unsaved.
+
+const savedSnapshot = ref("");
+const snapshot = () => JSON.stringify({ form: form.value, links: streamingLinks.value });
+function markClean() { savedSnapshot.value = snapshot(); }
+
+const dirty = computed(() => !!selected.value && snapshot() !== savedSnapshot.value);
+
+function confirmDiscard(): boolean {
+  // Mid-save the changes aren't lost — the save finishes on its own soundtrack.
+  if (!dirty.value || saving.value) return true;
+  return window.confirm(`Discard your unsaved changes to "${selected.value?.game_title}"?`);
+}
+
+onBeforeRouteLeave(() => confirmDiscard());
+
+function onBeforeUnload(e: BeforeUnloadEvent) {
+  if (!dirty.value) return;
+  e.preventDefault();
+  e.returnValue = "";
+}
+onMounted(() => window.addEventListener("beforeunload", onBeforeUnload));
+onBeforeUnmount(() => window.removeEventListener("beforeunload", onBeforeUnload));
 
 // ── Form state ────────────────────────────────────────────────────────────────
 
@@ -70,6 +121,7 @@ function blankForm() {
 function resetForm() {
   form.value = blankForm();
   streamingLinks.value = [];
+  markClean();
 }
 
 function populateForm(s: Soundtrack) {
@@ -101,12 +153,43 @@ function populateForm(s: Soundtrack) {
     url:      l.url,
     label:    l.label ?? "",
   }));
+  success.value = null;
+  error.value   = null;
+  markClean();
 }
 
 // Auto-generate slug only if not manually set
 watch(() => form.value.game_title, (title) => {
   if (!form.value.slugManual) form.value.slug = toSlug(title);
 });
+
+// ── Link preview / open / search ──────────────────────────────────────────────
+
+const {
+  resolved,
+  playlistUrl,
+  videoUrl,
+  spotifyUrl,
+  playlistSearchUrl,
+  videoSearchUrl,
+  spotifySearchUrl,
+} = useLinkCheck(
+  {
+    playlistId:  () => (selected.value ? form.value.youtube_playlist_id : ""),
+    videoId:     () => (selected.value ? form.value.youtube_video_id : ""),
+    spotifyId:   () => (selected.value ? form.value.spotify_id : ""),
+    spotifyType: () => form.value.spotify_type,
+    gameTitle:   () => form.value.game_title,
+  },
+  { auto: true },
+);
+
+const playlistChanged = computed(
+  () =>
+    !!selected.value &&
+    (form.value.youtube_playlist_id.trim() || null) !==
+      (selected.value.youtube_playlist_id ?? null),
+);
 
 // ── Streaming Links ───────────────────────────────────────────────────────────
 
@@ -125,7 +208,11 @@ function splitTags(raw: string): string[] {
 }
 
 async function submit() {
-  if (!selected.value) return;
+  // Pin the soundtrack being saved: the search lets you open another one while
+  // this is in flight, and everything after an await must still target this
+  // one — never whatever `selected` has become.
+  const target = selected.value;
+  if (!target) return;
   error.value   = null;
   success.value = null;
 
@@ -139,7 +226,7 @@ async function submit() {
   // A changed Loaded link invalidates the synced price until the next
   // scripts/sync-loaded.ts run prices the new product.
   const loadedPriceReset =
-    loadedUrl !== (selected.value.loaded_url ?? null)
+    loadedUrl !== (target.loaded_url ?? null)
       ? {
           loaded_price:            null,
           loaded_original_price:   null,
@@ -166,7 +253,7 @@ async function submit() {
     amazon_image_url:    form.value.amazon_image_url.trim()    || null,
     loaded_url:          loadedUrl,
     ...loadedPriceReset,
-    composers:           splitTags(form.value.composers),
+    composers:           splitComposerNames(form.value.composers),
     genre_tags:          splitTags(form.value.genre_tags),
     theme_tags:          splitTags(form.value.theme_tags),
     keyword_tags:        splitTags(form.value.keyword_tags),
@@ -175,19 +262,46 @@ async function submit() {
       .map(l => ({ platform: l.platform, url: l.url.trim(), ...(l.label.trim() ? { label: l.label.trim() } : {}) })),
   };
 
+  const prevPlaylistId = target.youtube_playlist_id ?? null;
+  // Results are prefixed with the game when you have since moved to another.
+  const stillHere = () => selected.value?.id === target.id;
+  const report = (msg: string) => (stillHere() ? msg : `${target.game_title}: ${msg}`);
+
   const { error: err } = await supabase
     .from("soundtracks")
     .update(row)
-    .eq("id", selected.value.id);
-
-  saving.value = false;
+    .eq("id", target.id);
 
   if (err) {
-    error.value = err.message;
-  } else {
-    success.value = "Saved successfully.";
-    // Update local store so changes reflect immediately without a reload
-    Object.assign(selected.value, { ...row, streaming_links: row.streaming_links });
+    saving.value = false;
+    error.value = report(err.message);
+    return;
+  }
+
+  // Update local store so changes reflect immediately without a reload
+  Object.assign(target, { ...row, streaming_links: row.streaming_links });
+  if (stillHere()) markClean();
+
+  // The public page serves the stored tracks rows whenever any exist, so a
+  // changed playlist must regenerate them or the old tracklist keeps showing.
+  let trackNote = "";
+  if (row.youtube_playlist_id !== prevPlaylistId) {
+    try {
+      trackNote = await syncTracklist(target.id, row.youtube_playlist_id, {
+        gameTitle: row.game_title,
+        composers: row.composers,
+        studio:    row.studio,
+      });
+    } catch (e) {
+      error.value = report(`Saved, but tracklist sync failed: ${
+        e instanceof Error ? e.message : "unknown error"
+      }`);
+    }
+  }
+
+  saving.value = false;
+  if (!error.value) {
+    success.value = report(trackNote ? `Saved — ${trackNote}.` : "Saved successfully.");
   }
 }
 </script>
@@ -206,13 +320,15 @@ async function submit() {
           @focus="searchOpen = true"
           @blur="closeSearch"
           @input="searchOpen = true"
+          @keydown="onSearchKey"
         />
         <button v-if="selected" class="clear-btn" type="button" @click="clearSelection">✕</button>
         <ul v-if="searchOpen && results.length" class="search-dropdown">
           <li
-            v-for="s in results"
+            v-for="(s, i) in results"
             :key="s.id"
             class="search-item"
+            :class="{ 'search-item--active': i === searchActive }"
             @mousedown.prevent
             @click="pick(s)"
           >
@@ -260,6 +376,7 @@ async function submit() {
           <label class="field">
             <span>Composers <em>(comma-separated)</em></span>
             <input v-model="form.composers" type="text" />
+            <ComposerNamesPreview v-model="form.composers" />
           </label>
         </div>
         <label class="field field--full">
@@ -297,33 +414,57 @@ async function submit() {
       <section class="form-section">
         <h2 class="section-title">YouTube</h2>
         <div class="field-grid">
-          <label class="field">
-            <span>Playlist ID</span>
-            <input v-model="form.youtube_playlist_id" type="text" />
-          </label>
-          <label class="field">
-            <span>Video ID</span>
-            <input v-model="form.youtube_video_id" type="text" />
-          </label>
+          <div class="field-with-preview">
+            <label class="field">
+              <span>
+                Playlist ID
+                <a v-if="playlistUrl" :href="playlistUrl" target="_blank" rel="noopener" class="open-link">Open ↗</a>
+                <a v-if="playlistSearchUrl" :href="playlistSearchUrl" target="_blank" rel="noopener" class="open-link">Search ↗</a>
+              </span>
+              <input v-model="form.youtube_playlist_id" type="text" spellcheck="false" />
+            </label>
+            <LinkStatus :result="resolved.playlist" />
+          </div>
+          <div class="field-with-preview">
+            <label class="field">
+              <span>
+                Video ID
+                <a v-if="videoUrl" :href="videoUrl" target="_blank" rel="noopener" class="open-link">Open ↗</a>
+                <a v-if="videoSearchUrl" :href="videoSearchUrl" target="_blank" rel="noopener" class="open-link">Search ↗</a>
+              </span>
+              <input v-model="form.youtube_video_id" type="text" spellcheck="false" />
+            </label>
+            <LinkStatus :result="resolved.video" />
+          </div>
         </div>
+        <p v-if="playlistChanged" class="field-hint">
+          Playlist changed. Saving will rebuild this soundtrack's tracklist from the new playlist.
+        </p>
       </section>
 
       <section class="form-section">
         <h2 class="section-title">Spotify</h2>
-        <div class="field-grid">
-          <label class="field">
-            <span>Spotify ID</span>
-            <input v-model="form.spotify_id" type="text" />
-          </label>
-          <label class="field">
-            <span>Spotify Type</span>
-            <select v-model="form.spotify_type">
-              <option value="">— none —</option>
-              <option value="album">album</option>
-              <option value="playlist">playlist</option>
-              <option value="track">track</option>
-            </select>
-          </label>
+        <div class="field-with-preview">
+          <div class="field-grid">
+            <label class="field">
+              <span>
+                Spotify ID
+                <a v-if="spotifyUrl" :href="spotifyUrl" target="_blank" rel="noopener" class="open-link">Open ↗</a>
+                <a v-if="spotifySearchUrl" :href="spotifySearchUrl" target="_blank" rel="noopener" class="open-link">Search ↗</a>
+              </span>
+              <input v-model="form.spotify_id" type="text" spellcheck="false" />
+            </label>
+            <label class="field">
+              <span>Spotify Type</span>
+              <select v-model="form.spotify_type">
+                <option value="">— none —</option>
+                <option value="album">album</option>
+                <option value="playlist">playlist</option>
+                <option value="track">track</option>
+              </select>
+            </label>
+          </div>
+          <LinkStatus :result="resolved.spotify" />
         </div>
       </section>
 
@@ -389,7 +530,8 @@ async function submit() {
 
       <div class="form-footer">
         <p v-if="error"   class="msg msg--error">{{ error }}</p>
-        <p v-if="success" class="msg msg--success">{{ success }}</p>
+        <p v-if="success && !dirty" class="msg msg--success">{{ success }}</p>
+        <p v-if="dirty && !saving" class="unsaved-note">Unsaved changes</p>
         <button type="submit" class="submit-btn" :disabled="saving">
           {{ saving ? "Saving…" : "Save Changes" }}
         </button>
@@ -477,7 +619,8 @@ async function submit() {
   cursor: pointer;
 }
 
-.search-item:hover { background: var(--surface); }
+.search-item:hover,
+.search-item--active { background: var(--surface); }
 
 .search-thumb {
   width: 32px;
@@ -581,6 +724,11 @@ async function submit() {
 .field textarea { resize: vertical; }
 .field-hint { font-size: 0.75rem; color: var(--text-muted); margin: 0; }
 
+/* Link fields with a live resolved-title preview underneath */
+.field-with-preview { display: flex; flex-direction: column; gap: 0.35rem; }
+.open-link { font-size: 0.75rem; color: var(--accent); text-decoration: none; margin-left: 0.4rem; }
+.open-link:hover { text-decoration: underline; }
+
 .cover-preview img {
   height: 100px;
   border-radius: 6px;
@@ -647,4 +795,5 @@ async function submit() {
 }
 
 .submit-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.unsaved-note { margin: 0; font-size: 0.8rem; color: #fbbf24; }
 </style>

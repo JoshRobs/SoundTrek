@@ -1,8 +1,16 @@
 <script setup lang="ts">
-import { ref, watch, computed } from "vue";
+import { ref, watch } from "vue";
 import { supabase } from "@/lib/supabase";
 import { toSlug } from "@/utils/slug";
-import type { StreamingPlatform } from "@/types/soundtrack";
+import { storeToRefs } from "pinia";
+import { splitComposerNames } from "@/utils/composerNames";
+import { useSoundtrackStore } from "@/stores/soundtracks";
+import ComposerNamesPreview from "@/components/admin/ComposerNamesPreview.vue";
+import LinkStatus from "@/components/admin/LinkStatus.vue";
+import { useLinkCheck } from "@/composables/useLinkCheck";
+import type { Soundtrack, StreamingPlatform } from "@/types/soundtrack";
+
+const { allSoundtracks } = storeToRefs(useSoundtrackStore());
 
 // ── Form state ────────────────────────────────────────────────────────────────
 
@@ -76,9 +84,15 @@ interface IgdbCandidate {
   rating: number | null;
   rating_count: number | null;
   popularity: number | null;
-  // Filled in after we check our own DB for a title collision.
+  // Filled in after we check our own DB. `existing` = same title AND year (a true
+  // duplicate); `sameTitleYears` = years of rows sharing only the title (e.g. a
+  // remake of something already catalogued) — importable, just flagged.
   existing?: { id: string; slug: string | null } | null;
+  sameTitleYears?: number[];
 }
+
+// Same-titled games (remakes/reboots) are told apart by release year.
+const titleYearKey = (title: string, year: number | null | undefined) => `${title}|${year ?? ""}`;
 
 const proxyUrl = import.meta.env.VITE_YOUTUBE_PROXY_URL as string | undefined;
 
@@ -122,17 +136,25 @@ async function searchIgdb() {
     const data = (await res.json()) as { results: IgdbCandidate[] };
     const results = data.results ?? [];
 
-    // Flag any candidate already in our DB (ingest skips these by exact title).
+    // Flag any candidate already in our DB — matched on title + release year so a
+    // remake sharing its original's title isn't mistaken for the original.
     if (results.length) {
       const titles = results.map((r) => r.game_title);
       const { data: existing } = await supabase
         .from("soundtracks")
-        .select("id, slug, game_title")
+        .select("id, slug, game_title, release_year")
         .in("game_title", titles);
-      const byTitle = new Map(
-        (existing ?? []).map((e) => [e.game_title as string, { id: e.id as string, slug: e.slug as string | null }]),
-      );
-      for (const r of results) r.existing = byTitle.get(r.game_title) ?? null;
+      const byTitleYear = new Map<string, { id: string; slug: string | null }>();
+      const yearsByTitle = new Map<string, number[]>();
+      for (const e of existing ?? []) {
+        const title = e.game_title as string;
+        byTitleYear.set(titleYearKey(title, e.release_year as number), { id: e.id as string, slug: e.slug as string | null });
+        yearsByTitle.set(title, [...(yearsByTitle.get(title) ?? []), e.release_year as number]);
+      }
+      for (const r of results) {
+        r.existing = byTitleYear.get(titleYearKey(r.game_title, r.release_year)) ?? null;
+        r.sameTitleYears = r.existing ? [] : (yearsByTitle.get(r.game_title) ?? []);
+      }
     }
 
     igdbResults.value = results;
@@ -173,11 +195,13 @@ async function surpriseMe() {
       const titles = results.map((r) => r.game_title);
       const { data: existing } = await supabase
         .from("soundtracks")
-        .select("game_title")
+        .select("game_title, release_year")
         .in("game_title", titles);
-      const inDb = new Set((existing ?? []).map((e) => e.game_title as string));
+      const inDb = new Set(
+        (existing ?? []).map((e) => titleYearKey(e.game_title as string, e.release_year as number)),
+      );
 
-      const pick = results.find((r) => !inDb.has(r.game_title));
+      const pick = results.find((r) => !inDb.has(titleYearKey(r.game_title, r.release_year)));
       if (pick) {
         await importGame(pick);
         return;
@@ -189,6 +213,14 @@ async function surpriseMe() {
   } finally {
     randomizing.value = false;
   }
+}
+
+async function availableSlug(title: string, year: number, igdbId: number): Promise<string> {
+  const base = toSlug(title);
+  const options = [base, `${base}-${year}`, `${base}-${String(igdbId).slice(0, 6)}`];
+  const { data } = await supabase.from("soundtracks").select("slug").in("slug", options);
+  const taken = new Set((data ?? []).map((r) => r.slug as string));
+  return options.find((s) => !taken.has(s)) ?? base;
 }
 
 async function importGame(c: IgdbCandidate) {
@@ -206,9 +238,10 @@ async function importGame(c: IgdbCandidate) {
     form.value.cover_image_url    = c.cover_image_url ?? "";
     form.value.cover_image_url_hd = c.cover_image_url_hd ?? "";
     form.value.genre_tags        = c.genre_tags.join(", ");
-    // Slug auto-generates via the watcher on game_title (unless manually edited).
+    // slug is UNIQUE in the DB, so a remake sharing its original's title gets the
+    // year appended — same fallback chain as generateSlug in ingest.ts.
     form.value.slugManual = false;
-    form.value.slug = toSlug(c.game_title);
+    form.value.slug = await availableSlug(c.game_title, form.value.release_year, c.igdb_id);
     // Composers aren't in IGDB — ingest leaves them empty (enrich-composers fills later).
     form.value.composers = "";
 
@@ -268,171 +301,26 @@ async function importGame(c: IgdbCandidate) {
   }
 }
 
-// ── Link preview / open / search (mirrors AdminLinks.vue) ─────────────────────
+// ── Link preview / open / search ──────────────────────────────────────────────
+// Auto-resolves (debounced) as the ID fields change, including after an import.
 
-interface Resolved {
-  status: "empty" | "loading" | "ok" | "error";
-  title?: string;
-  error?: string;
-}
-
-const resolved = ref<{
-  playlist: Resolved;
-  video: Resolved;
-  spotify: Resolved;
-}>({
-  playlist: { status: "empty" },
-  video: { status: "empty" },
-  spotify: { status: "empty" },
-});
-
-let checkToken = 0;
-
-async function resolveOembed(endpoint: string): Promise<Resolved> {
-  try {
-    const res = await fetch(endpoint);
-    if (!res.ok) {
-      return { status: "error", error: `HTTP ${res.status} — broken, private, or deleted` };
-    }
-    const data = (await res.json()) as { title?: string };
-    return data.title
-      ? { status: "ok", title: data.title }
-      : { status: "error", error: "No title in response" };
-  } catch {
-    return { status: "error", error: "Request failed" };
-  }
-}
-
-// mm:ss (or h:mm:ss) from a YouTube contentDetails ISO 8601 duration like "PT4M13S"
-function formatDuration(iso: string): string {
-  const m = iso.match(/^PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?$/);
-  if (!m) return iso;
-  const h = parseInt(m[1] ?? "0", 10);
-  const min = parseInt(m[2] ?? "0", 10);
-  const s = parseInt(m[3] ?? "0", 10);
-  const parts =
-    h > 0
-      ? [h, String(min).padStart(2, "0"), String(s).padStart(2, "0")]
-      : [min, String(s).padStart(2, "0")];
-  return parts.join(":");
-}
-
-async function resolveVideo(id: string): Promise<Resolved> {
-  if (!proxyUrl) return { status: "error", error: "VITE_YOUTUBE_PROXY_URL not configured" };
-  try {
-    const res = await fetch(`${proxyUrl}/video-info/${id}`);
-    if (res.status === 404) return { status: "error", error: "Video not found — deleted or private" };
-    if (!res.ok) return { status: "error", error: `Proxy error (HTTP ${res.status})` };
-    const data = (await res.json()) as { title: string; channel: string; duration?: string };
-    return {
-      status: "ok",
-      title: `${data.title}${data.duration ? ` (${formatDuration(data.duration)})` : ""}`,
-    };
-  } catch {
-    return { status: "error", error: "Proxy unreachable — is the worker running?" };
-  }
-}
-
-async function resolvePlaylist(id: string): Promise<Resolved> {
-  if (!proxyUrl) return { status: "error", error: "VITE_YOUTUBE_PROXY_URL not configured" };
-  try {
-    const res = await fetch(`${proxyUrl}/playlist-info/${id}`);
-    if (res.status === 404) return { status: "error", error: "Playlist not found — deleted or private" };
-    if (!res.ok) return { status: "error", error: `Proxy error (HTTP ${res.status})` };
-    const data = (await res.json()) as { title: string; channel: string; itemCount?: number };
-    return {
-      status: "ok",
-      title: `${data.title}${data.itemCount != null ? ` (${data.itemCount} videos)` : ""}`,
-    };
-  } catch {
-    return { status: "error", error: "Proxy unreachable — is the worker running?" };
-  }
-}
-
-async function checkLinks() {
-  const token = ++checkToken;
-  const pl = form.value.youtube_playlist_id.trim();
-  const vid = form.value.youtube_video_id.trim();
-  const sp = form.value.spotify_id.trim();
-
-  resolved.value = {
-    playlist: { status: pl ? "loading" : "empty" },
-    video: { status: vid ? "loading" : "empty" },
-    spotify: { status: sp ? "loading" : "empty" },
-  };
-
-  const [plRes, vidRes, spRes] = await Promise.all([
-    pl ? resolvePlaylist(pl) : Promise.resolve<Resolved>({ status: "empty" }),
-    vid ? resolveVideo(vid) : Promise.resolve<Resolved>({ status: "empty" }),
-    sp
-      ? resolveOembed(
-          `https://open.spotify.com/oembed?url=${encodeURIComponent(
-            `https://open.spotify.com/${spotifyTypeForUrl.value}/${sp}`,
-          )}`,
-        )
-      : Promise.resolve<Resolved>({ status: "empty" }),
-  ]);
-
-  if (token !== checkToken) return; // stale — fields changed again
-  resolved.value = { playlist: plRes, video: vidRes, spotify: spRes };
-}
-
-// Auto-resolve as the ID fields change (debounced), including after an import.
-let resolveTimer: ReturnType<typeof setTimeout> | undefined;
-watch(
-  () => [
-    form.value.youtube_playlist_id,
-    form.value.youtube_video_id,
-    form.value.spotify_id,
-    form.value.spotify_type,
-  ],
-  () => {
-    clearTimeout(resolveTimer);
-    resolveTimer = setTimeout(checkLinks, 400);
+const {
+  resolved,
+  playlistUrl,
+  videoUrl,
+  spotifyUrl,
+  playlistSearchUrl,
+  videoSearchUrl,
+  spotifySearchUrl,
+} = useLinkCheck(
+  {
+    playlistId:  () => form.value.youtube_playlist_id,
+    videoId:     () => form.value.youtube_video_id,
+    spotifyId:   () => form.value.spotify_id,
+    spotifyType: () => form.value.spotify_type,
+    gameTitle:   () => form.value.game_title,
   },
-);
-
-// Spotify needs a type for its URL; the form field can be blank, default to album.
-const spotifyTypeForUrl = computed(() => form.value.spotify_type || "album");
-
-// External "Open ↗" links for whatever IDs are currently entered.
-const playlistUrl = computed(() =>
-  form.value.youtube_playlist_id.trim()
-    ? `https://www.youtube.com/playlist?list=${form.value.youtube_playlist_id.trim()}`
-    : null,
-);
-const videoUrl = computed(() =>
-  form.value.youtube_video_id.trim()
-    ? `https://www.youtube.com/watch?v=${form.value.youtube_video_id.trim()}`
-    : null,
-);
-const spotifyUrl = computed(() =>
-  form.value.spotify_id.trim()
-    ? `https://open.spotify.com/${spotifyTypeForUrl.value}/${form.value.spotify_id.trim()}`
-    : null,
-);
-
-// "Search ↗" links for the current game title — YouTube "sp" params filter
-// results by type (EgIQAw = playlists only, EgIQAQ = videos only).
-const searchQuery = computed(() =>
-  form.value.game_title.trim()
-    ? encodeURIComponent(`${form.value.game_title.trim()} full soundtrack`)
-    : "",
-);
-const playlistSearchUrl = computed(() =>
-  searchQuery.value
-    ? `https://www.youtube.com/results?search_query=${searchQuery.value}&sp=EgIQAw%3D%3D`
-    : null,
-);
-const videoSearchUrl = computed(() =>
-  searchQuery.value
-    ? `https://www.youtube.com/results?search_query=${searchQuery.value}&sp=EgIQAQ%3D%3D`
-    : null,
-);
-const spotifySearchUrl = computed(() =>
-  searchQuery.value
-    ? `https://open.spotify.com/search/${searchQuery.value}/albums`
-    : null,
+  { auto: true },
 );
 
 // Streaming links
@@ -482,7 +370,7 @@ async function submit() {
     amazon_url:          form.value.amazon_url.trim()          || null,
     amazon_image_url:    form.value.amazon_image_url.trim()    || null,
     loaded_url:          form.value.loaded_url.trim()          || null,
-    composers:           splitTags(form.value.composers),
+    composers:           splitComposerNames(form.value.composers),
     genre_tags:          splitTags(form.value.genre_tags),
     theme_tags:          splitTags(form.value.theme_tags),
     keyword_tags:        splitTags(form.value.keyword_tags),
@@ -499,13 +387,20 @@ async function submit() {
       .map(l => ({ platform: l.platform, url: l.url.trim(), ...(l.label.trim() ? { label: l.label.trim() } : {}) })),
   };
 
-  const { data, error: err } = await supabase.from("soundtracks").insert(row).select("id, slug").single();
+  const { data, error: err } = await supabase
+    .from("soundtracks")
+    .insert(row)
+    .select("*")
+    .single<Soundtrack>();
 
   saving.value = false;
 
   if (err) {
     error.value = err.message;
   } else {
+    // Add it to the loaded catalog so the other admin pages (Composers queue,
+    // Edit, Fix Links…) see it without a reload.
+    allSoundtracks.value.push(data);
     success.value = `Inserted! ID: ${data.id}`;
     // Open the new soundtrack in a new tab, leaving this form as-is.
     window.open(`/soundtrack/${data.slug ?? data.id}`, "_blank", "noopener");
@@ -577,6 +472,9 @@ async function submit() {
               <template v-if="c.rating_count"> · {{ c.rating_count }} ratings</template>
             </span>
             <span v-if="c.genre_tags.length" class="igdb-genres">{{ c.genre_tags.join(", ") }}</span>
+            <span v-if="c.sameTitleYears?.length" class="igdb-same-title">
+              Same title already in DB ({{ c.sameTitleYears.join(", ") }}) — this one will get a year-suffixed slug
+            </span>
           </div>
           <div class="igdb-action">
             <span v-if="c.existing" class="igdb-existing-badge">Already in DB</span>
@@ -629,6 +527,7 @@ async function submit() {
         <label class="field">
           <span>Composers <em>(comma-separated)</em></span>
           <input v-model="form.composers" type="text" placeholder="Darren Korb" />
+          <ComposerNamesPreview v-model="form.composers" />
         </label>
       </div>
 
@@ -684,12 +583,7 @@ async function submit() {
             </span>
             <input v-model="form.youtube_playlist_id" type="text" placeholder="PLxxxxxxx" spellcheck="false" />
           </label>
-          <p class="resolved" :class="`resolved--${resolved.playlist.status}`">
-            <template v-if="resolved.playlist.status === 'ok'">{{ resolved.playlist.title }}</template>
-            <template v-else-if="resolved.playlist.status === 'error'">{{ resolved.playlist.error }}</template>
-            <template v-else-if="resolved.playlist.status === 'loading'">Checking…</template>
-            <template v-else>Not set</template>
-          </p>
+          <LinkStatus :result="resolved.playlist" />
         </div>
 
         <div class="field-with-preview">
@@ -701,12 +595,7 @@ async function submit() {
             </span>
             <input v-model="form.youtube_video_id" type="text" placeholder="dQw4w9WgXcQ" spellcheck="false" />
           </label>
-          <p class="resolved" :class="`resolved--${resolved.video.status}`">
-            <template v-if="resolved.video.status === 'ok'">{{ resolved.video.title }}</template>
-            <template v-else-if="resolved.video.status === 'error'">{{ resolved.video.error }}</template>
-            <template v-else-if="resolved.video.status === 'loading'">Checking…</template>
-            <template v-else>Not set</template>
-          </p>
+          <LinkStatus :result="resolved.video" />
         </div>
       </div>
     </section>
@@ -734,12 +623,7 @@ async function submit() {
             </select>
           </label>
         </div>
-        <p class="resolved" :class="`resolved--${resolved.spotify.status}`">
-          <template v-if="resolved.spotify.status === 'ok'">{{ resolved.spotify.title }}</template>
-          <template v-else-if="resolved.spotify.status === 'error'">{{ resolved.spotify.error }}</template>
-          <template v-else-if="resolved.spotify.status === 'loading'">Checking…</template>
-          <template v-else>Not set</template>
-        </p>
+        <LinkStatus :result="resolved.spotify" />
       </div>
     </section>
 
@@ -996,6 +880,12 @@ async function submit() {
   text-overflow: ellipsis;
 }
 
+.igdb-same-title {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
 .igdb-action {
   flex-shrink: 0;
 }
@@ -1130,30 +1020,6 @@ async function submit() {
 
 .open-link:hover {
   text-decoration: underline;
-}
-
-.resolved {
-  margin: 0;
-  font-size: 0.8rem;
-  padding: 0.4rem 0.65rem;
-  border-radius: 6px;
-  border: 1px solid var(--border);
-  background: var(--surface);
-}
-
-.resolved--ok {
-  color: #4ade80;
-  border-color: rgba(74, 222, 128, 0.3);
-}
-
-.resolved--error {
-  color: #f87171;
-  border-color: rgba(248, 113, 113, 0.3);
-}
-
-.resolved--loading,
-.resolved--empty {
-  color: var(--text-muted);
 }
 
 .link-row {

@@ -3,7 +3,9 @@ import { ref, computed, watch } from "vue";
 import { storeToRefs } from "pinia";
 import { supabase } from "@/lib/supabase";
 import { useSoundtrackStore } from "@/stores/soundtracks";
-import { cleanTracklistTitles } from "@/utils/trackTitle";
+import { syncTracklist } from "@/utils/syncTracklist";
+import { useLinkCheck } from "@/composables/useLinkCheck";
+import LinkStatus from "@/components/admin/LinkStatus.vue";
 import type { Soundtrack } from "@/types/soundtrack";
 
 const { allSoundtracks } = storeToRefs(useSoundtrackStore());
@@ -118,6 +120,25 @@ const videoId = ref("");
 const spotifyId = ref("");
 const spotifyType = ref<"track" | "album" | "playlist">("album");
 
+// Resolves each ID to its title. Checked on every soundtrack change and via
+// the Re-check button rather than while typing.
+const {
+  resolved,
+  check: checkAll,
+  playlistUrl,
+  videoUrl,
+  spotifyUrl,
+  playlistSearchUrl,
+  videoSearchUrl,
+  spotifySearchUrl,
+} = useLinkCheck({
+  playlistId: () => playlistId.value,
+  videoId: () => videoId.value,
+  spotifyId: () => spotifyId.value,
+  spotifyType: () => spotifyType.value,
+  gameTitle: () => current.value?.game_title ?? "",
+});
+
 const saving = ref(false);
 const saveError = ref<string | null>(null);
 const success = ref<string | null>(null);
@@ -139,274 +160,19 @@ watch(
   { immediate: true },
 );
 
-// ── Title resolution — oEmbed for Spotify, youtube-proxy (Data API) for YouTube ──
-
-interface Resolved {
-  status: "empty" | "loading" | "ok" | "error";
-  title?: string;
-  error?: string;
-}
-
-const resolved = ref<{
-  playlist: Resolved;
-  video: Resolved;
-  spotify: Resolved;
-}>({
-  playlist: { status: "empty" },
-  video: { status: "empty" },
-  spotify: { status: "empty" },
-});
-
-let checkToken = 0;
-
-async function resolveOembed(endpoint: string): Promise<Resolved> {
-  try {
-    const res = await fetch(endpoint);
-    if (!res.ok) {
-      return {
-        status: "error",
-        error: `HTTP ${res.status} — broken, private, or deleted`,
-      };
-    }
-    const data = (await res.json()) as { title?: string };
-    return data.title
-      ? { status: "ok", title: data.title }
-      : { status: "error", error: "No title in response" };
-  } catch {
-    return { status: "error", error: "Request failed" };
-  }
-}
-
-// mm:ss (or h:mm:ss) from a YouTube contentDetails ISO 8601 duration like "PT4M13S"
-function formatDuration(iso: string): string {
-  const m = iso.match(/^PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?$/);
-  if (!m) return iso;
-  const h = parseInt(m[1] ?? "0", 10);
-  const min = parseInt(m[2] ?? "0", 10);
-  const s = parseInt(m[3] ?? "0", 10);
-  const parts =
-    h > 0
-      ? [h, String(min).padStart(2, "0"), String(s).padStart(2, "0")]
-      : [min, String(s).padStart(2, "0")];
-  return parts.join(":");
-}
-
-// YouTube's oEmbed doesn't include duration, so video titles go through the
-// youtube-proxy worker too, same as playlists.
-async function resolveVideo(id: string): Promise<Resolved> {
-  const proxyUrl = import.meta.env.VITE_YOUTUBE_PROXY_URL;
-  if (!proxyUrl) {
-    return { status: "error", error: "VITE_YOUTUBE_PROXY_URL not configured" };
-  }
-  try {
-    const res = await fetch(`${proxyUrl}/video-info/${id}`);
-    if (res.status === 404) {
-      return { status: "error", error: "Video not found — deleted or private" };
-    }
-    if (!res.ok) {
-      return { status: "error", error: `Proxy error (HTTP ${res.status})` };
-    }
-    const data = (await res.json()) as {
-      title: string;
-      channel: string;
-      duration?: string;
-    };
-    return {
-      status: "ok",
-      title: `${data.title}${
-        data.duration ? ` (${formatDuration(data.duration)})` : ""
-      }`,
-    };
-  } catch {
-    return {
-      status: "error",
-      error: "Proxy unreachable — is the worker running?",
-    };
-  }
-}
-
-// YouTube has no oEmbed for playlists, so playlist titles go through the
-// youtube-proxy worker, which holds the Data API key.
-async function resolvePlaylist(id: string): Promise<Resolved> {
-  const proxyUrl = import.meta.env.VITE_YOUTUBE_PROXY_URL;
-  if (!proxyUrl) {
-    return { status: "error", error: "VITE_YOUTUBE_PROXY_URL not configured" };
-  }
-  try {
-    const res = await fetch(`${proxyUrl}/playlist-info/${id}`);
-    if (res.status === 404) {
-      return {
-        status: "error",
-        error: "Playlist not found — deleted or private",
-      };
-    }
-    if (!res.ok) {
-      return { status: "error", error: `Proxy error (HTTP ${res.status})` };
-    }
-    const data = (await res.json()) as {
-      title: string;
-      channel: string;
-      itemCount?: number;
-    };
-    return {
-      status: "ok",
-      title: `${data.title}${
-        data.itemCount != null ? ` (${data.itemCount} videos)` : ""
-      }`,
-    };
-  } catch {
-    return {
-      status: "error",
-      error: "Proxy unreachable — is the worker running?",
-    };
-  }
-}
-
-async function checkAll() {
-  const token = ++checkToken;
-  const pl = playlistId.value.trim();
-  const vid = videoId.value.trim();
-  const sp = spotifyId.value.trim();
-
-  resolved.value = {
-    playlist: { status: pl ? "loading" : "empty" },
-    video: { status: vid ? "loading" : "empty" },
-    spotify: { status: sp ? "loading" : "empty" },
-  };
-
-  const [plRes, vidRes, spRes] = await Promise.all([
-    pl ? resolvePlaylist(pl) : Promise.resolve<Resolved>({ status: "empty" }),
-    vid ? resolveVideo(vid) : Promise.resolve<Resolved>({ status: "empty" }),
-    sp
-      ? resolveOembed(
-          `https://open.spotify.com/oembed?url=${encodeURIComponent(
-            `https://open.spotify.com/${spotifyType.value}/${sp}`,
-          )}`,
-        )
-      : Promise.resolve<Resolved>({ status: "empty" }),
-  ]);
-
-  if (token !== checkToken) return; // stale — user already moved on
-  resolved.value = { playlist: plRes, video: vidRes, spotify: spRes };
-}
-
-// ── External links ────────────────────────────────────────────────────────────
-
-const playlistUrl = computed(() =>
-  playlistId.value.trim()
-    ? `https://www.youtube.com/playlist?list=${playlistId.value.trim()}`
-    : null,
-);
-const videoUrl = computed(() =>
-  videoId.value.trim()
-    ? `https://www.youtube.com/watch?v=${videoId.value.trim()}`
-    : null,
-);
-const spotifyUrl = computed(() =>
-  spotifyId.value.trim()
-    ? `https://open.spotify.com/${spotifyType.value}/${spotifyId.value.trim()}`
-    : null,
-);
-
-// Platform searches for the current game — "sp" params are YouTube's
-// result-type filters (EgIQAw = playlists only, EgIQAQ = videos only).
-const searchQuery = computed(() =>
-  current.value
-    ? encodeURIComponent(`${current.value.game_title} full soundtrack`)
-    : "",
-);
-const playlistSearchUrl = computed(() =>
-  current.value
-    ? `https://www.youtube.com/results?search_query=${searchQuery.value}&sp=EgIQAw%3D%3D`
-    : null,
-);
-const videoSearchUrl = computed(() =>
-  current.value
-    ? `https://www.youtube.com/results?search_query=${searchQuery.value}&sp=EgIQAQ%3D%3D`
-    : null,
-);
-const spotifySearchUrl = computed(() =>
-  current.value
-    ? `https://open.spotify.com/search/${searchQuery.value}/albums`
-    : null,
-);
-
 // ── Save ──────────────────────────────────────────────────────────────────────
 
-// Single-soundtrack version of scripts/sync-tracklists.ts replaceTracks():
-// fetch the playlist via the worker, clean titles the same way, then replace
-// this soundtrack's rows in the tracks table. Fetches BEFORE deleting so a
-// dead playlist never wipes an existing good tracklist.
-async function syncTracklist(
-  soundtrackId: string,
-  newPlaylistId: string | null,
-): Promise<string> {
-  const track = current.value!;
-
-  let rows: {
-    soundtrack_id: string;
-    position: number;
-    video_id: string;
-    title: string;
-    unavailable: boolean;
-  }[] = [];
-
-  if (newPlaylistId) {
-    const proxyUrl = import.meta.env.VITE_YOUTUBE_PROXY_URL;
-    if (!proxyUrl) throw new Error("VITE_YOUTUBE_PROXY_URL not configured");
-    const res = await fetch(`${proxyUrl}/playlist/${newPlaylistId}`);
-    if (!res.ok) throw new Error(`playlist fetch failed (HTTP ${res.status})`);
-    const items = (await res.json()) as {
-      videoId: string;
-      title: string;
-      unavailable: boolean;
-    }[];
-    if (!items.length) throw new Error("playlist empty or unavailable");
-
-    const titles = cleanTracklistTitles(
-      items.map((it) => ({ title: it.title, unavailable: it.unavailable })),
-      {
-        gameTitle: track.game_title,
-        composers: track.composers,
-        studio: track.studio,
-      },
-    );
-    rows = items.map((item, i) => ({
-      soundtrack_id: soundtrackId,
-      position: i,
-      video_id: item.videoId,
-      title: titles[i],
-      unavailable: item.unavailable,
-    }));
-  }
-
-  const { error: delError } = await supabase
-    .from("tracks")
-    .delete()
-    .eq("soundtrack_id", soundtrackId);
-  if (delError) throw new Error(`tracks delete failed: ${delError.message}`);
-
-  if (!rows.length) return "tracklist cleared";
-
-  const CHUNK = 500;
-  for (let i = 0; i < rows.length; i += CHUNK) {
-    const { error } = await supabase
-      .from("tracks")
-      .insert(rows.slice(i, i + CHUNK));
-    if (error) throw new Error(`tracks insert failed: ${error.message}`);
-  }
-
-  const dead = rows.filter((r) => r.unavailable).length;
-  return `tracklist synced (${rows.length} tracks${dead ? `, ${dead} unavailable` : ""})`;
-}
-
 async function save() {
-  if (!current.value) return;
+  // Pin the soundtrack being saved: the user can move to another one while
+  // this is in flight, and everything after an await must still target this
+  // one — never whatever `current` has become.
+  const target = current.value;
+  if (!target) return;
   saving.value = true;
   saveError.value = null;
   success.value = null;
 
-  const prevPlaylistId = current.value.youtube_playlist_id;
+  const prevPlaylistId = target.youtube_playlist_id;
 
   const fields = {
     youtube_playlist_id: playlistId.value.trim() || null,
@@ -415,38 +181,47 @@ async function save() {
     spotify_type: spotifyId.value.trim() ? spotifyType.value : null,
   };
 
-  const { error } = await supabase
-    .from("soundtracks")
-    .update(fields)
-    .eq("id", current.value.id);
+  // Results are only shown if the user is still looking at this soundtrack.
+  const stillHere = () => current.value?.id === target.id;
+  const report = (msg: string) =>
+    stillHere() ? msg : `${target.game_title}: ${msg}`;
 
-  if (error) {
-    saving.value = false;
-    saveError.value = error.message;
-    return;
-  }
+  try {
+    const { error } = await supabase
+      .from("soundtracks")
+      .update(fields)
+      .eq("id", target.id);
 
-  // Regenerate this soundtrack's tracks rows to match the saved playlist.
-  // Skipped entirely when there's no playlist now and wasn't one before.
-  let trackNote = "";
-  if (fields.youtube_playlist_id || prevPlaylistId) {
-    try {
-      trackNote = await syncTracklist(
-        current.value.id,
-        fields.youtube_playlist_id,
-      );
-    } catch (e) {
-      saveError.value = `Links saved, but tracklist sync failed: ${
-        e instanceof Error ? e.message : "unknown error"
-      }`;
+    if (error) {
+      saveError.value = report(error.message);
+      return;
     }
-  }
 
-  saving.value = false;
-  const s = allSoundtracks.value.find((s) => s.id === current.value?.id);
-  if (s) Object.assign(s, fields);
-  if (!saveError.value) {
-    success.value = trackNote ? `Saved — ${trackNote}.` : "Saved.";
+    Object.assign(target, fields);
+
+    // Regenerate this soundtrack's tracks rows to match the saved playlist.
+    // Skipped entirely when there's no playlist now and wasn't one before.
+    let trackNote = "";
+    if (fields.youtube_playlist_id || prevPlaylistId) {
+      try {
+        trackNote = await syncTracklist(target.id, fields.youtube_playlist_id, {
+          gameTitle: target.game_title,
+          composers: target.composers,
+          studio: target.studio,
+        });
+      } catch (e) {
+        saveError.value = report(
+          `Links saved, but tracklist sync failed: ${
+            e instanceof Error ? e.message : "unknown error"
+          }`,
+        );
+        return;
+      }
+    }
+
+    success.value = report(trackNote ? `Saved — ${trackNote}.` : "Saved.");
+  } finally {
+    saving.value = false;
   }
 }
 </script>
@@ -568,18 +343,7 @@ async function save() {
               spellcheck="false"
             />
           </label>
-          <p class="resolved" :class="`resolved--${resolved.playlist.status}`">
-            <template v-if="resolved.playlist.status === 'ok'">{{
-              resolved.playlist.title
-            }}</template>
-            <template v-else-if="resolved.playlist.status === 'error'">{{
-              resolved.playlist.error
-            }}</template>
-            <template v-else-if="resolved.playlist.status === 'loading'"
-              >Checking…</template
-            >
-            <template v-else>Not set</template>
-          </p>
+          <LinkStatus :result="resolved.playlist" />
         </div>
 
         <!-- YouTube video -->
@@ -611,18 +375,7 @@ async function save() {
               spellcheck="false"
             />
           </label>
-          <p class="resolved" :class="`resolved--${resolved.video.status}`">
-            <template v-if="resolved.video.status === 'ok'">{{
-              resolved.video.title
-            }}</template>
-            <template v-else-if="resolved.video.status === 'error'">{{
-              resolved.video.error
-            }}</template>
-            <template v-else-if="resolved.video.status === 'loading'"
-              >Checking…</template
-            >
-            <template v-else>Not set</template>
-          </p>
+          <LinkStatus :result="resolved.video" />
         </div>
 
         <!-- Spotify -->
@@ -661,18 +414,7 @@ async function save() {
               </select>
             </div>
           </label>
-          <p class="resolved" :class="`resolved--${resolved.spotify.status}`">
-            <template v-if="resolved.spotify.status === 'ok'">{{
-              resolved.spotify.title
-            }}</template>
-            <template v-else-if="resolved.spotify.status === 'error'">{{
-              resolved.spotify.error
-            }}</template>
-            <template v-else-if="resolved.spotify.status === 'loading'"
-              >Checking…</template
-            >
-            <template v-else>Not set</template>
-          </p>
+          <LinkStatus :result="resolved.spotify" />
         </div>
 
         <div class="save-row">
@@ -913,31 +655,6 @@ async function save() {
 
 .open-link:hover {
   text-decoration: underline;
-}
-
-/* Resolved titles */
-.resolved {
-  margin: 0;
-  font-size: 0.82rem;
-  padding: 0.4rem 0.65rem;
-  border-radius: 6px;
-  border: 1px solid var(--border);
-  background: var(--surface-2);
-}
-
-.resolved--ok {
-  color: #4ade80;
-  border-color: rgba(74, 222, 128, 0.3);
-}
-
-.resolved--error {
-  color: #f87171;
-  border-color: rgba(248, 113, 113, 0.3);
-}
-
-.resolved--loading,
-.resolved--empty {
-  color: #ffffff77;
 }
 
 /* Buttons */
