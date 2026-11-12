@@ -1,17 +1,23 @@
 <script setup lang="ts">
-import { useRouter } from "vue-router";
+import { computed } from "vue";
 import { useSoundtrackStore } from "@/stores/soundtracks";
 import { displayLikes } from "@/utils/likes";
 import AppIcon from "@/components/AppIcon.vue";
 import type { Soundtrack } from "@/types/soundtrack";
 
 const props = defineProps<{ soundtrack: Soundtrack }>();
-const router = useRouter();
 const store = useSoundtrackStore();
+const soundtrackPath = computed(
+  () => `/soundtrack/${props.soundtrack.slug ?? props.soundtrack.id}`,
+);
 </script>
 
 <template>
-  <div class="card" @click="router.push(`/soundtrack/${props.soundtrack.slug ?? props.soundtrack.id}`)">
+  <!-- The title is a real link whose ::after stretches over the whole card,
+       so the card is crawlable and middle-click / open-in-new-tab work. The
+       play controls sit above it rather than inside it (no buttons nested in
+       an <a>). -->
+  <div class="card">
     <div class="card-body">
       <div class="cover">
         <img
@@ -30,7 +36,11 @@ const store = useSoundtrackStore();
       </div>
 
       <div class="info-panel">
-        <p class="game-title">{{ soundtrack.game_title }}</p>
+        <p class="game-title">
+          <RouterLink :to="soundtrackPath" class="card-link">{{
+            soundtrack.game_title
+          }}</RouterLink>
+        </p>
         <p class="composer">{{ soundtrack.composers.join(', ') || soundtrack.studio }}</p>
         <p class="meta">
           {{ soundtrack.release_year }} · {{ soundtrack.console }}
@@ -68,6 +78,7 @@ const store = useSoundtrackStore();
 
 <style scoped>
 .card {
+  position: relative; /* containing block for the stretched link */
   display: flex;
   flex-direction: column;
   gap: 0.65rem;
@@ -241,6 +252,39 @@ const store = useSoundtrackStore();
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.card-link {
+  color: inherit;
+  text-decoration: none;
+  outline: none;
+}
+
+/* Stretch the link over the whole card. Its ancestors up to .card are
+   unpositioned, so .card is the containing block (and the title's
+   overflow:hidden doesn't clip it). */
+.card-link::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  border-radius: 12px;
+}
+
+.card-link:focus-visible::after {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Play controls stay clickable above the stretched link. On mobile the
+   overlay is hidden, so taps on the cover fall through to the link. */
+.cover-overlay {
+  z-index: 2; /* already absolutely positioned */
+}
+
+.play-btn {
+  position: relative;
+  z-index: 2;
 }
 
 @media (max-width: 768px) {
