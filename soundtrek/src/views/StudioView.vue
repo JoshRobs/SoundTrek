@@ -6,6 +6,7 @@ import { supabase, SOUNDTRACK_LIST_COLUMNS } from "@/lib/supabase";
 import { toSlug } from "@/utils/slug";
 import PageHero from "@/components/PageHero.vue";
 import type { Soundtrack } from "@/types/soundtrack";
+import { usePrerenderedState } from "@/composables/usePrerenderedState";
 
 const route = useRoute();
 
@@ -15,58 +16,73 @@ const studioSoundtracks = ref<Soundtrack[]>([]);
 const loading = ref(true);
 const error = ref<string | null>(null);
 
-watch(
-  slug,
-  async (currentSlug) => {
-    loading.value = true;
-    error.value = null;
+async function loadStudio(currentSlug: string) {
+  loading.value = true;
+  error.value = null;
 
-    // Only the narrow `studio` column is fetched across the table to
-    // resolve the slug to its exact display name, instead of loading every
-    // full soundtrack row. PostgREST caps an unbounded select at 1000 rows,
-    // so this has to page through everything — otherwise studios only on
-    // later rows resolve to nothing and the page shows no soundtracks.
-    const PAGE_SIZE = 1000;
-    let name: string | null = null;
-    let from = 0;
-    while (!name) {
-      const { data: studioRows, error: err } = await supabase
-        .from("soundtracks")
-        .select("studio")
-        .order("id")
-        .range(from, from + PAGE_SIZE - 1)
-        .returns<Pick<Soundtrack, "studio">[]>();
-      if (err) {
-        error.value = err.message;
-        loading.value = false;
-        return;
-      }
-      if (!studioRows || studioRows.length === 0) break;
-      name = studioRows.find((r) => toSlug(r.studio) === currentSlug)?.studio ?? null;
-      if (studioRows.length < PAGE_SIZE) break;
-      from += PAGE_SIZE;
-    }
-
-    if (!name) {
-      studioSoundtracks.value = [];
+  // Only the narrow `studio` column is fetched across the table to
+  // resolve the slug to its exact display name, instead of loading every
+  // full soundtrack row. PostgREST caps an unbounded select at 1000 rows,
+  // so this has to page through everything — otherwise studios only on
+  // later rows resolve to nothing and the page shows no soundtracks.
+  const PAGE_SIZE = 1000;
+  let name: string | null = null;
+  let from = 0;
+  while (!name) {
+    const { data: studioRows, error: err } = await supabase
+      .from("soundtracks")
+      .select("studio")
+      .order("id")
+      .range(from, from + PAGE_SIZE - 1)
+      .returns<Pick<Soundtrack, "studio">[]>();
+    if (err) {
+      error.value = err.message;
       loading.value = false;
       return;
     }
+    if (!studioRows || studioRows.length === 0) break;
+    name = studioRows.find((r) => toSlug(r.studio) === currentSlug)?.studio ?? null;
+    if (studioRows.length < PAGE_SIZE) break;
+    from += PAGE_SIZE;
+  }
 
-    const { data, error: err2 } = await supabase
-      .from("soundtracks")
-      .select(SOUNDTRACK_LIST_COLUMNS)
-      .eq("studio", name)
-      .order("total_likes", { ascending: false });
-    if (err2) {
-      error.value = err2.message;
-    } else {
-      studioSoundtracks.value = (data ?? []) as Soundtrack[];
-    }
+  if (!name) {
+    studioSoundtracks.value = [];
+    loading.value = false;
+    return;
+  }
+
+  const { data, error: err2 } = await supabase
+    .from("soundtracks")
+    .select(SOUNDTRACK_LIST_COLUMNS)
+    .eq("studio", name)
+    .order("total_likes", { ascending: false });
+  if (err2) {
+    error.value = err2.message;
+  } else {
+    studioSoundtracks.value = (data ?? []) as Soundtrack[];
+  }
+  loading.value = false;
+}
+
+// Loaded at prerender time so the static page lists the studio's games; the
+// first browser view reuses it instead of refetching.
+const prerendered = usePrerenderedState("studio", {
+  load: () => loadStudio(slug.value),
+  capture: () => ({
+    soundtracks: studioSoundtracks.value,
+    error: error.value,
+  }),
+  restore: (d) => {
+    studioSoundtracks.value = d.soundtracks;
+    error.value = d.error;
     loading.value = false;
   },
-  { immediate: true },
-);
+});
+
+watch(slug, loadStudio, {
+  immediate: !prerendered && !import.meta.env.SSR,
+});
 
 const studioName = computed(
   () =>
@@ -79,15 +95,26 @@ const subtitle = computed(
     `${studioSoundtracks.value.length} ${studioSoundtracks.value.length === 1 ? "soundtrack" : "soundtracks"} in SoundTrek`,
 );
 
-useHead(computed(() => ({
-  title: `${studioName.value} | SoundTrek`,
-  meta: [
-    { name: "description", content: `Video game soundtracks by ${studioName.value} on SoundTrek.` },
-    { property: "og:title", content: `${studioName.value} | SoundTrek` },
-    { property: "og:description", content: `Video game soundtracks by ${studioName.value} on SoundTrek.` },
-    { property: "og:url", content: `https://soundtrek.app/studio/${slug.value}` },
-  ],
-})));
+useHead(computed(() => {
+  const games = studioSoundtracks.value.slice(0, 3).map((s) => s.game_title);
+  const description = games.length
+    ? `Video game soundtracks from ${studioName.value} games, including ${games.join(", ")}, on SoundTrek.`
+    : `Video game soundtracks by ${studioName.value} on SoundTrek.`;
+  const title = `${studioName.value} Soundtracks | SoundTrek`;
+  const url = `https://soundtrek.app/studio/${slug.value}`;
+  return {
+    title,
+    meta: [
+      { name: "description", content: description },
+      { property: "og:title", content: title },
+      { property: "og:description", content: description },
+      { property: "og:url", content: url },
+      { name: "twitter:title", content: title },
+      { name: "twitter:description", content: description },
+    ],
+    link: [{ rel: "canonical", href: url }],
+  };
+}));
 </script>
 
 <template>

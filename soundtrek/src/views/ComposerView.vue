@@ -8,6 +8,7 @@ import { toSlug } from "@/utils/slug";
 import PageHero from "@/components/PageHero.vue";
 import SupportButton from "@/components/SupportButton.vue";
 import type { Soundtrack } from "@/types/soundtrack";
+import { usePrerenderedState } from "@/composables/usePrerenderedState";
 
 const route = useRoute();
 const composerStore = useComposerStore();
@@ -38,70 +39,89 @@ const composerNameFallback = ref("");
 const loading = ref(true);
 const error = ref<string | null>(null);
 
-watch(
-  slug,
-  async (currentSlug) => {
-    loading.value = true;
-    error.value = null;
+async function loadComposer(currentSlug: string) {
+  loading.value = true;
+  error.value = null;
 
-    const profileResult = await composerStore.fetchComposer(currentSlug);
+  const profileResult = await composerStore.fetchComposer(currentSlug);
 
-    let name = profileResult?.name ?? null;
-    if (!name) {
-      // No composer profile row — fall back to resolving the slug against
-      // just the `composers` column across the table (still far smaller
-      // than a full soundtrack row per track). PostgREST caps an unbounded
-      // select at 1000 rows, so this has to page through everything —
-      // otherwise composers only credited on later rows silently vanish.
-      const PAGE_SIZE = 1000;
-      let from = 0;
-      while (!name) {
-        const { data: composerRows, error: err } = await supabase
-          .from("soundtracks")
-          .select("composers")
-          .range(from, from + PAGE_SIZE - 1)
-          .returns<Pick<Soundtrack, "composers">[]>();
-        if (err) {
-          error.value = err.message;
-          loading.value = false;
-          return;
-        }
-        if (!composerRows || composerRows.length === 0) break;
-        for (const row of composerRows) {
-          const match = (row.composers ?? []).find(
-            (c: string) => toSlug(c) === currentSlug,
-          );
-          if (match) {
-            name = match;
-            break;
-          }
-        }
-        if (composerRows.length < PAGE_SIZE) break;
-        from += PAGE_SIZE;
+  let name = profileResult?.name ?? null;
+  if (!name) {
+    // No composer profile row — fall back to resolving the slug against
+    // just the `composers` column across the table (still far smaller
+    // than a full soundtrack row per track). PostgREST caps an unbounded
+    // select at 1000 rows, so this has to page through everything —
+    // otherwise composers only credited on later rows silently vanish.
+    const PAGE_SIZE = 1000;
+    let from = 0;
+    while (!name) {
+      const { data: composerRows, error: err } = await supabase
+        .from("soundtracks")
+        .select("composers")
+        .range(from, from + PAGE_SIZE - 1)
+        .returns<Pick<Soundtrack, "composers">[]>();
+      if (err) {
+        error.value = err.message;
+        loading.value = false;
+        return;
       }
+      if (!composerRows || composerRows.length === 0) break;
+      for (const row of composerRows) {
+        const match = (row.composers ?? []).find(
+          (c: string) => toSlug(c) === currentSlug,
+        );
+        if (match) {
+          name = match;
+          break;
+        }
+      }
+      if (composerRows.length < PAGE_SIZE) break;
+      from += PAGE_SIZE;
     }
-    composerNameFallback.value = name ?? currentSlug.replace(/-/g, " ");
+  }
+  composerNameFallback.value = name ?? currentSlug.replace(/-/g, " ");
 
-    if (!name) {
-      composerSoundtracks.value = [];
-      loading.value = false;
-      return;
-    }
+  if (!name) {
+    composerSoundtracks.value = [];
+    loading.value = false;
+    return;
+  }
 
-    const { data, error: err2 } = await supabase
-      .from("soundtracks")
-      .select(SOUNDTRACK_LIST_COLUMNS)
-      .contains("composers", [name])
-      .order("total_likes", { ascending: false });
-    if (err2) {
-      error.value = err2.message;
-    } else {
-      composerSoundtracks.value = (data ?? []) as Soundtrack[];
-    }
+  const { data, error: err2 } = await supabase
+    .from("soundtracks")
+    .select(SOUNDTRACK_LIST_COLUMNS)
+    .contains("composers", [name])
+    .order("total_likes", { ascending: false });
+  if (err2) {
+    error.value = err2.message;
+  } else {
+    composerSoundtracks.value = (data ?? []) as Soundtrack[];
+  }
+  loading.value = false;
+}
+
+// Loaded at prerender time so the static page has the composer's name, bio
+// and discography; the first browser view reuses it instead of refetching.
+const prerendered = usePrerenderedState("composer", {
+  load: () => loadComposer(slug.value),
+  capture: () => ({
+    profile: profile.value,
+    nameFallback: composerNameFallback.value,
+    soundtracks: composerSoundtracks.value,
+    error: error.value,
+  }),
+  restore: (d) => {
+    composerStore.cache.set(slug.value, d.profile);
+    composerNameFallback.value = d.nameFallback;
+    composerSoundtracks.value = d.soundtracks;
+    error.value = d.error;
     loading.value = false;
   },
-  { immediate: true },
-);
+});
+
+watch(slug, loadComposer, {
+  immediate: !prerendered && !import.meta.env.SSR,
+});
 
 const composerName = computed(
   () => profile.value?.name ?? composerNameFallback.value,
@@ -113,24 +133,35 @@ const subtitle = computed(
 );
 
 useHead(
-  computed(() => ({
-    title: `${composerName.value} | SoundTrek`,
-    meta: [
-      {
-        name: "description",
-        content: `Listen to ${composerName.value}'s video game soundtracks on SoundTrek.`,
-      },
-      { property: "og:title", content: `${composerName.value} | SoundTrek` },
-      {
-        property: "og:description",
-        content: `Listen to ${composerName.value}'s video game soundtracks on SoundTrek.`,
-      },
-      {
-        property: "og:url",
-        content: `https://soundtrek.app/composer/${slug.value}`,
-      },
-    ],
-  })),
+  computed(() => {
+    const games = composerSoundtracks.value
+      .slice(0, 3)
+      .map((s) => s.game_title);
+    const description = games.length
+      ? `Listen to ${composerName.value}'s video game soundtracks, including ${games.join(", ")}, on SoundTrek.`
+      : `Listen to ${composerName.value}'s video game soundtracks on SoundTrek.`;
+    const title = `${composerName.value} Soundtracks | SoundTrek`;
+    const url = `https://soundtrek.app/composer/${slug.value}`;
+    const image = profile.value?.image_url;
+    return {
+      title,
+      meta: [
+        { name: "description", content: description },
+        { property: "og:title", content: title },
+        { property: "og:description", content: description },
+        { property: "og:url", content: url },
+        { name: "twitter:title", content: title },
+        { name: "twitter:description", content: description },
+        ...(image
+          ? [
+              { property: "og:image", content: image },
+              { name: "twitter:image", content: image },
+            ]
+          : []),
+      ],
+      link: [{ rel: "canonical", href: url }],
+    };
+  }),
 );
 </script>
 

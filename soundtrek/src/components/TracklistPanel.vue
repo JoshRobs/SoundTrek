@@ -7,6 +7,11 @@ import { useQueueStore } from "@/stores/queue";
 import { storeToRefs } from "pinia";
 import AppIcon from "@/components/AppIcon.vue";
 
+// The per-track buttons inline ~700 bytes of SVG each, which made prerendered
+// pages with long tracklists over 1MB. Crawlers only need the titles, and the
+// browser renders the page fresh anyway, so the buttons are browser-only.
+const renderActions = !import.meta.env.SSR;
+
 const props = defineProps<{
   tracks: TracklistEntry[];
   /** The soundtrack these tracks belong to — needed to enqueue them. */
@@ -119,7 +124,7 @@ function addToQueue(item: TracklistEntry) {
           <template v-else>{{ item.position + 1 }}</template>
         </span>
         <span class="tracklist-title">{{ item.title }}</span>
-        <div class="tracklist-actions" @click.stop>
+        <div v-if="renderActions" class="tracklist-actions" @click.stop>
           <button
             type="button"
             class="track-action"

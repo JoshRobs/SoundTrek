@@ -39,17 +39,30 @@ export default defineConfig({
         process.env.VITE_SUPABASE_ANON_KEY!,
       );
 
-      const { data: soundtracks } = await supabase
-        .from("soundtracks")
-        .select("id, slug, composers, genre_tags, theme_tags, console");
-
-      const rows = soundtracks ?? [];
+      // PostgREST caps a select at 1000 rows, so page through the table —
+      // otherwise everything past the first 1000 soundtracks isn't prerendered.
+      const rows: any[] = [];
+      const PAGE_SIZE = 1000;
+      for (let from = 0; ; from += PAGE_SIZE) {
+        const { data, error } = await supabase
+          .from("soundtracks")
+          .select("id, slug, composers, studio, genre_tags, theme_tags, console")
+          .order("id")
+          .range(from, from + PAGE_SIZE - 1);
+        if (error) throw error;
+        rows.push(...(data ?? []));
+        if (!data || data.length < PAGE_SIZE) break;
+      }
 
       const soundtrackPaths = rows.map((s: any) => `/soundtrack/${s.slug ?? s.id}`);
 
       const composerPaths = [
         ...new Set(rows.flatMap((s: any) => (s.composers ?? []).map(toSlug))),
       ].map((slug) => `/composer/${slug}`);
+
+      const studioPaths = [
+        ...new Set(rows.filter((s: any) => s.studio).map((s: any) => toSlug(s.studio))),
+      ].map((slug) => `/studio/${slug}`);
 
       const categoryEntries: string[] = [];
       for (const s of rows) {
@@ -67,6 +80,7 @@ export default defineConfig({
         ...staticPaths,
         ...soundtrackPaths,
         ...composerPaths,
+        ...studioPaths,
         ...categoryPaths,
       ];
     },

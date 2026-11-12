@@ -21,6 +21,7 @@ import { useCollectionStore } from "@/stores/collections";
 import { itemSummary } from "@/utils/collectionSummary";
 import type { Collection } from "@/types/collection";
 import AppIcon from "@/components/AppIcon.vue";
+import { usePrerenderedState } from "@/composables/usePrerenderedState";
 
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -209,14 +210,41 @@ async function loadTracklist() {
   } catch {}
 }
 
+// Soundtrack, related rows and tracklist load at prerender time so the static
+// page carries real content and link previews; the first view in the browser
+// reuses them instead of refetching. Collections stay client-side — they're
+// user-made and change far more often than the site is rebuilt.
+const prerendered = usePrerenderedState("soundtrack", {
+  load: async () => {
+    await loadTrack();
+    await loadTracklist();
+  },
+  capture: () => ({
+    track: track.value,
+    notFound: notFound.value,
+    moreFromStudio: moreFromStudio.value,
+    similarSoundtracks: similarSoundtracks.value,
+    tracklist: tracklist.value,
+  }),
+  restore: (d) => {
+    track.value = d.track;
+    notFound.value = d.notFound;
+    moreFromStudio.value = d.moreFromStudio;
+    similarSoundtracks.value = d.similarSoundtracks;
+    tracklist.value = d.tracklist;
+  },
+});
+
 useHead(
   computed(() => {
     const t = track.value;
     const title = t ? `${t.game_title} OST | SoundTrek` : "SoundTrek";
+    const by = (t?.composers ?? []).join(", ") || t?.studio;
     const description = t
-      ? `Listen to the ${t.game_title} soundtrack by ${(t.composers ?? []).join(", ") || t.studio} (${t.release_year}) on SoundTrek.`
+      ? `Listen to the ${t.game_title} soundtrack (${t.release_year}${t.console ? `, ${t.console}` : ""}) by ${by}. Full tracklist, streaming links and similar game music on SoundTrek.`
       : "";
     const pageUrl = `https://soundtrek.app/soundtrack/${t?.slug ?? param}`;
+    const image = t?.cover_image_url || "https://soundtrek.app/og-image.png";
     return {
       title,
       meta: [
@@ -225,10 +253,10 @@ useHead(
         { property: "og:title", content: title },
         { property: "og:description", content: description },
         { property: "og:url", content: pageUrl },
-        { property: "og:image", content: t?.cover_image_url ?? "" },
+        { property: "og:image", content: image },
         { name: "twitter:title", content: title },
         { name: "twitter:description", content: description },
-        { name: "twitter:image", content: t?.cover_image_url ?? "" },
+        { name: "twitter:image", content: image },
       ],
       link: [{ rel: "canonical", href: pageUrl }],
       script: t
@@ -376,6 +404,8 @@ const amazonUrl = computed(() => {
 // than a stale price.
 const LOADED_PRICE_MAX_AGE_MS = 48 * 60 * 60 * 1000;
 const loadedPrice = computed(() => {
+  // Never bake a price into the static HTML — it would be as old as the build.
+  if (import.meta.env.SSR) return null;
   const t = track.value;
   if (
     !t?.loaded_url ||
@@ -516,8 +546,10 @@ function execCommandCopy(url: string) {
 }
 
 onMounted(async () => {
-  await loadTrack();
-  loadTracklist();
+  if (!prerendered) {
+    await loadTrack();
+    loadTracklist();
+  }
   loadRelevantCollections();
   composerRow.attach();
   similarRow.attach();

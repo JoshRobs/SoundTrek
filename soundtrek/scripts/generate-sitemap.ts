@@ -27,11 +27,25 @@ function url(loc: string, lastmod?: string): string {
 }
 
 async function main() {
-  const { data: soundtracks, error } = await supabase
-    .from("soundtracks")
-    .select("id, slug, composers, created_at");
-
-  if (error) throw error;
+  // PostgREST caps a select at 1000 rows, so page through the table —
+  // otherwise the sitemap silently stops at the first 1000 soundtracks.
+  const soundtracks: {
+    id: string;
+    slug: string | null;
+    composers: string[] | null;
+    created_at: string | null;
+  }[] = [];
+  const PAGE_SIZE = 1000;
+  for (let from = 0; ; from += PAGE_SIZE) {
+    const { data, error } = await supabase
+      .from("soundtracks")
+      .select("id, slug, composers, created_at")
+      .order("id")
+      .range(from, from + PAGE_SIZE - 1);
+    if (error) throw error;
+    soundtracks.push(...(data ?? []));
+    if (!data || data.length < PAGE_SIZE) break;
+  }
 
   const staticUrls = [
     url(`${BASE}/`),
